@@ -64,6 +64,10 @@ PALETTES: dict[str, dict[str, str]] = {
         "perf_cpu": "#5b9dff",     # Linien der Verläufe in der Leistungsanzeige (blau, violett, grün)
         "perf_ram": "#c58af9",
         "perf_lan": "#4fcf8a",
+        "checker_a": "#2b2e38",    # Karo-Hintergrund hinter dem durchsichtigen Overlay (Editor)
+        "checker_b": "#383c48",
+        "guide": "#2dd4ff",        # Hilfslinien
+        "snap": "#ff5ccf",         # Linie, an der gerade eingerastet wird
     },
     LIGHT: {
         "bg": "#f4f5f7",
@@ -85,6 +89,10 @@ PALETTES: dict[str, dict[str, str]] = {
         "perf_cpu": "#1d5fd1",
         "perf_ram": "#7b3fb0",
         "perf_lan": "#17692f",
+        "checker_a": "#cfd3da",
+        "checker_b": "#eceef2",
+        "guide": "#0a6fb3",
+        "snap": "#b3126f",
     },
 }
 
@@ -199,5 +207,23 @@ QListView, QListWidget {{ background-color: {c["surface"]}; color: {c["text"]}; 
 QListView::item, QListWidget::item {{ height: {LIST_ROW_HEIGHT}px; padding-left: 3px; }}
 QListView::item:selected, QListWidget::item:selected {{ background-color: {c["selection_bg"]};
                                                        color: {c["selection_text"]}; }}
+QWidget#dockBar {{ background-color: {c["surface"]}; border-top: 1px solid {c["border"]}; }}
+QWidget#dockBar QToolButton {{ background-color: transparent; border: 1px solid transparent; border-radius: 2px; }}
+QWidget#dockBar QToolButton:hover:enabled {{ background-color: {c["title_bg"]}; border: 1px solid {c["border"]}; }}
+QWidget#dockBar QToolButton:pressed {{ background-color: {c["border"]}; }}
+QWidget#dockBar QToolButton:focus {{ border: 1px solid {c["accent"]}; }}
+QWidget#dockBar QToolButton::menu-indicator {{ image: none; }}
+QWidget#dockInner {{ background-color: {c["surface"]}; }}
+QFrame#dockbody QListWidget {{ border: none; }}
+QSpinBox, QDoubleSpinBox, QLineEdit, QComboBox {{ background-color: {c["bg"]}; color: {c["text"]};
+    border: 1px solid {c["border"]}; padding: 1px 4px; min-height: 18px; }}
+QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus, QComboBox:focus {{ border: 1px solid {c["accent"]}; }}
+QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled, QComboBox:disabled {{ color: {c["text_muted"]}; }}
+QComboBox QAbstractItemView {{ background-color: {c["surface"]}; color: {c["text"]};
+    selection-background-color: {c["selection_bg"]}; selection-color: {c["selection_text"]}; }}
+QCheckBox {{ background: transparent; }}
+QCheckBox:focus {{ border: 1px solid {c["accent"]}; }}
+QWidget#editor_viewport {{ background-color: {c["preview_bg"]}; }}
+QStatusBar QLabel {{ background: transparent; }}
 QToolTip {{ background-color: {c["surface"]}; color: {c["text"]}; border: 1px solid {c["border"]}; }}
 """

@@ -49,6 +49,16 @@ Jedes Feld hat eine feste Breite für den längsten Text; der Kopf hat eine Mind
 
 Die Verbindungen sind Buttons mit dem Dienst-Symbol (einfarbig, in der Textfarbe des Themes, PNG vor SVG; 20 px). Farbe des Buttons: grün = verbunden, rot = getrennt oder Fehler, orange = verbindet, grau (ausgegraut) = nicht eingerichtet oder unbekannt. Nur bei Fehler und unbekanntem Zustand erscheint oben rechts am Button ein kleines «?»; sonst zeigt allein die Farbe den Zustand, dazu der Text im Tipp. Das ist ein Entscheid des Nutzers und weicht von U-04 («nie nur durch Farbe») ab. Die Buttons haben noch keine Klick-Funktion.
 
+### Editor und Docks (P06)
+
+| Bereich | Inhalt |
+|---|---|
+| Vorschau | `QWebEngineView` lädt die Overlay-Seite mit dem Token des Overlays (Feld `url`, Host auf 127.0.0.1 gesetzt). Darunter Karo-Hintergrund (Qt), darüber Auswahlrahmen, Griffe, Raster und Hilfslinien (Qt). Lineale oben und links; Ziehen aus dem Lineal erzeugt eine Hilfslinie, zurück aufs Lineal ziehen löscht sie. Ohne Overlay bleibt die schwarze Leinwand mit Hinweis. |
+| Statuszeile | Links von der Kern-Anzeige: «X: … Y: …» (Pixel unter dem Zeiger, ganze Overlay-Pixel) und Zoom-Auswahl (Einpassen, 25, 50, 100, 200, 400 %). |
+| Docks | Wie OBS: Liste oder Felder, unten eine Schaltflächenleiste (26 × 26 px) mit einfarbigen Symbolen in der Textfarbe des Themes. Overlays: Plus, Papierkorb, Duplizieren (Umbenennen: Doppelklick oder F2). Quellen: Plus (Text, Bild), Papierkorb, Pfeil hoch/runter; Auge links schaltet die Sichtbarkeit, Ziehen ordnet um. Eigenschaften: X, Y, Breite, Höhe, Drehung; Leiste mit sechs Ausrichten-Symbolen. Steuerung: URL mit «Kopieren», Ausgabeart, Bildrate und «Vorschau verkleinern», Einrasten, Raster samt Weite, «Hilfslinien löschen». |
+| Tasten | Pfeile: 1 px, mit Umschalttaste 10 px (Fokus auf der Vorschau). Strg+Z / Strg+Y (auch Strg+Umschalt+Z): Rückgängig / Wiederholen. Strg+0: Einpassen. Alt+1: 100 %. Strg++ / Strg+-: Zoomstufe. Strg+Mausrad: Zoom. Mausrad / Umschalt+Mausrad: bewegen. |
+| Maus | Klick wählt (oberste Quelle zuerst), Ziehen verschiebt, Eck- und Seitengriffe skalieren, Kreis über der Oberkante dreht (Umschalttaste: 15°-Schritte; ohne: ganze Grad). |
+
 ## 4. Modul «Chat-Bot» (nach Streamer.bot-Vorbild)
 
 Gezeigt in Vorschlag D (Gerüst von Variante A, auf B oder C übertragbar).

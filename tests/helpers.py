@@ -87,7 +87,7 @@ class RunningService:
 
         from donstv_studio.core.service import Service
 
-        self.paths, self.port = paths, port
+        self.paths, self.port, self.overlay_port = paths, port, overlay_port
         self.svc = Service(paths, port=port, overlay_port=overlay_port)
         self.loop = None
         self._ready = threading.Event()

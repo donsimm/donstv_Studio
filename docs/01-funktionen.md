@@ -113,6 +113,8 @@ Die Spalte «Quelle» verweist auf die Nummern aus der Funktionsliste (S1 overla
 | F-57 | C#-Code-Actions. In der Architektur vorgesehen (austauschbarer Ausführungsbaustein), gebaut wird sie erst bei Bedarf. | KANN | S3.10 |
 | F-64 | Overlay-Quellen an die aktive OBS-Szene koppeln (z. B. Quelle nur sichtbar, wenn OBS-Szene X aktiv ist); Bot-Trigger «OBS-Szene gewechselt». | SOLL | Vorgabe, F-07 |
 | F-65 | Pixelgenaues Arbeiten im Overlay-Editor: Lage und Grösse in ganzen Pixeln der Overlay-Auflösung, Zahleneingabe, Pfeiltasten (1 px / 10 px), Hilfslinien, Einrasten, Raster, Lineale, Ausrichten/Verteilen, Zoom bis 1:1 und darüber, Anzeige der Pixelposition unter dem Zeiger. | MUSS | Vorgabe |
+| F-70 | Eigenschaften-Dock: Inhaltsfelder der gewählten Quelle (Text, Farbe, Schriftgrösse, Schriftart, Stil der Textquelle; Bild wechseln). Die Daten und die Overlay-Seite gibt es seit P04 (F-15, F-16, F-38); P06 baut nur Lage, Grösse und Drehung. Beim Hinzufügen fragt der Editor lediglich den Text ab. | SOLL | P06 |
+| F-71 | Editor: Verteilen (gleiche Abstände), Mehrfachauswahl, Entf-Taste für «Quelle entfernen», Alt-Taste schaltet Einrasten kurz aus, Rückgängig auch für Anlegen, Löschen und Reihenfolge, Hilfslinien mit Rückgängig. | KANN | P06 |
 | F-58 | Hot Keys, Sprachsteuerung, MIDI. | KANN | S3.8 |
 | F-59 | Credits-System und Quotes. | KANN | S3.9 |
 | F-60 | OBS-Steuerung durch den Bot (Szenen, Quellen, Stream/Aufnahme). | KANN | S3.12 |

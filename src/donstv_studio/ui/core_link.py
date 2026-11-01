@@ -93,6 +93,11 @@ class CoreLink(QObject):
         super().__init__(parent)
         self.base_url = base_url or default_base_url()
         self._token_file = token_file or Paths.from_xdg().token_file
+        from donstv_studio.ui.backend import (
+            CoreBackend,  # hier, weil backend.py dieses Modul importiert
+        )
+
+        self.backend = CoreBackend(self.base_url, self._token_file)  # Overlay-Schnittstelle für den Editor (P06)
         self._initial = initial_delay
         self._max = max_delay
         self._thread: threading.Thread | None = None

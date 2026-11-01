@@ -15,6 +15,7 @@ from donstv_studio.core.bus import EventBus
 from donstv_studio.core.config import Config, Paths
 from donstv_studio.core.connections.manager import ConnectionManager
 from donstv_studio.core.connections.youtube import YouTubeConnection
+from donstv_studio.core.logging_setup import redact_uvicorn_loggers
 from donstv_studio.core.secrets import SecretStore, open_secret_store
 from donstv_studio.core.store import Store
 from donstv_studio.overlays.media import MediaLibrary
@@ -56,6 +57,7 @@ class Service:
 
     @staticmethod
     def _make_server(app, host: str, port: int) -> uvicorn.Server:
+        redact_uvicorn_loggers()  # Token in «WebSocket …?t=…» schwärzen (siehe logging_setup)
         server = uvicorn.Server(
             uvicorn.Config(
                 app, host=host, port=port, log_config=None, access_log=False,

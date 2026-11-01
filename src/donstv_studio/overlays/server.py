@@ -131,7 +131,9 @@ def create_overlay_app(service: OverlayService, media: MediaLibrary, bus: EventB
             for t in tasks:
                 with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
                     await t
-            with contextlib.suppress(RuntimeError):
+            # Schliesst der Client zuerst (OBS lädt die Seite neu, Vorschau wird geschlossen), wirft `close()` je nach
+            # Starlette-Version RuntimeError oder WebSocketDisconnect(1006); beides ist hier harmlos.
+            with contextlib.suppress(RuntimeError, WebSocketDisconnect):
                 await ws.close()
 
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")

@@ -96,6 +96,15 @@ Terminal 2, danach das Fenster:
 cd ~/donstv_Studio && . .venv/bin/activate && donstv-studio
 ```
 
+### Editor und Vorschau (P06)
+
+Die Vorschau lädt dieselbe Overlay-Seite wie OBS in einer `QWebEngineView`. Qt zeichnet Rahmen und Griffe darüber, nicht in der Seite. Alle Werte sind ganze Pixel der Overlay-Auflösung; bei 100 % ist ein Overlay-Pixel ein Bildschirmpixel (auch bei devicePixelRatio 2). Bedienung und Tasten: `docs/04-ui-design.md`, Abschnitt «Editor und Docks (P06)».
+
+- Das Layout (Fenster, Docks, Design) wird beim Schliessen und bei SIGTERM/SIGINT des Fensters gespeichert.
+- Einstellungen des Editors (Einrasten, Raster, Zoom, Bildrate der Vorschau) und die Hilfslinien je Overlay liegen beim Kern unter `ui.editor.*` und `ui.guides.<Overlay-Kennung>`.
+- QtWebEngine ist Teil des Extras `ui` (`PyQt6-WebEngine>=6.9.0`). Tests mit QtWebEngine werden mit Begründung übersprungen, wenn es sich nicht starten lässt (`pytest -rs`). Als root startet Chromium nur ohne Sandbox; `tests/conftest.py` und `donstv-studio` setzen dafür `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox`, wenn die Benutzerkennung 0 ist. Unter Debian/Ubuntu ohne Desktop brauchen die Tests Systembibliotheken wie `libegl1`, `libnss3` und `libxkbcommon-x11-0`.
+- Die Adresse mit Token wird nirgends protokolliert. Meldungen der Seite werden geschwärzt.
+
 ### Fensterkopf und Dienst-Symbole (P05b)
 
 Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.

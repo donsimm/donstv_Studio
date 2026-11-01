@@ -11,9 +11,10 @@ import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QByteArray, QEvent, Qt, QTimer
-from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QFontMetrics, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
     QDockWidget,
     QFrame,
@@ -33,7 +34,13 @@ from PyQt6.QtWidgets import (
 )
 
 from donstv_studio import __version__
+from donstv_studio.ui import geometry as geo
 from donstv_studio.ui import theme
+from donstv_studio.ui.backend import DirectRunner, TaskRunner
+from donstv_studio.ui.editor_docks import ControlDock, OverlaysDock, PropertiesDock, SourcesDock
+from donstv_studio.ui.editor_model import EditorModel
+from donstv_studio.ui.editor_prefs import EditorPrefs
+from donstv_studio.ui.editor_view import EditorView
 from donstv_studio.ui.widgets import (
     STATUS_STYLE,
     ConnectionStatusBar,
@@ -51,14 +58,14 @@ STATE_VERSION = 2
 MODULE_OVERLAYS, MODULE_BOT = 0, 1
 MODULES = ("Overlays", "Chat-Bot")
 BOT_TABS = ("Actions", "Commands", "Timer", "Queues", "Einstellungen")
-# (Objektname, Titel, Platzhaltertext)
 PERF_LEFT_GAP = 16  # zusätzlicher Abstand zwischen den Verbindungs-Buttons und der Leistungsanzeige
 DOCK_HEIGHT = 215  # Höhe der Docks unten in Pixeln (OBS-Bild: 215)
+# (Objektname, Titel)
 DOCKS = (
-    ("dock_overlays", "Overlays", "Liste der Overlays: anlegen, kopieren, löschen."),
-    ("dock_sources", "Quellen", "Quellen des gewählten Overlays: Reihenfolge, Sichtbarkeit."),
-    ("dock_properties", "Eigenschaften", "Lage, Grösse und Inhalt der gewählten Quelle."),
-    ("dock_control", "Steuerung", "URL der Browserquelle, Ausgabeart, Speichern."),
+    ("dock_overlays", "Overlays"),
+    ("dock_sources", "Quellen"),
+    ("dock_properties", "Eigenschaften"),
+    ("dock_control", "Steuerung"),
 )
 KEY_THEME, KEY_GEOMETRY, KEY_STATE = "ui.theme", "ui.geometry", "ui.dock_state"
 
@@ -113,6 +120,13 @@ class MainWindow(QMainWindow):
         self._retry_remaining = 0
         self._reason = ""
 
+        # Editor-Modell: Zugriff auf die Overlay-Schnittstelle des Kerns (P03). Ohne Zugang (Tests) bleibt es leer.
+        backend = getattr(core, "backend", None)
+        self.runner = getattr(core, "runner", None) or (TaskRunner(self) if backend is not None else DirectRunner(self))
+        self.prefs = EditorPrefs(getattr(core, "save_setting", None), self)
+        self.model = EditorModel(backend, self.runner, getattr(core, "save_setting", None), self)
+        self._layout_saved_at_exit = False
+
         self.setWindowTitle("donstv_Studio")
         self.setWindowIcon(find_icon())
         self.resize(1280, 800)
@@ -137,6 +151,8 @@ class MainWindow(QMainWindow):
         core.status_changed.connect(self._on_status_changed)
         core.statuses_loaded.connect(self._on_statuses)
         core.settings_loaded.connect(self.apply_settings)
+        core.connected.connect(self.model.load)  # nach jedem (Wieder-)Verbinden den Stand der Overlays holen
+        self.model.error.connect(lambda msg: self.statusBar().showMessage(msg, 8000))
         self.banner.hide()
         self._set_core_status("verbindet", "Kern-Dienst: verbindet …")
 
@@ -219,6 +235,11 @@ class MainWindow(QMainWindow):
         page.setContentsMargins(0, 0, 0, 0)
         page.setSpacing(theme.DOCK_GAP)
         self.preview = PreviewArea()
+        self.editor = EditorView(self.model, self.prefs)
+        self.preview.set_editor(self.editor)
+        self.editor.overlay_available.connect(self.preview.show_editor)
+        self.editor.pointer_changed.connect(self._show_pointer)
+        self.editor.zoom_changed.connect(self._show_zoom)
         page.addWidget(self.preview, 1)
         self.stack.addWidget(overlays_page)
 
@@ -233,7 +254,13 @@ class MainWindow(QMainWindow):
     def _build_docks(self) -> None:
         self.docks: list[QDockWidget] = []
         self.dock_titles: list[DockTitleBar] = []
-        for name, title, text in DOCKS:
+        self.overlays_panel = OverlaysDock(self.model)
+        self.sources_panel = SourcesDock(self.model)
+        self.properties_panel = PropertiesDock(self.model)
+        self.control_panel = ControlDock(self.model, self.prefs)
+        self.control_panel.copied.connect(lambda: self.statusBar().showMessage("Adresse der Browserquelle kopiert", 4000))
+        self.panels = [self.overlays_panel, self.sources_panel, self.properties_panel, self.control_panel]
+        for (name, title), panel in zip(DOCKS, self.panels, strict=True):
             dock = QDockWidget(title, self)
             dock.setObjectName(name)
             dock.setFeatures(
@@ -243,12 +270,7 @@ class MainWindow(QMainWindow):
             )
             titlebar = DockTitleBar(dock)
             dock.setTitleBarWidget(titlebar)
-            body = QFrame()
-            body.setObjectName("dockbody")
-            lay = QVBoxLayout(body)
-            lay.setContentsMargins(6, 6, 6, 6)
-            lay.addWidget(placeholder(f"{text}\nInhalt folgt."))
-            dock.setWidget(body)
+            dock.setWidget(panel.body)
             dock.setMinimumHeight(theme.DOCK_TITLE_HEIGHT + 60)
             self.docks.append(dock)
             self.dock_titles.append(titlebar)
@@ -274,10 +296,15 @@ class MainWindow(QMainWindow):
         file_menu.addAction(quit_action)
 
         edit_menu = bar.addMenu("B&earbeiten")
-        for text, key in (("&Rückgängig", "Ctrl+Z"), ("&Wiederholen", "Ctrl+Shift+Z")):
-            act = QAction(text, self, shortcut=QKeySequence(key))
-            act.setEnabled(False)  # folgt mit dem Editor (P06)
+        self.undo_action = QAction("&Rückgängig", self, shortcut=QKeySequence("Ctrl+Z"))
+        self.redo_action = QAction("&Wiederholen", self)
+        self.redo_action.setShortcuts([QKeySequence("Ctrl+Y"), QKeySequence("Ctrl+Shift+Z")])
+        self.undo_action.triggered.connect(self.model.undo)
+        self.redo_action.triggered.connect(self.model.redo)
+        for act in (self.undo_action, self.redo_action):
+            act.setEnabled(False)
             edit_menu.addAction(act)
+        self.model.history_changed.connect(self._sync_history_actions)
 
         view_menu = bar.addMenu("&Ansicht")
         group = QActionGroup(self)
@@ -289,6 +316,32 @@ class MainWindow(QMainWindow):
             group.addAction(act)
             view_menu.addAction(act)
             self.module_actions.append(act)
+
+        view_menu.addSeparator()
+        zoom_menu = view_menu.addMenu("&Zoom")
+        self.zoom_actions: dict[object, QAction] = {}
+        for value, label, key in ((geo.FIT, "Einpassen", "Ctrl+0"), (0.25, "25 %", ""), (0.5, "50 %", ""),
+                                  (1.0, "100 %", "Alt+1"), (2.0, "200 %", ""), (4.0, "400 %", "")):  # fmt: skip
+            act = QAction(label, self, shortcut=QKeySequence(key) if key else QKeySequence())
+            act.triggered.connect(lambda _=False, v=value: self.editor.set_zoom(v))
+            zoom_menu.addAction(act)
+            self.zoom_actions[value] = act
+        zoom_in = QAction("Vergrössern", self)
+        zoom_in.setShortcuts([QKeySequence("Ctrl++"), QKeySequence("Ctrl+=")])
+        zoom_out = QAction("Verkleinern", self, shortcut=QKeySequence("Ctrl+-"))
+        zoom_in.triggered.connect(lambda: self.editor.set_zoom(geo.next_zoom(self.editor.zoom(), 1)))
+        zoom_out.triggered.connect(lambda: self.editor.set_zoom(geo.next_zoom(self.editor.zoom(), -1)))
+        zoom_menu.addSeparator()
+        zoom_menu.addAction(zoom_in)
+        zoom_menu.addAction(zoom_out)
+        self.snap_action = QAction("&Einrasten", self, checkable=True)
+        self.grid_action = QAction("&Raster anzeigen", self, checkable=True)
+        self.snap_action.toggled.connect(self.prefs.set_snap)
+        self.grid_action.toggled.connect(self.prefs.set_grid)
+        view_menu.addAction(self.snap_action)
+        view_menu.addAction(self.grid_action)
+        self.prefs.changed.connect(self._sync_view_actions)
+        self._sync_view_actions()
 
         self.docks_menu = bar.addMenu("D&ocks")
         for dock in self.docks:
@@ -311,10 +364,47 @@ class MainWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         self.statusBar().setSizeGripEnabled(False)
         self.statusBar().setFixedHeight(theme.STATUS_BAR_HEIGHT)
+        # Zeigerlage in Overlay-Pixeln und Zoom (F-65), links von der Anzeige des Kern-Dienstes
+        self.pointer_label = QLabel("X: –   Y: –")
+        self.pointer_label.setObjectName("pointer_label")
+        self.pointer_label.setAccessibleName("Pixelposition unter dem Zeiger")
+        self.pointer_label.setMinimumWidth(QFontMetrics(self.font()).horizontalAdvance("X: 99999   Y: 99999") + 12)
+        self.zoom_combo = QComboBox()
+        self.zoom_combo.setObjectName("zoom_combo")
+        self.zoom_combo.setAccessibleName("Zoom der Vorschau")
+        self.zoom_combo.setFixedHeight(theme.STATUS_BAR_HEIGHT - 6)
+        for value, label in ((geo.FIT, "Einpassen"), (0.25, "25 %"), (0.5, "50 %"), (1.0, "100 %"), (2.0, "200 %"), (4.0, "400 %")):
+            self.zoom_combo.addItem(label, value)
+        self.zoom_combo.activated.connect(lambda i: self.editor.set_zoom(self.zoom_combo.itemData(i)))
         self.core_status = QLabel()
         self.core_status.setObjectName("core_status")
+        self.statusBar().addPermanentWidget(self.pointer_label)
+        self.statusBar().addPermanentWidget(self.zoom_combo)
         self.statusBar().addPermanentWidget(self.core_status)
         self.statusBar().showMessage("Bereit")
+
+    def _sync_history_actions(self) -> None:
+        self.undo_action.setEnabled(self.model.can_undo())
+        self.redo_action.setEnabled(self.model.can_redo())
+
+    def _sync_view_actions(self, *_args) -> None:
+        for act, value in ((self.snap_action, self.prefs.snap), (self.grid_action, self.prefs.grid)):
+            act.blockSignals(True)
+            act.setChecked(value)
+            act.blockSignals(False)
+
+    def _show_pointer(self, pixel) -> None:
+        self.pointer_label.setText("X: –   Y: –" if pixel is None else f"X: {pixel[0]}   Y: {pixel[1]}")
+
+    def _show_zoom(self, zoom: float, fit: bool) -> None:
+        index = 0 if fit else next((i for i in range(self.zoom_combo.count())
+                                    if self.zoom_combo.itemData(i) != geo.FIT and abs(self.zoom_combo.itemData(i) - zoom) < 1e-9), -1)  # fmt: skip
+        self.zoom_combo.blockSignals(True)
+        self.zoom_combo.setCurrentIndex(index)
+        if index < 0:
+            self.zoom_combo.setCurrentText(geo.zoom_label(zoom))
+        self.zoom_combo.blockSignals(False)
+        self.zoom_combo.setToolTip(f"Zoom: {'Einpassen, ' if fit else ''}{geo.zoom_label(zoom)}")
 
     # --- Module --------------------------------------------------------
     def set_module(self, index: int) -> None:
@@ -367,6 +457,9 @@ class MainWindow(QMainWindow):
         self._update_minimum_width()
         for bar in self.dock_titles:
             bar.apply_theme(self.theme)
+        for panel in self.panels:
+            panel.apply_theme(self.theme)
+        self.editor.apply_theme(self.theme)
         if hasattr(self, "_core_state"):
             self._set_core_status(*self._core_state)
 
@@ -458,6 +551,8 @@ class MainWindow(QMainWindow):
 
     def apply_settings(self, values: dict) -> None:
         """Stellt Theme, Fensterposition und Dock-Anordnung aus den gespeicherten Werten her."""
+        self.prefs.load(values)
+        self.model.load_guides(values)
         name = values.get(KEY_THEME)
         if name in theme.PALETTES:
             self.set_theme(name, save=False)
@@ -473,7 +568,16 @@ class MainWindow(QMainWindow):
                 self._overlay_dock_state = state
         self._settings_loaded = True
 
+    def save_layout_now(self) -> bool:
+        """Speichert Theme, Fensterlage und Dock-Anordnung sofort (beim Schliessen und bei SIGTERM/SIGINT)."""
+        if not self._settings_loaded:
+            return False
+        ok = self._core.save_settings_blocking(self.layout_values())
+        self.model.wait_idle()  # noch ausstehende Änderungen an Quellen erreichen den Kern
+        return bool(ok)
+
     def closeEvent(self, event) -> None:
-        if self._settings_loaded:
-            self._core.save_settings_blocking(self.layout_values())
+        self.save_layout_now()
+        if hasattr(self.runner, "stop"):
+            self.runner.stop()
         super().closeEvent(event)

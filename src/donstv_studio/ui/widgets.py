@@ -496,13 +496,29 @@ class PreviewArea(QFrame):
         self.canvas = QFrame(self)
         self.canvas.setObjectName("canvas")
         lay = QHBoxLayout(self.canvas)
-        self.canvas_label = placeholder("Vorschaufläche\nHier erscheint später das gewählte Overlay.")
+        self.editor: QWidget | None = None  # Editor mit Webansicht (P06); ohne Overlay bleibt die leere Leinwand
+        self.canvas_label = placeholder("Vorschaufläche\nLege ein Overlay an, um es hier zu bearbeiten.")
         self.canvas_label.setObjectName("canvas_label")
         lay.addWidget(self.canvas_label)
+
+    def set_editor(self, editor: QWidget) -> None:
+        self.editor = editor
+        editor.setParent(self)
+        editor.setGeometry(0, 0, self.width(), self.height())
+        editor.hide()
+
+    def show_editor(self, on: bool) -> None:
+        """Mit gewähltem Overlay den Editor zeigen, sonst die leere Leinwand."""
+        if self.editor is not None:
+            self.editor.setVisible(on)
+            self.editor.raise_()
+        self.canvas.setVisible(not on or self.editor is None)
 
     def resizeEvent(self, e) -> None:
         super().resizeEvent(e)
         self.layout_canvas()
+        if self.editor is not None:
+            self.editor.setGeometry(0, 0, self.width(), self.height())
 
     def layout_canvas(self) -> None:
         aw, ah = max(1, self.width() - 2 * self.MARGIN), max(1, self.height() - 2 * self.MARGIN)

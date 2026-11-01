@@ -12,8 +12,8 @@ requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115.11", "uvicorn>=0.32.0", "websockets>=15.0.1", "keyring>=25.6.0"]
 
 [project.optional-dependencies]
-# «ui»: Oberfläche. Unter Debian kommt PyQt6 aus den Paketen python3-pyqt6 und python3-pyqt6.qtwebengine (6.9.0).
-ui = ["PyQt6>=6.9.0"]
+# «ui»: Oberfläche mit Vorschau (QtWebEngine). Unter Debian 13 kommen PyQt6 und QtWebEngine aus den Paketen python3-pyqt6 und python3-pyqt6.qtwebengine (beide 6.9.0).
+ui = ["PyQt6>=6.9.0", "PyQt6-WebEngine>=6.9.0"]
 # «browser»: Playwright für den Pixeltest der Overlay-Seite (Chromium, siehe tests/test_overlay_browser.py)
 browser = ["playwright"]
 dev = ["pytest", "pytest-asyncio", "ruff", "httpx>=0.28.1"]

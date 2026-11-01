@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
+
+log = logging.getLogger(__name__)
 
 
 def main() -> int:
@@ -16,14 +19,19 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    # QtWebEngine muss vor der QApplication importiert werden (siehe preview_web.py).
+    from donstv_studio.ui import preview_web  # noqa: F401
     from donstv_studio.ui.core_link import CoreLink
     from donstv_studio.ui.main_window import MainWindow
+    from donstv_studio.ui.signals import SignalBridge
 
     # Unter Linux X11 (xcb, auf Wayland über XWayland) vor Wayland: CLAUDE.md nennt X11 als Zielsystem, und nur dort
     # lassen sich Fensterlage und schwebende Docks sicher speichern und wiederherstellen. Ein vom Nutzer
     # gesetztes QT_QPA_PLATFORM gilt weiter. Fehlt xcb, probiert Qt den nächsten Eintrag.
     if sys.platform.startswith("linux"):
         os.environ.setdefault("QT_QPA_PLATFORM", "xcb;wayland")
+    if os.geteuid() == 0:  # Chromium startet als root nur ohne Sandbox (Entwicklungsumgebung, nicht der Laptop)
+        os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
     app = QApplication(sys.argv[:1])
     app.setApplicationName("donstv_Studio")
     core = CoreLink()
@@ -33,6 +41,16 @@ def main() -> int:
         window.apply_settings(saved)
     core.start()
     window.show()
+    # SIGTERM und SIGINT: Layout speichern, dann beenden (nicht nur beim normalen Schliessen).
+    bridge = SignalBridge(parent=app)
+
+    def on_signal(_num: int) -> None:
+        window.save_layout_now()
+        app.quit()
+
+    bridge.received.connect(on_signal)
+    log.info("Oberfläche bereit; SIGTERM und SIGINT speichern das Layout")
     code = app.exec()
+    bridge.close()
     core.stop()
     return code
