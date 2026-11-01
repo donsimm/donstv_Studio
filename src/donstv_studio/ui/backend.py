@@ -8,6 +8,7 @@ aufrufenden Thread aus; so laufen Tests ohne Threads.
 
 from __future__ import annotations
 
+import collections
 import logging
 import threading
 import urllib.error
@@ -136,7 +137,9 @@ class DirectRunner(QObject):
 class TaskRunner(QObject):
     """Ein Hintergrundthread, der Aufträge der Reihe nach ausführt; Rückmeldungen laufen im Qt-Thread."""
 
-    _finished = pyqtSignal(object, object, object)  # Rückruf, Ergebnis, Fehler
+    # Ergebnisse gehen über eine Warteschlange; das Signal selbst trägt keine Daten. Python-Objekte als Signalargumente
+    # über Threads hinweg stürzten auf dem Laptop ab (Debian 13: Qt 6.8.2 mit PyQt6 6.9.0).
+    _wake = pyqtSignal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -144,7 +147,8 @@ class TaskRunner(QObject):
         self._busy = False
         self._cond = threading.Condition()
         self._stopping = False
-        self._finished.connect(self._deliver)
+        self._results: collections.deque = collections.deque()
+        self._wake.connect(self._drain)
         self._thread = threading.Thread(target=self._work, name="editor-backend", daemon=True)
         self._thread.start()
 
@@ -186,13 +190,16 @@ class TaskRunner(QObject):
                 result, error = None, e
             for on_done, on_error in task.callbacks:
                 cb = on_error if error is not None else on_done
-                self._finished.emit(cb, error if error is not None else result, error)
+                self._results.append((cb, error if error is not None else result, error))
+            self._wake.emit()
             with self._cond:
                 self._busy = False
                 self._cond.notify_all()
 
-    def _deliver(self, callback, value, error) -> None:
-        if callback is not None:
-            callback(value)
-        elif error is not None:
-            log.warning("Auftrag fehlgeschlagen: %s", error)
+    def _drain(self) -> None:
+        while self._results:
+            callback, value, error = self._results.popleft()
+            if callback is not None:
+                callback(value)
+            elif error is not None:
+                log.warning("Auftrag fehlgeschlagen: %s", error)
