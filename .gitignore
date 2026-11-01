@@ -22,3 +22,4 @@ config/
 .idea/
 .vscode/
 laptop-ergebnis.txt
+laptop-pytest-voll.log
