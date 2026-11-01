@@ -319,9 +319,12 @@ def test_f13_edit_menu_undo_redo(env, app):
     assert w.model.source(sid)["x"] == 10 and not w.redo_action.isEnabled()
 
 
-def test_f65_statusbar_shows_pixel_under_pointer_and_zoom(env, app):
+def test_f65_f75_pixel_under_pointer_in_the_preview_and_zoom_in_the_statusbar(env, app):
     w, core = env
-    assert w.pointer_label.text() == "X: –   Y: –"
+    # F-75: die Zeigerlage steht nur noch links unten in der Vorschau, nicht mehr in der Statuszeile
+    assert not hasattr(w, "pointer_label")
+    assert not [lab for lab in w.statusBar().findChildren(QLabel) if lab.text().startswith("X:")]
+    assert w.editor.pointer_badge.text() == "X: –   Y: –"
     w.editor.set_zoom(1.0)
     app.processEvents()
     from PyQt6.QtCore import QEvent
@@ -331,7 +334,7 @@ def test_f65_statusbar_shows_pixel_under_pointer_and_zoom(env, app):
     pos = QPointF(*t.to_view(321.5, 123.5))
     QApplication.sendEvent(w.editor.layer, QMouseEvent(QEvent.Type.MouseMove, pos, w.editor.layer.mapToGlobal(pos),
                                                        Qt.MouseButton.NoButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier))  # fmt: skip
-    assert w.pointer_label.text() == "X: 321   Y: 123"
+    assert w.editor.pointer_badge.text() == "X: 321   Y: 123"
     assert w.zoom_combo.currentText() == "100 %"
     w.zoom_combo.setCurrentIndex(w.zoom_combo.findText("400 %"))
     w.zoom_combo.activated.emit(w.zoom_combo.currentIndex())
@@ -470,3 +473,82 @@ def test_token_never_appears_in_ui_log(env, caplog):
     w.control_panel.copy_button.click()
     w.model.undo()
     assert all(token not in r.getMessage() for r in caplog.records)
+
+
+# --- Quellen umbenennen (F-74) ---------------------------------------------------------------------
+def test_f74_rename_via_context_menu_entry_and_f2(env, app):
+    w, core = env
+    p = w.sources_panel
+    sid = add_text(w, "Hallo")
+    assert texts(p.list) == ["Text: Hallo"]
+    asked = []
+
+    def answer(*a, **k):
+        asked.append(a)
+        return "Begrüssung"
+
+    p.ask_text = answer
+    # Kontextmenü: Eintrag «Umbenennen» (Menü selbst blockiert; geprüft wird die Aktion darin)
+    assert p.rename_action.text() == "Umbenennen"
+    assert p.rename_action.shortcut().toString() == "F2"
+    assert p.list.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu
+    p.rename_action.trigger()
+    assert asked and asked[0][2] == "Text: Hallo"  # Vorschlag: der bisherige Name
+    assert texts(p.list) == ["Begrüssung"]
+    assert core.backend.source(w.model.current_id, sid)["name"] == "Begrüssung"
+    # F2 mit Fokus in der Quellenliste
+    p.ask_text = lambda *a, **k: "Titel"
+    w.activateWindow()
+    p.list.setFocus()
+    app.processEvents()
+    QTest.keyClick(p.list, Qt.Key.Key_F2)
+    app.processEvents()
+    assert texts(p.list) == ["Titel"]
+    # F2 mit Fokus in der Vorschau
+    p.ask_text = lambda *a, **k: "Vorschau"
+    w.editor.layer.setFocus()
+    app.processEvents()
+    QTest.keyClick(w.editor.layer, Qt.Key.Key_F2)
+    app.processEvents()
+    assert texts(p.list) == ["Vorschau"]
+    # Rückgängig erfasst die Umbenennung
+    w.undo_action.trigger()
+    assert texts(p.list) == ["Titel"]
+    w.redo_action.trigger()
+    assert texts(p.list) == ["Vorschau"]
+
+
+def test_f74_double_click_does_not_rename(env, app):
+    w, core = env
+    p = w.sources_panel
+    add_text(w, "Hallo")
+    p.ask_text = lambda *a, **k: pytest.fail("Doppelklick darf nicht umbenennen (F-79)")
+    assert p.list.editTriggers() == p.list.EditTrigger.NoEditTriggers
+    rect = p.list.visualItemRect(p.list.item(0))
+    QTest.mouseDClick(p.list.viewport(), Qt.MouseButton.LeftButton, pos=rect.center())
+    app.processEvents()
+    assert p.list.state() != p.list.State.EditingState
+    assert texts(p.list) == ["Text: Hallo"]
+
+
+def test_f74_name_field_in_properties_and_empty_name_refused(env, app):
+    w, core = env
+    props = w.properties_panel
+    assert not props.name.isEnabled() and props.name.text() == ""
+    sid = add_text(w, "Hallo")
+    assert props.name.isEnabled() and props.name.text() == "Text: Hallo"
+    grid = props.name.parentWidget().layout()
+    assert grid.getItemPosition(grid.indexOf(props.name))[0] == 0  # oberste Zeile
+    props.name.setText("Logo oben")
+    props.name.editingFinished.emit()
+    assert w.model.source(sid)["name"] == "Logo oben"
+    assert texts(w.sources_panel.list) == ["Logo oben"]
+    props.name.setText("   ")
+    props.name.editingFinished.emit()
+    assert w.model.source(sid)["name"] == "Logo oben" and props.name.text() == "Logo oben"
+    assert w.statusBar().currentMessage() == "Der Name der Quelle darf nicht leer sein"
+    # Umbenennen über die Liste aktualisiert das Feld
+    w.model.rename_source(sid, "Neu")
+    assert props.name.text() == "Neu"
+    w.model.select_source(None)
+    assert props.name.text() == "" and not props.name.isEnabled()

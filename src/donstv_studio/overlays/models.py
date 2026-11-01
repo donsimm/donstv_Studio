@@ -27,6 +27,8 @@ TEXT_STYLE_LABELS = {"comic": "Comic", "thick": "Comic dick", "plain": "Schlicht
 DEFAULT_TEXT_STYLE = "comic"  # gilt, wenn «style» fehlt (die Overlay-Seite wendet ihn an)
 MAX_TEXT_LENGTH = 5000
 MAX_FONT_SIZE = 2000
+MAX_SOURCE_NAME = 100  # [ANNAHME] Höchstlänge des Namens einer Quelle (F-74), in Zeichen
+NAME_PREVIEW = 30  # so viele Zeichen des Textes stehen im vorgegebenen Namen einer Textquelle
 _COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 # Schriftname geht in CSS; deshalb nur harmlose Zeichen (keine Anführungszeichen, Klammern { } ; < >).
 _FONT = re.compile(r"^[\w .,+&()\-]{1,100}$")
@@ -106,6 +108,30 @@ def validate_name(name: Any) -> str:
     return name.strip()
 
 
+def default_source_name(kind: str, props: dict[str, Any], media_name: str = "") -> str:
+    """Vorgegebener Name einer Quelle (F-74): «Text: <erste Zeile>» oder «Bild: <Dateiname>».
+
+    Entspricht der automatischen Bezeichnung vor F-74; Migration 6 füllt bestehende Quellen genauso.
+    """
+    if kind == "text":
+        first = str(props.get("text") or "").strip().splitlines()
+        text = first[0] if first else ""
+        if not text:
+            return "Text"
+        return f"Text: {text[:NAME_PREVIEW]}{'…' if len(text) > NAME_PREVIEW else ''}"
+    return f"Bild: {media_name}" if media_name else "Bild"
+
+
+def validate_source_name(name: Any) -> str:
+    """Name einer Quelle: nur eine Bezeichnung, nicht leer, höchstens MAX_SOURCE_NAME Zeichen."""
+    if not isinstance(name, str) or not name.strip():
+        raise OverlayError("Der Name der Quelle darf nicht leer sein")
+    name = name.strip()
+    if len(name) > MAX_SOURCE_NAME:
+        raise OverlayError(f"Der Name der Quelle darf höchstens {MAX_SOURCE_NAME} Zeichen haben")
+    return name
+
+
 def validate_output(output: Any) -> str:
     if output not in OUTPUTS:
         raise OverlayError(f"Ausgabeart muss «browser» oder «ndi» sein, erhalten: {output!r}")
@@ -124,6 +150,7 @@ class Source:
     visible: bool = True
     props: dict[str, Any] = field(default_factory=dict)
     id: str = field(default_factory=new_id)
+    name: str = ""  # F-74: Bezeichnung; leer beim Anlegen = vorgegebener Name
 
     def __post_init__(self) -> None:
         if self.kind not in SOURCE_KINDS:
@@ -149,11 +176,15 @@ class Source:
         except (TypeError, ValueError) as e:
             raise OverlayError(f"«props» ist nicht speicherbar: {e}") from e
         validate_props(self.kind, self.props)
+        if isinstance(self.name, str) and not self.name.strip():
+            self.name = default_source_name(self.kind, self.props)
+        self.name = validate_source_name(self.name)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "kind": self.kind,
+            "name": self.name,
             "x": self.x,
             "y": self.y,
             "width": self.width,

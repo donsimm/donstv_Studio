@@ -16,7 +16,8 @@ from typing import Any
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from donstv_studio.ui.geometry import Box, nudge_box
+from donstv_studio.overlays.models import MAX_SOURCE_NAME, default_source_name
+from donstv_studio.ui.geometry import Box, fit_inside, nudge_box
 
 log = logging.getLogger(__name__)
 
@@ -44,24 +45,26 @@ def box_of(source: dict) -> Box:
 
 
 def source_label(source: dict, media_names: dict[str, str] | None = None) -> str:
-    """Anzeigename in der Quellenliste (Quellen haben im Datenmodell keinen eigenen Namen)."""
+    """Anzeigename in der Quellenliste: der Name der Quelle (F-74), sonst der vorgegebene Name."""
+    name = source.get("name")
+    if isinstance(name, str) and name.strip():
+        return name
     props = source.get("props") or {}
-    if source["kind"] == "text":
-        first = (props.get("text") or "").strip().splitlines()
-        text = first[0] if first else ""
-        return f"Text: {text[:30]}{'…' if len(text) > 30 else ''}" if text else "Text"
-    name = (media_names or {}).get(props.get("media_id", ""), "")
-    return f"Bild: {name}" if name else "Bild"
+    media = (media_names or {}).get(props.get("media_id", ""), "")
+    return default_source_name(source["kind"], props, media)
 
 
 @dataclass
 class _Command:
+    """Ein Rückgängig-Schritt: `field` «box» (Lage, Grösse, Drehung als Box) oder «name» (Text)."""
+
     overlay_id: str
     source_id: str
-    before: Box
-    after: Box
+    before: Any
+    after: Any
     merge_key: str | None = None
     stamp: float = 0.0
+    field: str = "box"
 
 
 class _History:
@@ -258,17 +261,21 @@ class EditorModel(QObject):
             return
         overlay_id = o["id"]
         w, h = natural if natural and natural[0] > 0 and natural[1] > 0 else DEFAULT_IMAGE_SIZE
-        w, h = min(w, o["width"]), min(h, o["height"])
+        # F-77: Rahmen im Seitenverhältnis des Bildes, verkleinert, bis er ins Overlay passt (ganze Pixel)
+        w, h = fit_inside(w, h, o["width"], o["height"])
 
         def uploaded(item: dict) -> None:
             self.media_names[item["id"]] = item.get("name", "")
             target = self.overlay(overlay_id)
             if target is not None:
-                self._add_source(target, "image", w, h, {"media_id": item["id"]})
+                name = default_source_name("image", {}, item.get("name", ""))[:MAX_SOURCE_NAME]
+                self._add_source(target, "image", w, h, {"media_id": item["id"]}, name)
 
         self._runner.submit(lambda: self._backend.upload_media(path), uploaded, self._failed)
 
-    def _add_source(self, overlay: dict, kind: str, w: int, h: int, props: dict) -> None:
+    def _add_source(
+        self, overlay: dict, kind: str, w: int, h: int, props: dict, name: str = ""
+    ) -> None:
         overlay_id = overlay["id"]
         fields = {
             "x": (overlay["width"] - w) // 2,
@@ -277,6 +284,8 @@ class EditorModel(QObject):
             "height": h,
             "props": props,
         }
+        if name:
+            fields["name"] = name
 
         def added(source: dict) -> None:
             target = self.overlay(overlay_id)
@@ -317,6 +326,35 @@ class EditorModel(QObject):
         s["visible"] = visible
         self.sources_changed.emit()
         self._send_source(o["id"], source_id, {"visible": visible})
+
+    # --- Name (F-74) -----------------------------------------------------------------------------
+    def _set_name(self, source_id: str, name: str) -> bool:
+        o, s = self.current(), self.source(source_id)
+        if o is None or s is None or s.get("name") == name:
+            return False
+        s["name"] = name
+        self.sources_changed.emit()
+        self._send_source(o["id"], source_id, {"name": name})
+        return True
+
+    def rename_source(self, source_id: str, name: str) -> bool:
+        """Benennt eine Quelle um (mit Rückgängig-Schritt). Leerer Name: abgelehnt, Meldung über `error`."""
+        s = self.source(source_id)
+        if s is None:
+            return False
+        name = name.strip() if isinstance(name, str) else ""
+        if not name:
+            self.error.emit("Der Name der Quelle darf nicht leer sein")
+            return False
+        if len(name) > MAX_SOURCE_NAME:
+            self.error.emit(f"Der Name der Quelle darf höchstens {MAX_SOURCE_NAME} Zeichen haben")
+            return False
+        before = source_label(s, self.media_names)
+        if name == before and s.get("name") == name:
+            return True
+        self._set_name(source_id, name)
+        self._push(source_id, before, name, "name")
+        return True
 
     def move_in_order(self, source_id: str, direction: int) -> None:
         """direction > 0: nach vorn (oben in der Liste); < 0: nach hinten."""
@@ -383,6 +421,11 @@ class EditorModel(QObject):
     def push_history(
         self, source_id: str, before: Box, after: Box, merge_key: str | None = None
     ) -> None:
+        self._push(source_id, before, after, "box", merge_key)
+
+    def _push(
+        self, source_id: str, before: Any, after: Any, field: str, merge_key: str | None = None
+    ) -> None:
         o = self.current()
         if o is None or before == after:
             return
@@ -391,11 +434,12 @@ class EditorModel(QObject):
         top = hist.undo[-1] if hist.undo else None
         if (
             merge_key is not None and top is not None and top.merge_key == merge_key
-            and top.source_id == source_id and now - top.stamp <= MERGE_WINDOW_S
+            and top.source_id == source_id and top.field == field
+            and now - top.stamp <= MERGE_WINDOW_S
         ):  # fmt: skip
             top.after, top.stamp = after, now
         else:
-            hist.undo.append(_Command(o["id"], source_id, before, after, merge_key, now))
+            hist.undo.append(_Command(o["id"], source_id, before, after, merge_key, now, field))
             del hist.undo[:-HISTORY_LIMIT]
         hist.redo.clear()
         self.history_changed.emit()
@@ -428,7 +472,7 @@ class EditorModel(QObject):
             return
         cmd = h.undo.pop()
         h.redo.append(cmd)
-        self.set_box(cmd.source_id, cmd.before)
+        self._apply(cmd, cmd.before)
         self.select_source(cmd.source_id)
         self.history_changed.emit()
 
@@ -438,9 +482,15 @@ class EditorModel(QObject):
             return
         cmd = h.redo.pop()
         h.undo.append(cmd)
-        self.set_box(cmd.source_id, cmd.after)
+        self._apply(cmd, cmd.after)
         self.select_source(cmd.source_id)
         self.history_changed.emit()
+
+    def _apply(self, cmd: _Command, value: Any) -> None:
+        if cmd.field == "name":
+            self._set_name(cmd.source_id, value)
+        else:
+            self.set_box(cmd.source_id, value)
 
     # --- Hilfslinien (pro Overlay gespeichert) ----------------------------------------------------
     def guides(self, overlay_id: str | None = None) -> tuple[list[int], list[int]]:

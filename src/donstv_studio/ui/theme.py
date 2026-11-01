@@ -16,6 +16,8 @@ THEME_NAMES = {DARK: "Dunkel", LIGHT: "Hell"}
 DEFAULT_THEME = DARK
 MIN_CONTRAST = 4.5
 MIN_GRAPH_CONTRAST = 3.0  # Grafik (Linie der Verläufe) gegen die Fläche: WCAG 1.4.11, https://www.w3.org/TR/WCAG21/#non-text-contrast
+# Bedienelemente (Häkchen, Pfeile, Rahmen der Eingabefelder) gegen den Untergrund: ebenfalls WCAG 2.x, 1.4.11 (F-76)
+MIN_CONTROL_CONTRAST = 3.0
 
 # Schriftgrösse der Oberfläche. Die Schriftart bleibt die des Systems; nur die Grösse ist festgelegt.
 # Gemessen in den Referenzbildern (docs/referenz, je 1920×1080): Der Text von OBS ist etwa 0,9-mal so
@@ -38,6 +40,11 @@ CONN_BUTTON_WIDTH = 46  # Verbindungs-Buttons (F-04)
 CONN_BUTTON_HEIGHT = 40
 PERF_TEXT_ROW = 16
 PERF_GRAPH_HEIGHT = 28
+
+# Bedienelemente (F-76): Kästchen der Kontrollkästchen, Breite der Pfeil-Schaltflächen in Zahlenfeldern und Listen
+CHECK_BOX = 14
+SPIN_BUTTON_WIDTH = 12
+COMBO_BUTTON_WIDTH = 16
 
 # Dunkel: im OBS-Bild gemessene Farben (Fenster #1d1f26, Dockkörper #272a33, Titel und Rahmen
 # #3c404d, Vorschau #13141a, Leinwand #000000, Auswahl #284cb8). Nebentext und Statusfarben sind
@@ -68,6 +75,11 @@ PALETTES: dict[str, dict[str, str]] = {
         "checker_b": "#383c48",
         "guide": "#2dd4ff",  # Hilfslinien
         "snap": "#ff5ccf",  # Linie, an der gerade eingerastet wird
+        # F-76: Bedienelemente, je mindestens 3:1 gegen ihren Untergrund (CONTROL_PAIRS)
+        "control_border": "#8a8f9c",  # Rahmen von Eingabefeldern und Kontrollkästchen
+        "arrow": "#e6e6e6",  # Pfeile in Zahlenfeldern und Auswahllisten
+        "check_bg": "#4c8dff",  # gefülltes Kästchen, wenn angekreuzt
+        "check_mark": "#0b0b0c",  # Häkchen auf check_bg
     },
     LIGHT: {
         "bg": "#f4f5f7",
@@ -93,6 +105,10 @@ PALETTES: dict[str, dict[str, str]] = {
         "checker_b": "#eceef2",
         "guide": "#0a6fb3",
         "snap": "#b3126f",
+        "control_border": "#767c88",
+        "arrow": "#1b1d21",
+        "check_bg": "#1d5fd1",
+        "check_mark": "#ffffff",
     },
 }
 
@@ -119,6 +135,24 @@ TEXT_PAIRS: tuple[tuple[str, str], ...] = (
     ("warn", "surface"),
     ("error", "bg"),
     ("error", "surface"),
+)
+
+# F-76: Bedienelemente gegen ihren Untergrund, mindestens MIN_CONTROL_CONTRAST. Eingabefelder haben den Grund «bg»
+# und liegen in Docks («surface»); Kontrollkästchen liegen auf «surface», «bg» oder «title_bg».
+CONTROL_PAIRS: tuple[tuple[str, str], ...] = (
+    ("control_border", "surface"),  # Rahmen eines Feldes gegen das Dock
+    ("control_border", "bg"),  # Rahmen gegen das Innere des Feldes und gegen den Fenstergrund
+    ("control_border", "title_bg"),
+    ("arrow", "bg"),  # Pfeile im Zahlenfeld und in der Auswahlliste (Grund des Feldes)
+    ("arrow", "title_bg"),  # Pfeil-Schaltflächen unter dem Zeiger (Grund «title_bg»)
+    ("check_mark", "check_bg"),  # Häkchen im angekreuzten Kästchen
+    ("check_bg", "surface"),  # angekreuztes Kästchen gegen das Dock
+    ("check_bg", "bg"),
+    (
+        "text",
+        "surface",
+    ),  # Symbole der Dock-Leisten, z. B. Pfeile der Reihenfolge (icons.py, Textfarbe)
+    ("text_muted", "surface"),  # dieselben Symbole ausgegraut
 )
 
 # Grafik-Farben der Leistungsanzeige auf der Fläche des Verlaufs («surface»): mindestens 3:1.
@@ -149,7 +183,23 @@ def palette(theme: str) -> dict[str, str]:
     return PALETTES.get(theme, PALETTES[DEFAULT_THEME])
 
 
-def stylesheet(theme: str) -> str:
+def control_images(images: dict[str, str] | None) -> str:
+    """Regeln mit Bildern für Häkchen und Pfeile (F-76). `images`: Pfade aus `indicators.image_paths`."""
+    if not images:
+        return ""
+    i = images
+    return f"""
+QCheckBox::indicator:checked {{ image: url({i["check"]}); }}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{ image: url({i["up"]}); }}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow, QComboBox::down-arrow {{ image: url({i["down"]}); }}
+QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled {{ image: url({i["up_disabled"]}); }}
+QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled,
+QComboBox::down-arrow:disabled {{ image: url({i["down_disabled"]}); }}
+"""
+
+
+def stylesheet(theme: str, images: dict[str, str] | None = None) -> str:
+    """Stylesheet des Designs. `images` (F-76): Bilder für Häkchen und Pfeile; ohne sie zeichnet Qt eigene."""
     c = palette(theme)
     return f"""
 QWidget {{ background-color: {c["bg"]}; color: {c["text"]}; font-size: {FONT_PT}pt; }}
@@ -216,14 +266,29 @@ QWidget#dockBar QToolButton::menu-indicator {{ image: none; }}
 QWidget#dockInner {{ background-color: {c["surface"]}; }}
 QFrame#dockbody QListWidget {{ border: none; }}
 QSpinBox, QDoubleSpinBox, QLineEdit, QComboBox {{ background-color: {c["bg"]}; color: {c["text"]};
-    border: 1px solid {c["border"]}; padding: 1px 4px; min-height: 18px; }}
+    border: 1px solid {c["control_border"]}; padding: 1px 4px; min-height: 18px; }}
+QSpinBox, QDoubleSpinBox {{ padding: 1px 2px 1px 4px; }}
+QSpinBox::up-button, QDoubleSpinBox::up-button {{ subcontrol-origin: padding; subcontrol-position: top right;
+    width: {SPIN_BUTTON_WIDTH}px; background-color: {c["bg"]}; border-left: 1px solid {c["control_border"]}; }}
+QSpinBox::down-button, QDoubleSpinBox::down-button {{ subcontrol-origin: padding; subcontrol-position: bottom right;
+    width: {SPIN_BUTTON_WIDTH}px; background-color: {c["bg"]}; border-left: 1px solid {c["control_border"]}; }}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::down-button:hover {{ background-color: {c["title_bg"]}; }}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow, QSpinBox::down-arrow, QDoubleSpinBox::down-arrow,
+QComboBox::down-arrow {{ width: 9px; height: 6px; }}
+QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: center right; width: {COMBO_BUTTON_WIDTH}px;
+    border-left: 1px solid {c["control_border"]}; background-color: {c["bg"]}; }}
 QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus, QComboBox:focus {{ border: 1px solid {c["accent"]}; }}
 QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled, QComboBox:disabled {{ color: {c["text_muted"]}; }}
 QComboBox QAbstractItemView {{ background-color: {c["surface"]}; color: {c["text"]};
     selection-background-color: {c["selection_bg"]}; selection-color: {c["selection_text"]}; }}
-QCheckBox {{ background: transparent; }}
+QCheckBox {{ background: transparent; spacing: 6px; }}
 QCheckBox:focus {{ border: 1px solid {c["accent"]}; }}
+QCheckBox::indicator {{ width: {CHECK_BOX}px; height: {CHECK_BOX}px; background-color: {c["bg"]};
+    border: 1px solid {c["control_border"]}; border-radius: 2px; }}
+QCheckBox::indicator:checked {{ background-color: {c["check_bg"]}; border: 1px solid {c["check_bg"]}; }}
+QCheckBox::indicator:disabled {{ border: 1px solid {c["text_muted"]}; }}
 QWidget#editor_viewport {{ background-color: {c["preview_bg"]}; }}
 QStatusBar QLabel {{ background: transparent; }}
 QToolTip {{ background-color: {c["surface"]}; color: {c["text"]}; border: 1px solid {c["border"]}; }}
-"""
+""" + control_images(images)

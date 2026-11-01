@@ -13,7 +13,7 @@ pytest.importorskip(
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDockWidget, QLabel, QTabWidget
 
-from donstv_studio.ui import theme
+from donstv_studio.ui import indicators, theme
 from donstv_studio.ui.main_window import KEY_THEME, MainWindow
 from fake_core import FakeCore
 
@@ -286,3 +286,38 @@ def test_f01_layout_values_without_version_tag_are_not_restored(make, app):
     c, _ = make()
     c.apply_settings(saved)  # mit Marke: wiederhergestellt
     assert c.dockWidgetArea(c.docks[0]) == Qt.DockWidgetArea.LeftDockWidgetArea
+
+
+# --- P06d, Aufgabe 6: Stylesheet nur bei Änderung --------------------------------------------------
+def test_f06_stylesheet_is_only_set_when_it_changes(make, app, monkeypatch):
+    import time
+
+    from PyQt6.QtWidgets import QApplication
+
+    calls = []
+    original = QApplication.setStyleSheet
+
+    def counting(self, sheet):
+        calls.append(sheet)
+        original(self, sheet)
+
+    monkeypatch.setattr(QApplication, "setStyleSheet", counting)
+    w, core = make()
+    core.settings_loaded.emit(json.dumps({}))
+    n = len(calls)  # 0 oder 1, je nachdem, was vorher gesetzt war
+    assert app.styleSheet() == theme.stylesheet(theme.DARK, indicators.image_paths(theme.DARK))
+    t0 = time.perf_counter()
+    w.set_theme(theme.DARK)  # dasselbe Design: nichts wird neu gestaltet
+    same = time.perf_counter() - t0
+    assert len(calls) == n
+    w2, _ = make()  # weiteres Fenster mit demselben Design: kein neues Stylesheet
+    assert len(calls) == n
+    t0 = time.perf_counter()
+    w.set_theme(theme.LIGHT)
+    changed = time.perf_counter() - t0
+    assert len(calls) == n + 1 and theme.palette(theme.LIGHT)["bg"] in app.styleSheet()
+    w.set_theme(theme.LIGHT)
+    assert len(calls) == n + 1
+    w.set_theme(theme.DARK)
+    assert len(calls) == n + 2
+    print(f"\nset_theme ohne Änderung: {same * 1000:.1f} ms, mit Änderung: {changed * 1000:.1f} ms")

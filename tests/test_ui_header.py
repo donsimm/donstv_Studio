@@ -946,3 +946,45 @@ def test_f04_not_configured_button_is_greyed_out_icon_in_muted_color(make):
             )
             <= 2
         )
+
+
+# --- F-78: Leistungsfelder gleich breit ------------------------------------------------------------
+def test_f78_cpu_ram_lan_have_the_same_width_for_every_value(make, app):
+    w = make()
+    widths = {k: f.width() for k, f in w.perf.fields.items()}
+    assert len(set(widths.values())) == 1, widths
+    base = header_geometry(w)
+    samples = [
+        perf.Sample(
+            cpu=100.0, mem=(int(15.5 * perf.GIB), int(15.5 * perf.GIB)), net=(999e6, 999e6)
+        ),
+        perf.Sample(cpu=0.0, mem=(0, 1024), net=(0.0, 0.0)),
+        perf.Sample(
+            cpu=58.0, mem=(int(999.9 * perf.GIB), int(999.9 * perf.GIB)), net=(999.9e6, 1e15)
+        ),
+        perf.Sample(cpu=7.0, mem=(int(8.8 * perf.GIB), int(88.8 * perf.GIB)), net=(888e3, 888.8e6)),
+        perf.Sample(),
+    ]
+    for sample in samples:
+        w.perf.apply(sample)
+        app.processEvents()
+        assert {k: f.width() for k, f in w.perf.fields.items()} == widths
+        assert header_geometry(w) == base  # Kopf verschiebt sich nicht
+        for key, f in w.perf.fields.items():  # jeder Wert passt in die gemeinsame Breite
+            fm = QFontMetrics(f._value_font())
+            title_w = QFontMetrics(f.font()).horizontalAdvance(f.title)
+            assert title_w + fm.horizontalAdvance(f.value_text) + 4 * f.PAD <= f.width(), key
+    w.set_theme("light")
+    app.processEvents()
+    assert {k: f.width() for k, f in w.perf.fields.items()} == widths
+
+
+def test_f78_width_texts_cover_every_unit_and_digit():
+    texts = perf.width_texts("lan")
+    assert "↓ 999.9 Mbit/s  ↑ 999.9 Mbit/s" in texts and "↓ 999 kbit/s  ↑ 99.9 Gbit/s" in texts
+    assert "↓ 888 ↑ 888 kbit/s".replace(" ↑", "  ↑") in texts  # jede Ziffer, auch eine breite «8»
+    assert perf.NO_VALUE in texts and "888.8 / 888.8 GiB" in perf.width_texts("ram")
+    for rx in (0, 999e3, 999.9e6, 1e15):
+        for tx in (0, 999e3, 999.9e6, 1e15):
+            text = perf.format_net((rx, tx))
+            assert any(len(t) >= len(text) for t in texts), text

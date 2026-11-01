@@ -19,11 +19,12 @@ from donstv_studio.overlays.models import (
     new_token,
     validate_name,
     validate_output,
+    validate_source_name,
 )
 from donstv_studio.overlays.repository import OverlayRepository
 
 EVENT_TYPE = "overlay.changed"
-_SOURCE_FIELDS = {"x", "y", "width", "height", "rotation", "z", "visible", "props"}
+_SOURCE_FIELDS = {"x", "y", "width", "height", "rotation", "z", "visible", "props", "name"}
 _OVERLAY_FIELDS = {"name", "width", "height", "output"}
 
 
@@ -148,6 +149,8 @@ class OverlayService:
 
     async def update_source(self, overlay_id: str, source_id: str, **changes: Any) -> Source:
         _unknown(set(changes), _SOURCE_FIELDS, "Quelle")
+        if "name" in changes:  # beim Ändern kein vorgegebener Name: leer wird abgelehnt (F-74)
+            changes["name"] = validate_source_name(changes["name"])
         o = self._require(overlay_id)
         new = dataclasses.replace(self._source(o, source_id), **changes)
         self._check_media(new)

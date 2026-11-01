@@ -7,7 +7,7 @@ import json
 from donstv_studio.core.store import Store
 from donstv_studio.overlays.models import Overlay, Source
 
-_SRC_COLS = "id, kind, x, y, width, height, rotation, z, visible, props"
+_SRC_COLS = "id, kind, x, y, width, height, rotation, z, visible, props, name"
 
 
 def _source(row: tuple) -> Source:
@@ -22,22 +22,25 @@ def _source(row: tuple) -> Source:
         z=row[7],
         visible=bool(row[8]),
         props=json.loads(row[9]),
+        name=row[10],
     )
 
 
 def _source_params(overlay_id: str, s: Source) -> tuple:
     return (
         s.id, overlay_id, s.kind, s.x, s.y, s.width, s.height, s.rotation, s.z,
-        1 if s.visible else 0, json.dumps(s.props, ensure_ascii=False),
+        1 if s.visible else 0, json.dumps(s.props, ensure_ascii=False), s.name,
     )  # fmt: skip
 
 
 _INSERT_SRC = (
-    "INSERT INTO sources (id, overlay_id, kind, x, y, width, height, rotation, z, visible, props) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO sources "
+    "(id, overlay_id, kind, x, y, width, height, rotation, z, visible, props, name) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 _UPDATE_SRC = (
-    "UPDATE sources SET kind=?, x=?, y=?, width=?, height=?, rotation=?, z=?, visible=?, props=? "
+    "UPDATE sources SET kind=?, x=?, y=?, width=?, height=?, rotation=?, z=?, visible=?, props=?, "
+    "name=? "
     "WHERE id=? AND overlay_id=?"
 )
 

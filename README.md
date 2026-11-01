@@ -4,7 +4,14 @@
 
 donstv_Studio ist eine Desktop-Anwendung im Stil von OBS Studio mit den Modulen «Overlays» und «Chat-Bot». Sie läuft auf dem Studio-Laptop; OBS läuft auf einem anderen Rechner im Heimnetz. Anforderungen und Technik stehen unter `docs/`, die Reihenfolge der Arbeit in `docs/05-prompt-plan.md`.
 
-Stand: Version 0.1, Projektgerüst. Es gibt noch keine Funktion; die Einstiegspunkte geben nur eine Startmeldung aus.
+Stand (November 2026, nach P06d): Version 0.1, Gerüst mit lauffähigen Teilen. Es gibt zwei Programme:
+
+- `donstv-core`, der Kern-Dienst: Speicher (SQLite), Ereignis-Bus, lokale Schnittstelle mit Token, Overlay-Server für die Browserquelle in OBS (Text- und Bildquellen, Live-Aktualisierung) und eine Twitch-Verbindung für den Chat-Bot.
+- `donstv-studio`, das Fenster im Stil von OBS mit den Modulen «Overlays» und «Chat-Bot».
+
+Modul «Overlays»: Overlays anlegen, umbenennen, duplizieren, löschen; Text- und Bildquellen hinzufügen, umbenennen, ausblenden, ordnen; Vorschau mit derselben Seite wie in OBS, pixelgenaues Verschieben, Skalieren und Drehen mit Linealen, Hilfslinien, Raster, Einrasten, Zoom und Rückgängig. Modul «Chat-Bot»: Chat lesen und senden, Commands mit Berechtigung und Cooldown, Protokoll. Dazu im Fensterkopf der Zustand der Verbindungen und eine Leistungsanzeige (CPU, RAM, LAN).
+
+Noch nicht gebaut sind unter anderem die OBS-Anbindung, NDI, das Quellenfenster und Actions, Timer, Queues. Was fertig ist und was folgt: `docs/01-funktionen.md` (Spalte «Stand») und `docs/05-prompt-plan.md`.
 
 ## Umgebung
 

@@ -263,6 +263,17 @@ def move_box(
     return Box(start.x + rint(dx), start.y + rint(dy), start.w, start.h, start.rot), hit
 
 
+def fit_inside(w: int, h: int, max_w: int, max_h: int) -> tuple[int, int]:
+    """Grösse im Seitenverhältnis w:h, höchstens max_w × max_h (nur verkleinern), ganze Pixel, mindestens 1 (F-77)."""
+    s = min(1.0, max_w / w, max_h / h)
+    return (max(MIN_SIDE, min(max_w, rint(w * s))), max(MIN_SIDE, min(max_h, rint(h * s))))
+
+
+def is_corner(handle: str) -> bool:
+    sx, sy = HANDLE_DIR[handle]
+    return bool(sx and sy)
+
+
 def resize_box(
     start: Box,
     handle: str,
@@ -271,13 +282,19 @@ def resize_box(
     snap: SnapTargets | None = None,
     threshold: float = 0.0,
     grid: int = 0,
+    keep_ratio: bool = False,
 ) -> tuple[Box, SnapHit]:
     """Ändert die Grösse über einen Eck- oder Seitengriff.
 
     (dx, dy) ist der Weg des Zeigers seit dem Anfassen in Overlay-Pixeln. Die gegenüberliegende Kante (Ecke)
     bleibt an ihrem Platz, auch bei gedrehter Quelle. Einrasten gibt es nur ohne Drehung. Mindestgrösse 1 Pixel.
+
+    `keep_ratio` (nur Eckgriffe, F-77): Das Seitenverhältnis von `start` bleibt (bis auf Rundung auf ganze
+    Pixel). Es gilt im Koordinatensystem der Quelle, also auch bei Drehung.
     """
     sx, sy = HANDLE_DIR[handle]
+    if keep_ratio and sx and sy:
+        return _resize_keep_ratio(start, sx, sy, dx, dy, snap, threshold, grid)
     hit = SnapHit()
     theta = start.rot
     # Lage des Griffs vor dem Ziehen, in der ungedrehten Quelle (Mitte als Ursprung)
@@ -302,11 +319,57 @@ def resize_box(
     qx, qy = qx - c0x, qy - c0y
     new_w = max(MIN_SIDE, rint(sx * qx + start.w / 2)) if sx else start.w
     new_h = max(MIN_SIDE, rint(sy * qy + start.h / 2)) if sy else start.h
-    # Gegenüberliegender Ankerpunkt (bleibt fest), mit Grösse neu zur Mitte
+    return _anchored(start, sx, sy, new_w, new_h), hit
+
+
+def _anchored(start: Box, sx: int, sy: int, new_w: int, new_h: int) -> Box:
+    """Box mit neuer Grösse; die dem Griff gegenüberliegende Ecke (Kante) bleibt fest, auch gedreht."""
+    c0x, c0y, theta = start.cx, start.cy, start.rot
     ax, ay = rotate_point(c0x - sx * start.w / 2, c0y - sy * start.h / 2, c0x, c0y, theta)
     ox, oy = rotate_point(sx * new_w / 2, sy * new_h / 2, 0.0, 0.0, theta)
     cx, cy = ax + ox, ay + oy
-    return Box(rint(cx - new_w / 2), rint(cy - new_h / 2), new_w, new_h, start.rot), hit
+    return Box(rint(cx - new_w / 2), rint(cy - new_h / 2), new_w, new_h, start.rot)
+
+
+def _resize_keep_ratio(
+    start: Box,
+    sx: int,
+    sy: int,
+    dx: float,
+    dy: float,
+    snap: SnapTargets | None,
+    threshold: float,
+    grid: int,
+) -> tuple[Box, SnapHit]:
+    hit = SnapHit()
+    w0, h0, theta = start.w, start.h, start.rot
+    c0x, c0y = start.cx, start.cy
+    # Ziel des Griffs im ungedrehten Rahmen der Quelle (Mitte als Ursprung)
+    gx, gy = rotate_point(c0x + sx * w0 / 2, c0y + sy * h0 / 2, c0x, c0y, theta)
+    qx, qy = rotate_point(gx + dx, gy + dy, c0x, c0y, -theta)
+    raw_w, raw_h = sx * (qx - c0x) + w0 / 2, sy * (qy - c0y) + h0 / 2
+    # Faktor: Projektion des Zeigers auf die Diagonale (gleichmässig in beide Richtungen)
+    f = (raw_w * w0 + raw_h * h0) / (w0 * w0 + h0 * h0)
+    if snap is not None and not theta:
+        # Ohne Drehung darf eine der beiden bewegten Kanten einrasten; die andere folgt dem Verhältnis.
+        ax, ay = c0x - sx * w0 / 2, c0y - sy * h0 / 2
+        best: tuple[float, str, float, float] | None = None
+        ex, ey = ax + sx * w0 * f, ay + sy * h0 * f
+        d, line = snap_axis([ex], snap.xs, threshold, grid)
+        if line is not None:
+            best = (abs(d), "x", line, sx * (ex + d - ax) / w0)
+        d, line = snap_axis([ey], snap.ys, threshold, grid)
+        if line is not None and (best is None or abs(d) < best[0]):
+            best = (abs(d), "y", line, sy * (ey + d - ay) / h0)
+        if best is not None:
+            f = best[3]
+            if best[1] == "x":
+                hit.xs = [best[2]]
+            else:
+                hit.ys = [best[2]]
+    f = max(f, MIN_SIDE / min(w0, h0))
+    new_w, new_h = max(MIN_SIDE, rint(w0 * f)), max(MIN_SIDE, rint(h0 * f))
+    return _anchored(start, sx, sy, new_w, new_h), hit
 
 
 def rotation_from_pointer(

@@ -285,14 +285,20 @@ class PerfField(QWidget):
         font.setBold(True)
         return font
 
-    def update_width(self) -> None:
-        """Feste Breite für den längsten möglichen Text (z. B. «↓ 999.9 Mbit/s  ↑ 999.9 Mbit/s»)."""
+    def needed_width(self) -> int:
+        """Breite für den breitesten möglichen Text dieses Feldes (z. B. «↓ 999.9 Mbit/s  ↑ 999.9 Mbit/s»)."""
         title_w = QFontMetrics(self.font()).horizontalAdvance(self.title)
-        longest = max(
-            QFontMetrics(self._value_font()).horizontalAdvance(t)
-            for t in (perf.LONGEST[self.key], perf.NO_VALUE)
-        )
-        self.setFixedWidth(max(self.MIN_WIDTH, 2 * self.PAD + title_w + 2 * self.PAD + longest))
+        fm = QFontMetrics(self._value_font())
+        longest = max(fm.horizontalAdvance(t) for t in perf.width_texts(self.key))
+        return max(self.MIN_WIDTH, 2 * self.PAD + title_w + 2 * self.PAD + longest)
+
+    def update_width(self) -> None:
+        """Feste Breite. In der Leistungsanzeige sind alle drei Felder gleich breit (F-78): die Leiste gleicht an."""
+        bar = self.parentWidget()
+        if isinstance(bar, PerfBar):
+            bar.equalize()
+        elif self.width() != self.needed_width() or self.minimumWidth() != self.maximumWidth():
+            self.setFixedWidth(self.needed_width())
 
     def event(self, e: QEvent) -> bool:
         if e.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange, QEvent.Type.PolishRequest):
@@ -391,6 +397,16 @@ class PerfBar(QWidget):
         self.timer.timeout.connect(self.tick)
         for key in perf.FIELDS:
             self._show(key, perf.NO_VALUE)
+        self.equalize()
+
+    def equalize(self) -> None:
+        """F-78: CPU, RAM und LAN gleich breit, nämlich so breit wie das breiteste nötige Feld."""
+        if not getattr(self, "fields", None) or len(self.fields) < len(perf.FIELDS):
+            return
+        width = max(f.needed_width() for f in self.fields.values())
+        for f in self.fields.values():
+            if f.minimumWidth() != width or f.maximumWidth() != width:
+                f.setFixedWidth(width)
 
     def apply_theme(self, name: str) -> None:
         pal = theme.palette(name)

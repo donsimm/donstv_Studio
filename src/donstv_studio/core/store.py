@@ -95,6 +95,28 @@ MIGRATIONS: list[tuple[int, str]] = [
         )
         """,
     ),
+    (
+        # F-74: Name einer Quelle (nur Bezeichnung). Bestehende Quellen bekommen den Namen, den die Liste bisher
+        # automatisch zeigte (overlays/models.py: default_source_name): «Text: <erste Zeile, 30 Zeichen>…»,
+        # «Bild: <Dateiname>», sonst «Text» oder «Bild». Erste Zeile: nach dem Entfernen von Leerraum am Anfang
+        # und Ende bis zum ersten Zeilenwechsel.
+        6,
+        """
+        ALTER TABLE sources ADD COLUMN name TEXT NOT NULL DEFAULT '';
+        UPDATE sources SET name = 'Text: ' || rtrim(substr(
+                trim(coalesce(json_extract(props, '$.text'), ''), char(32, 9, 10, 13, 11, 12)), 1,
+                instr(trim(coalesce(json_extract(props, '$.text'), ''), char(32, 9, 10, 13, 11, 12))
+                      || char(10), char(10)) - 1), char(13))
+        WHERE kind = 'text';
+        UPDATE sources SET name = substr(name, 1, 36) || CASE WHEN length(name) > 36 THEN '…' ELSE '' END
+        WHERE kind = 'text';
+        UPDATE sources SET name = 'Text' WHERE kind = 'text' AND name = 'Text: ';
+        UPDATE sources SET name = coalesce((SELECT 'Bild: ' || m.name FROM media m
+                                            WHERE m.id = json_extract(sources.props, '$.media_id')
+                                              AND m.name <> ''), 'Bild')
+        WHERE kind = 'image'
+        """,
+    ),
 ]
 
 BACKUP_PREFIX = "donstv-"

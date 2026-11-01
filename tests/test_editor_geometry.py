@@ -235,3 +235,54 @@ def test_box_contains_respects_rotation():
     b = Box(0, 0, 200, 100, 90.0)  # Mitte (100, 50), gedreht: x in 50..150, y in -50..150
     assert b.contains(100, 140) and not b.contains(10, 50)
     assert Box(0, 0, 10, 10).contains(5, 5) and not Box(0, 0, 10, 10).contains(11, 5)
+
+
+# --- Seitenverhältnis (F-77) -----------------------------------------------------------------------
+@pytest.mark.parametrize("rot", [0.0, 30.0, -135.0])
+@pytest.mark.parametrize("handle", ["nw", "ne", "se", "sw"])
+@pytest.mark.parametrize(("dx", "dy"), [(80, 10), (-30, 40), (5, -60), (200, 200)])
+def test_f77_corner_keeps_the_aspect_ratio_also_rotated(rot, handle, dx, dy):
+    start = Box(100, 50, 400, 100, rot)  # 4:1
+    box, _ = geo.resize_box(start, handle, dx, dy, keep_ratio=True)
+    assert box.rot == rot and all(isinstance(v, int) for v in (box.x, box.y, box.w, box.h))
+    # Verhältnis im Koordinatensystem der Quelle (Breite, Höhe ohne Drehung), bis auf Rundung
+    assert abs(box.w - 4 * box.h) <= 4
+    # die gegenüberliegende Ecke bleibt, wo sie war (Rundung: höchstens 1,5 Pixel)
+    sx, sy = geo.HANDLE_DIR[handle]
+    before = geo.rotate_point(start.cx - sx * start.w / 2, start.cy - sy * start.h / 2,
+                              start.cx, start.cy, rot)  # fmt: skip
+    after = geo.rotate_point(box.cx - sx * box.w / 2, box.cy - sy * box.h / 2, box.cx, box.cy, rot)
+    assert math.dist(before, after) <= 1.5
+
+
+def test_f77_corner_follows_the_pointer_along_the_diagonal():
+    box, _ = geo.resize_box(Box(0, 0, 400, 300), "se", 40, 30, keep_ratio=True)
+    assert box == Box(0, 0, 440, 330)
+    box, _ = geo.resize_box(Box(0, 0, 400, 300), "se", 40, 0, keep_ratio=True)
+    assert (box.w, box.h) == (426, 319)  # Projektion auf die Diagonale (Faktor 1.064): 4:3 bleibt
+    box, _ = geo.resize_box(Box(0, 0, 400, 300), "se", -2000, -2000, keep_ratio=True)
+    assert box.w >= 1 and box.h >= 1 and abs(box.w / box.h - 4 / 3) < 0.4
+
+
+def test_f77_without_keep_ratio_and_side_handles_are_free():
+    free, _ = geo.resize_box(Box(0, 0, 400, 300), "se", 40, 0)
+    assert (free.w, free.h) == (440, 300)
+    for handle, (dx, dy), size in (("e", (40, 25), (440, 300)), ("s", (40, 25), (400, 325))):
+        box, _ = geo.resize_box(Box(0, 0, 400, 300), handle, dx, dy, keep_ratio=True)
+        assert (box.w, box.h) == size, handle
+
+
+def test_f77_corner_with_ratio_snaps_one_edge_and_the_other_follows():
+    targets = geo.snap_targets(1920, 1080, [500], [], [])
+    # Zeiger bei (498, 249): Faktor 1.245, rechte Kante bei 498 rastet auf 500, Höhe folgt (2:1)
+    box, hit = geo.resize_box(Box(0, 0, 400, 200), "se", 98, 49, targets, 6.0, keep_ratio=True)
+    assert box.x + box.w == 500 and box.h == 250 and hit.xs == [500]
+
+
+@pytest.mark.parametrize(
+    ("size", "limit", "expect"),
+    [((300, 200), (1920, 1080), (300, 200)), ((5000, 3000), (1920, 1080), (1800, 1080)),
+     ((1, 5000), (1920, 1080), (1, 1080)), ((5000, 1), (100, 100), (100, 1))],
+)  # fmt: skip
+def test_f77_fit_inside_keeps_ratio_whole_pixels(size, limit, expect):
+    assert geo.fit_inside(*size, *limit) == expect

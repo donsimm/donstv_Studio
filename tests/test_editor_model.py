@@ -79,8 +79,8 @@ def test_f12_add_image_source_uploads_then_adds(env):
     assert source_label(s, model.media_names) == "Bild: logo.png"
     model.add_image_source(
         "/tmp/gross.png", (5000, 3000)
-    )  # grösser als das Overlay: auf die Overlay-Grösse begrenzt
-    assert (model.selected()["width"], model.selected()["height"]) == (1920, 1080)
+    )  # grösser als das Overlay: passt hinein, Seitenverhältnis 5:3 bleibt (F-77, vorher 1920 × 1080)
+    assert (model.selected()["width"], model.selected()["height"]) == (1800, 1080)
     model.add_image_source("/tmp/x.svg", None)  # Grösse unbekannt (SVG): Standardgrösse
     assert (model.selected()["width"], model.selected()["height"]) == (400, 300)
 
@@ -236,3 +236,67 @@ def test_runner_merges_pending_updates_of_the_same_source():
     QCoreApplication.processEvents()
     runner.stop()
     assert calls == [{"x": 49, "y": 7}]
+
+
+# --- Umbenennen (F-74) -----------------------------------------------------------------------------
+def test_f74_rename_source_with_undo_and_redo(env):
+    backend, model, _, o = env
+    sid = add_text(model, "Hallo")
+    assert source_label(model.source(sid)) == "Text: Hallo"
+    errors = []
+    model.error.connect(errors.append)
+    assert model.rename_source(sid, "  Titel ")
+    assert model.source(sid)["name"] == "Titel" and backend.source(o["id"], sid)["name"] == "Titel"
+    assert source_label(model.source(sid)) == "Titel"
+    assert model.source(sid)["props"] == {"text": "Hallo"}  # nur die Bezeichnung ändert sich
+    model.undo()
+    assert model.source(sid)["name"] == "Text: Hallo"
+    assert backend.source(o["id"], sid)["name"] == "Text: Hallo"
+    model.redo()
+    assert model.source(sid)["name"] == "Titel"
+    assert errors == []
+
+
+def test_f74_empty_name_is_refused_with_a_message(env):
+    backend, model, _, o = env
+    sid = add_text(model, "Hallo")
+    model.rename_source(sid, "Titel")
+    errors = []
+    model.error.connect(errors.append)
+    assert not model.rename_source(sid, "   ")
+    assert model.source(sid)["name"] == "Titel" and backend.source(o["id"], sid)["name"] == "Titel"
+    assert errors == ["Der Name der Quelle darf nicht leer sein"]
+    model.undo()  # die abgelehnte Eingabe ist kein Schritt
+    assert model.source(sid)["name"] == "Text: Hallo"
+
+
+def test_f74_rename_and_move_are_separate_undo_steps(env):
+    backend, model, _, o = env
+    sid = add_text(model, "Hallo")
+    model.nudge(5, 0)
+    model.rename_source(sid, "Titel")
+    model.nudge(5, 0)
+    model.undo()
+    assert model.source(sid)["name"] == "Titel"
+    model.undo()
+    assert model.source(sid)["name"] == "Text: Hallo"
+    assert model.source(sid)["x"] == (1920 - 600) // 2 + 5
+    model.undo()
+    assert model.source(sid)["x"] == (1920 - 600) // 2
+
+
+# --- Bildquellen (F-77) ----------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("natural", "expect"),
+    [((300, 200), (300, 200)), ((5000, 3000), (1800, 1080)), ((4000, 1000), (1920, 480)),
+     ((100, 9000), (12, 1080)), ((1920, 1080), (1920, 1080))],
+)  # fmt: skip
+def test_f77_new_image_frame_has_the_aspect_ratio_of_the_image(env, natural, expect):
+    backend, model, _, o = env
+    model.add_image_source("/tmp/bild.png", natural)
+    s = model.selected()
+    assert (s["width"], s["height"]) == expect
+    assert all(isinstance(s[k], int) for k in ("x", "y", "width", "height"))
+    assert s["width"] <= 1920 and s["height"] <= 1080
+    assert abs(s["width"] / s["height"] - natural[0] / natural[1]) < 0.1
+    assert s["name"] == "Bild: bild.png"

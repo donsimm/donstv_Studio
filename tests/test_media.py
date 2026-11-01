@@ -110,7 +110,8 @@ async def test_f16_reusable_and_delete_refused_while_used(lib, tmp_path):
         )
         for sid, oid in (("s1", "o1"), ("s2", "o1"), ("s3", "o2")):  # mehrfach verwendet
             db.execute(
-                "INSERT INTO sources VALUES (?,?,?,0,0,5,5,0,0,1,?)",
+                "INSERT INTO sources (id, overlay_id, kind, x, y, width, height, rotation, z, visible, "
+                "props) VALUES (?,?,?,0,0,5,5,0,0,1,?)",
                 (sid, oid, "image", f'{{"media_id": "{item.id}"}}'),
             )
     assert sorted(lib.used_by(item.id)) == ["o1", "o2"]

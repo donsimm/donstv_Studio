@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import math
 
-from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFontMetrics, QPainter, QPen
 from PyQt6.QtWidgets import QScrollBar, QWidget
 
 from donstv_studio.ui import geometry as geo
@@ -33,6 +33,18 @@ GUIDE_HIT = 4
 SHRUNK_ZOOM = 0.5  # «Vorschau verkleinern»: «Einpassen» wird nie grösser als 50 %
 RULER_STEPS = (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000)
 PAN_STEP = 40
+BADGE_MARGIN = 6  # Abstand der Zeigeranzeige zum linken und unteren Rand der Vorschaufläche
+BADGE_PAD = (6, 2)  # Innenabstand der Zeigeranzeige (waagrecht, senkrecht)
+BADGE_ALPHA = (
+    200  # Deckkraft des Grundes der Zeigeranzeige (0 bis 255): lesbar auf hellem und dunklem Bild
+)
+NO_POINTER = "X: –   Y: –"
+WIDEST_POINTER = "X: -99999   Y: -99999"  # für die feste Breite der Zeigeranzeige
+
+
+def pointer_text(inside: bool, x: int, y: int) -> str:
+    """Text der Zeigeranzeige (F-75): ganze Overlay-Pixel, ausserhalb der Fläche «–»."""
+    return f"X: {x}   Y: {y}" if inside else NO_POINTER
 
 
 def ruler_step(k: float, min_px: float = 64.0) -> int:
@@ -146,6 +158,69 @@ class Ruler(QWidget):
     def mouseReleaseEvent(self, e) -> None:
         if e.button() == Qt.MouseButton.LeftButton:
             self.view.layer.end_guide(self.view.layer.mapFromGlobal(e.globalPosition().toPoint()))
+
+
+class PointerBadge(QWidget):
+    """Zeigerposition links unten in der Vorschaufläche (F-75), von Qt über der Webansicht gezeichnet.
+
+    Nicht Teil der Overlay-Seite: die Ausgabe in OBS bleibt gleich. Halbtransparenter Grund in der Farbe der Fläche,
+    Text in der Textfarbe; Mausereignisse gehen durch auf die Bedienebene. Feste Breite: der Text springt nicht.
+    """
+
+    def __init__(self, view: EditorView) -> None:
+        super().__init__(view.viewport)
+        self.view = view
+        self.setObjectName("pointer_badge")
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAccessibleName("Pixelposition unter dem Zeiger")
+        self._text = NO_POINTER
+
+    def text(self) -> str:
+        return self._text
+
+    def set_pointer(self, inside: bool, x: int, y: int) -> None:
+        text = pointer_text(inside, x, y)
+        if text != self._text:
+            self._text = text
+            self.update()
+
+    def sizeHint(self) -> QSize:
+        fm = QFontMetrics(self.font())
+        return QSize(
+            fm.horizontalAdvance(WIDEST_POINTER) + 2 * BADGE_PAD[0], fm.height() + 2 * BADGE_PAD[1]
+        )
+
+    def place(self) -> None:
+        size = self.sizeHint()
+        parent = self.parentWidget()
+        self.setGeometry(
+            BADGE_MARGIN,
+            parent.height() - size.height() - BADGE_MARGIN,
+            size.width(),
+            size.height(),
+        )
+        self.raise_()
+
+    def colors(self) -> tuple[QColor, QColor]:
+        pal = theme.palette(self.view.theme_name)
+        back = QColor(pal["surface"])
+        back.setAlpha(BADGE_ALPHA)
+        return back, QColor(pal["text"])
+
+    def paintEvent(self, _e) -> None:
+        back, fore = self.colors()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(back)
+        p.drawRoundedRect(QRectF(self.rect()), 3, 3)
+        p.setPen(fore)
+        p.drawText(
+            QRectF(self.rect()).adjusted(BADGE_PAD[0], 0, -BADGE_PAD[0], 0),
+            int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+            self._text,
+        )
+        p.end()
 
 
 class InteractionLayer(QWidget):
@@ -346,14 +421,16 @@ class InteractionLayer(QWidget):
         self._drag = {
             "kind": kind, "sid": sid, "handle": handle, "start": box_of(s),
             "press_view": pos, "press": self._overlay_point(pos), "targets": self._targets(),
-            "moved": False,
+            "moved": False, "image": s.get("kind") == "image",
         }  # fmt: skip
 
     def mouseMoveEvent(self, e) -> None:
         pos = e.position()
         t = self.view.transform()
         px = t.pixel_at(pos.x(), pos.y())
-        self.pointer_pixel.emit(True, px[0], px[1])
+        w, h = self.model.size()
+        inside = self.model.current() is not None and 0 <= px[0] < w and 0 <= px[1] < h
+        self.pointer_pixel.emit(inside, px[0], px[1])
         self.view.set_ruler_pointer(pos)
         if self._live_guide is not None:
             self.update_guide(QPoint(round(pos.x()), round(pos.y())))
@@ -372,7 +449,12 @@ class InteractionLayer(QWidget):
         if d["kind"] == "move":
             box, hit = geo.move_box(start, dx, dy, d["targets"], thr, grid)
         elif d["kind"] == "resize":
-            box, hit = geo.resize_box(start, d["handle"], dx, dy, d["targets"], thr, grid)
+            # F-77: Eckgriffe einer Bildquelle behalten das Seitenverhältnis; Umschalttaste löst es.
+            free = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            keep = d["image"] and geo.is_corner(d["handle"]) and not free
+            box, hit = geo.resize_box(
+                start, d["handle"], dx, dy, d["targets"], thr, grid, keep_ratio=keep
+            )
         else:
             now = self._overlay_point(pos)
             rot = geo.rotation_from_pointer(
@@ -522,6 +604,7 @@ class EditorView(QWidget):
             None  # entsteht erst mit dem ersten Overlay (Chromium startet dann)
         )
         self.layer = InteractionLayer(self)
+        self.pointer_badge = PointerBadge(self)
         self.ruler_top = Ruler(self, True)
         self.ruler_left = Ruler(self, False)
         self.hbar = QScrollBar(Qt.Orientation.Horizontal, self)
@@ -541,6 +624,7 @@ class EditorView(QWidget):
             sig.connect(lambda *_: self.layer.update())
         prefs.changed.connect(self._on_prefs)
         self.layer.pointer_pixel.connect(self.pointer_changed)
+        self.layer.pointer_pixel.connect(self.pointer_badge.set_pointer)
         self._loaded_url: str | None = None
         self._size: tuple[int, int] = model.size()
         self._on_overlay(model.current_id)
@@ -640,7 +724,7 @@ class EditorView(QWidget):
     def apply_theme(self, name: str) -> None:
         self.theme_name = name
         self.stage.palette_ = theme.palette(name)
-        for w in (self.stage, self.ruler_top, self.ruler_left, self.layer):
+        for w in (self.stage, self.ruler_top, self.ruler_left, self.layer, self.pointer_badge):
             w.update()
 
     def set_ruler_pointer(self, pos: QPointF | None) -> None:
@@ -723,6 +807,7 @@ class EditorView(QWidget):
         self.ruler_left.setGeometry(0, RULER, RULER, vh)
         self.layer.setGeometry(0, 0, vw, vh)
         self.layer.raise_()
+        self.pointer_badge.place()
         self._place_stage()
         for w in (self.ruler_top, self.ruler_left):
             w.update()

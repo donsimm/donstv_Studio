@@ -15,8 +15,8 @@ from PyQt6.QtGui import QMouseEvent, QWheelEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
+from donstv_studio.ui import editor_view, theme
 from donstv_studio.ui import geometry as geo
-from donstv_studio.ui import theme
 from donstv_studio.ui.backend import DirectRunner
 from donstv_studio.ui.editor_model import EditorModel
 from donstv_studio.ui.editor_prefs import EditorPrefs
@@ -513,3 +513,127 @@ def test_f13_rulers_follow_zoom(env):
 
     assert ruler_step(1.0) == 100 and ruler_step(4.0) == 20 and ruler_step(0.25) == 500
     assert ruler_step(1 / 64) >= 1000
+
+
+# --- Zeigerposition in der Vorschau (F-75) ---------------------------------------------------------
+def visible_pixel(view):
+    """Ein Overlay-Pixel, das in der Ansicht sichtbar ist (Mitte der Ansicht oder der Fläche)."""
+    w, h = view.model.size()
+    t = view.transform()
+    cx, cy = view.viewport.width() / 2, view.viewport.height() / 2
+    x, y = t.pixel_at(cx, cy)
+    return min(max(x, 0), w - 1), min(max(y, 0), h - 1)
+
+
+@pytest.mark.parametrize("zoom", [0.25, 1.0, 4.0])
+def test_f75_pointer_position_bottom_left_in_the_preview(env, app, zoom):
+    view, model, *_ = env
+    view.set_zoom(zoom)
+    app.processEvents()
+    badge = view.pointer_badge
+    assert badge.text() == "X: –   Y: –"
+    x, y = visible_pixel(view)
+    move(view.layer, *at(view, x, y), held=False)
+    assert badge.text() == f"X: {x}   Y: {y}"
+    # weitere Pixel bei diesem Zoom: ganze Overlay-Pixel unter dem Zeiger
+    for ox, oy in ((x + 3, y + 2), (x - 1, y)):
+        vx, vy = at(view, ox, oy)
+        if 0 <= vx < view.viewport.width() and 0 <= vy < view.viewport.height():
+            move(view.layer, vx, vy, held=False)
+            assert badge.text() == f"X: {ox}   Y: {oy}"
+    # links unten in der Vorschaufläche, über der Bedienebene, Maus geht durch
+    g = badge.geometry()
+    assert badge.parentWidget() is view.viewport
+    assert g.left() == editor_view.BADGE_MARGIN
+    assert g.bottom() == view.viewport.height() - 1 - editor_view.BADGE_MARGIN
+    assert badge.isVisible() and badge.testAttribute(
+        Qt.WidgetAttribute.WA_TransparentForMouseEvents
+    )
+    siblings = view.viewport.children()
+    assert siblings.index(badge) > siblings.index(view.layer)  # liegt oben
+    view.layer.leaveEvent(QEvent(QEvent.Type.Leave))
+    assert badge.text() == "X: –   Y: –"
+
+
+def test_f75_dash_outside_the_overlay_area(env, app):
+    view, model, *_ = env
+    view.set_zoom(0.25)  # 800 × 400 bei 25 %: Fläche kleiner als die Ansicht, Rand ringsum
+    app.processEvents()
+    seen = []
+    view.pointer_changed.connect(lambda inside, x, y: seen.append(inside))
+    t = view.transform()
+    for ox, oy in ((-5, 10), (10, -5), (800.5, 10), (10, 400.5)):
+        move(view.layer, *t.to_view(ox, oy), held=False)
+        assert view.pointer_badge.text() == "X: –   Y: –", (ox, oy)
+    move(view.layer, *at(view, 799, 399), held=False)
+    assert view.pointer_badge.text() == "X: 799   Y: 399" and seen[-1] is True
+
+
+def test_f75_badge_has_fixed_width_and_does_not_shift(env, app):
+    view, model, *_ = env
+    app.processEvents()
+    g = view.pointer_badge.geometry()
+    for x, y in ((0, 0), (799, 399), (12, 345)):
+        move(view.layer, *at(view, x, y), held=False)
+        assert view.pointer_badge.geometry() == g
+    view.resize(900, 600)
+    app.processEvents()
+    assert view.pointer_badge.geometry().left() == editor_view.BADGE_MARGIN
+    assert (
+        view.pointer_badge.geometry().bottom()
+        == view.viewport.height() - 1 - editor_view.BADGE_MARGIN
+    )
+
+
+@pytest.mark.parametrize("name", [theme.DARK, theme.LIGHT])
+def test_f75_badge_readable_on_light_and_dark_picture(env, app, name):
+    """Halbtransparenter Grund: Text auf dem Grund über Schwarz und über Weiss mindestens 4.5:1."""
+    view, *_ = env
+    view.apply_theme(name)
+    back, fore = view.pointer_badge.colors()
+    assert 0 < back.alpha() < 255
+    a = back.alpha() / 255
+    for under in ((0, 0, 0), (255, 255, 255)):
+        mixed = [round(c * a + u * (1 - a)) for c, u in zip(back.getRgb()[:3], under, strict=True)]
+        hex_mixed = "#{:02x}{:02x}{:02x}".format(*mixed)
+        assert theme.contrast_ratio(fore.name(), hex_mixed) >= theme.MIN_CONTRAST, (name, under)
+    img = view.pointer_badge.grab().toImage()
+    assert img.width() > 0  # zeichnet ohne Fehler
+
+
+# --- Bildquellen: Seitenverhältnis (F-77) -----------------------------------------------------------
+def add_image(model, x, y, w, h, rot=0.0):
+    model.add_image_source("/tmp/bild.png", (w, h))
+    sid = model.selected_id
+    model.set_box(sid, geo.Box(x, y, w, h, rot))
+    return sid
+
+
+@pytest.mark.parametrize("rot", [0.0, 30.0])
+def test_f77_image_corner_keeps_ratio_shift_frees_it(env, rot):
+    view, model, prefs, *_ = env
+    prefs.set_snap(False)
+    sid = add_image(model, 100, 100, 200, 100, rot)
+    pt = view.layer.handle_points()["se"]
+    drag(view.layer, (pt.x(), pt.y()), (pt.x() + 60, pt.y() + 5))
+    s = model.source(sid)
+    assert abs(s["width"] - 2 * s["height"]) <= 2 and s["width"] > 200 and s["rotation"] == rot
+    model.undo()
+    assert (model.source(sid)["width"], model.source(sid)["height"]) == (200, 100)
+    pt = view.layer.handle_points()["se"]
+    drag(view.layer, (pt.x(), pt.y()), (pt.x() + 60, pt.y() + 5), SHIFT)  # Umschalttaste: frei
+    s = model.source(sid)
+    assert abs(s["width"] - 2 * s["height"]) > 2
+
+
+def test_f77_image_side_handles_and_text_sources_are_free(env):
+    view, model, prefs, *_ = env
+    prefs.set_snap(False)
+    sid = add_image(model, 100, 100, 200, 100)
+    pt = view.layer.handle_points()["e"]
+    drag(view.layer, (pt.x(), pt.y()), (pt.x() + 50, pt.y() + 30))
+    assert (model.source(sid)["width"], model.source(sid)["height"]) == (250, 100)
+    tid = add(model, 400, 200, 200, 100)
+    pt = view.layer.handle_points()["se"]
+    drag(view.layer, (pt.x(), pt.y()), (pt.x() + 60, pt.y() + 5))
+    assert (model.source(tid)["width"], model.source(tid)["height"]) == (260, 105)

@@ -67,7 +67,7 @@ elif case.startswith("CL:"):
     elif patch == "ohne_prefs_und_hilfslinien": _EP.load = lambda self, v: None; _EM.load_guides = lambda self, v: None
     elif patch == "direkter_runner": mw.TaskRunner = DirectRunner
     elif patch == "ohne_statuszeilen_widgets":
-        _orig = mw.MainWindow._show_pointer; mw.MainWindow._show_pointer = lambda self, *p: None
+        from donstv_studio.ui.editor_view import PointerBadge as _PB; _PB.set_pointer = lambda self, *p: None
         mw.MainWindow._show_zoom = lambda self, z, f: None
     elif patch == "ohne_dock_inhalt":
         from PyQt6.QtWidgets import QFrame, QLabel

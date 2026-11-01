@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from donstv_studio.overlays.models import MAX_SOURCE_NAME
 from donstv_studio.ui import geometry as geo
 from donstv_studio.ui import icons, theme
 from donstv_studio.ui.editor_model import EditorModel, box_of, source_label
@@ -57,6 +58,16 @@ def ask_text(parent: QWidget, title: str, label: str, text: str = "", ok: str = 
     dlg.setOkButtonText(ok)
     dlg.setCancelButtonText("Abbrechen")
     return dlg.textValue() if dlg.exec() else None
+
+
+def compact_spin(spin: QSpinBox) -> None:
+    """Mindestbreite eines Zahlenfeldes: grösster Wert mit Einheit, Pfeil-Schaltflächen, Rand (F-76).
+
+    Mit den eigenen Pfeil-Schaltflächen (Stylesheet) schlägt Qt deren Breite auf die Mindestbreite auf; ohne diese
+    Grenze würde das Dock «Steuerung» breiter als die anderen und die Standardanordnung (P05b) ungleich.
+    """
+    text = f"{spin.prefix()}{spin.maximum()}{spin.suffix()}"
+    spin.setMinimumWidth(spin.fontMetrics().horizontalAdvance(text) + theme.SPIN_BUTTON_WIDTH + 12)
 
 
 def confirm(parent: QWidget, title: str, text: str, ok: str) -> bool:
@@ -305,6 +316,9 @@ class SourceList(QListWidget):
         self.setObjectName("source_list")
         self.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        # Doppelklick ist für das Quellenfenster (F-79) reserviert; umbenannt wird über Menü, F2 oder «Name».
+        self.setEditTriggers(QListWidget.EditTrigger.NoEditTriggers)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.setIconSize(icons.icon_size())
         self.setAccessibleName("Quellen")
         self.model().rowsMoved.connect(lambda *_: self.reordered.emit())
@@ -362,8 +376,16 @@ class SourcesDock(QWidget):
         self.body, lay = _body()
         lay.addWidget(self.stack, 1)
         lay.addWidget(self.bar)
+        # F-74: Umbenennen mit F2, solange der Fokus in der Quellenliste (oder in der Vorschau, siehe MainWindow) liegt
+        self.rename_action = QAction("Umbenennen", self)
+        self.rename_action.setObjectName("rename_source")
+        self.rename_action.setShortcut(QKeySequence(Qt.Key.Key_F2))
+        self.rename_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.rename_action.triggered.connect(self.rename_current)
+        self.list.addAction(self.rename_action)
 
         self.list.currentItemChanged.connect(self._current_changed)
+        self.list.customContextMenuRequested.connect(self._menu)
         self.list.visibility_clicked.connect(self._toggle)
         self.list.reordered.connect(lambda: QTimer.singleShot(0, self._reordered))
         model.sources_changed.connect(self.refresh)
@@ -453,6 +475,26 @@ class SourcesDock(QWidget):
         if sid and self.confirm("Quelle entfernen", "Die gewählte Quelle entfernen?", "Entfernen"):
             self.model.delete_source(sid)
 
+    def rename_current(self) -> None:
+        """F-74: fragt den neuen Namen der gewählten Quelle ab. Leer wird abgelehnt (Meldung in der Statuszeile)."""
+        s = self.model.selected()
+        if s is None:
+            return
+        name = self.ask_text(
+            "Quelle umbenennen", "Name der Quelle:", source_label(s, self.model.media_names), "OK"
+        )
+        if name is not None:
+            self.model.rename_source(s["id"], name)
+
+    def _menu(self, pos) -> None:
+        item = self.list.itemAt(pos)
+        if item is None:
+            return
+        self.model.select_source(item.data(Qt.ItemDataRole.UserRole))
+        menu = QMenu(self)
+        menu.addAction(self.rename_action)
+        menu.exec(self.list.mapToGlobal(pos))
+
     def apply_theme(self, name: str) -> None:
         self._theme = name
         self.bar.apply_theme(name)
@@ -474,17 +516,25 @@ class PropertiesDock(QWidget):
         grid.setContentsMargins(8, 6, 8, 4)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(4)
+        # F-74: Name oben, nur eine Bezeichnung. Übernommen mit Eingabe oder beim Verlassen des Feldes.
+        grid.addWidget(QLabel("Name"), 0, 0)
+        self.name = QLineEdit()
+        self.name.setObjectName("field_name")
+        self.name.setAccessibleName("Name der Quelle")
+        self.name.setMaxLength(MAX_SOURCE_NAME)
+        self.name.editingFinished.connect(self._name_edited)
+        grid.addWidget(self.name, 0, 1, 1, 3)
         for row, (label, key, lo, hi) in enumerate(
-            (("X", "x", -COORD_RANGE, COORD_RANGE), ("Breite", "w", 1, SIDE_MAX))
+            (("X", "x", -COORD_RANGE, COORD_RANGE), ("Breite", "w", 1, SIDE_MAX)), start=1
         ):
             grid.addWidget(QLabel(label), row, 0)
             grid.addWidget(self._spin(key, lo, hi), row, 1)
         for row, (label, key, lo, hi) in enumerate(
-            (("Y", "y", -COORD_RANGE, COORD_RANGE), ("Höhe", "h", 1, SIDE_MAX))
+            (("Y", "y", -COORD_RANGE, COORD_RANGE), ("Höhe", "h", 1, SIDE_MAX)), start=1
         ):
             grid.addWidget(QLabel(label), row, 2)
             grid.addWidget(self._spin(key, lo, hi), row, 3)
-        grid.addWidget(QLabel("Drehung"), 2, 0)
+        grid.addWidget(QLabel("Drehung"), 3, 0)
         rot = QDoubleSpinBox()
         rot.setRange(-360.0, 360.0)
         rot.setDecimals(1)
@@ -493,11 +543,11 @@ class PropertiesDock(QWidget):
         rot.setAccessibleName("Drehung in Grad")
         rot.valueChanged.connect(lambda _v: self._edited("rot"))
         self.fields["rot"] = rot
-        grid.addWidget(rot, 2, 1)
+        grid.addWidget(rot, 3, 1)
         self.hint = QLabel("Keine Quelle gewählt")
         self.hint.setProperty("muted", True)
         self.hint.setObjectName("properties_hint")
-        grid.addWidget(self.hint, 2, 2, 1, 2)
+        grid.addWidget(self.hint, 3, 2, 1, 2)
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(3, 1)
         fields = QWidget()
@@ -520,6 +570,7 @@ class PropertiesDock(QWidget):
         model.box_changed.connect(lambda _id: self.refresh())
         model.selection_changed.connect(lambda _id: self.refresh())
         model.current_changed.connect(lambda _id: self.refresh())
+        model.sources_changed.connect(self.refresh)
         self.refresh()
 
     def _spin(self, key: str, lo: int, hi: int) -> QSpinBox:
@@ -539,6 +590,12 @@ class PropertiesDock(QWidget):
     def refresh(self) -> None:
         box = self.current_box()
         self._updating = True
+        s = self.model.selected()
+        self.name.setEnabled(s is not None)
+        label = source_label(s, self.model.media_names) if s else ""
+        if self.name.text() != label and not (self.name.hasFocus() and self.name.isModified()):
+            self.name.setText(label)
+            self.name.setModified(False)
         for f in self.fields.values():
             f.setEnabled(box is not None)
         if box is not None:
@@ -556,6 +613,17 @@ class PropertiesDock(QWidget):
         for b in self.align_buttons.values():
             b.setEnabled(box is not None)
         self._updating = False
+
+    def _name_edited(self) -> None:
+        if self._updating:
+            return
+        s = self.model.selected()
+        if s is None:
+            return
+        self.name.setModified(False)
+        if not self.model.rename_source(s["id"], self.name.text()):
+            # abgelehnt (leer): Meldung kam über model.error; alten Namen wieder anzeigen
+            self.name.setText(source_label(s, self.model.media_names))
 
     def _edited(self, key: str) -> None:
         if self._updating:
@@ -647,6 +715,7 @@ class ControlDock(QWidget):
         self.grid_size.setObjectName("grid_size")
         self.grid_size.setAccessibleName("Rasterweite in Pixeln")
         self.grid_size.valueChanged.connect(lambda v: not self._updating and prefs.set_grid_size(v))
+        compact_spin(self.grid_size)
         grid.addWidget(self.grid_size, 3, 3)
         self.clear_guides = QPushButton("Hilfslinien löschen")
         self.clear_guides.setObjectName("clear_guides")

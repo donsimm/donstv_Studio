@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QByteArray, QEvent, Qt, QTimer
-from PyQt6.QtGui import QAction, QActionGroup, QFontMetrics, QIcon, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -37,7 +37,7 @@ from PyQt6.QtWidgets import (
 
 from donstv_studio import __version__
 from donstv_studio.ui import geometry as geo
-from donstv_studio.ui import theme
+from donstv_studio.ui import indicators, theme
 from donstv_studio.ui.backend import DirectRunner, TaskRunner
 from donstv_studio.ui.bot_page import BotModel, BotSettingsTab, ChatPanel, CommandsTab, LogPanel
 from donstv_studio.ui.editor_docks import ControlDock, OverlaysDock, PropertiesDock, SourcesDock
@@ -270,7 +270,6 @@ class MainWindow(QMainWindow):
         self.editor = EditorView(self.model, self.prefs)
         self.preview.set_editor(self.editor)
         self.editor.overlay_available.connect(self.preview.show_editor)
-        self.editor.pointer_changed.connect(self._show_pointer)
         self.editor.zoom_changed.connect(self._show_zoom)
         page.addWidget(self.preview, 1)
         self.stack.addWidget(overlays_page)
@@ -299,6 +298,8 @@ class MainWindow(QMainWindow):
         self.dock_titles: list[DockTitleBar] = []
         self.overlays_panel = OverlaysDock(self.model)
         self.sources_panel = SourcesDock(self.model)
+        # F-74: F2 benennt die gewählte Quelle auch um, wenn der Fokus in der Vorschau liegt
+        self.editor.addAction(self.sources_panel.rename_action)
         self.properties_panel = PropertiesDock(self.model)
         self.control_panel = ControlDock(self.model, self.prefs)
         self.control_panel.copied.connect(
@@ -456,13 +457,8 @@ class MainWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         self.statusBar().setSizeGripEnabled(False)
         self.statusBar().setFixedHeight(theme.STATUS_BAR_HEIGHT)
-        # Zeigerlage in Overlay-Pixeln und Zoom (F-65), links von der Anzeige des Kern-Dienstes
-        self.pointer_label = QLabel("X: –   Y: –")
-        self.pointer_label.setObjectName("pointer_label")
-        self.pointer_label.setAccessibleName("Pixelposition unter dem Zeiger")
-        self.pointer_label.setMinimumWidth(
-            QFontMetrics(self.font()).horizontalAdvance("X: 99999   Y: 99999") + 12
-        )
+        # Zoom (F-65), links von der Anzeige des Kern-Dienstes. Die Zeigerlage steht seit F-75 nur noch links unten
+        # in der Vorschaufläche (editor_view.PointerBadge).
         self.zoom_combo = QComboBox()
         self.zoom_combo.setObjectName("zoom_combo")
         self.zoom_combo.setAccessibleName("Zoom der Vorschau")
@@ -481,7 +477,6 @@ class MainWindow(QMainWindow):
         )
         self.core_status = QLabel()
         self.core_status.setObjectName("core_status")
-        self.statusBar().addPermanentWidget(self.pointer_label)
         self.statusBar().addPermanentWidget(self.zoom_combo)
         self.statusBar().addPermanentWidget(self.core_status)
         self.statusBar().showMessage("Bereit")
@@ -498,9 +493,6 @@ class MainWindow(QMainWindow):
             act.blockSignals(True)
             act.setChecked(value)
             act.blockSignals(False)
-
-    def _show_pointer(self, inside: bool, x: int, y: int) -> None:
-        self.pointer_label.setText(f"X: {x}   Y: {y}" if inside else "X: –   Y: –")
 
     def _show_zoom(self, zoom: float, fit: bool) -> None:
         index = 0 if fit else next((i for i in range(self.zoom_combo.count())
@@ -566,8 +558,12 @@ class MainWindow(QMainWindow):
 
     def _apply_theme_style(self) -> None:
         app = QApplication.instance()
-        sheet = theme.stylesheet(self.theme)
-        (app or self).setStyleSheet(sheet)
+        sheet = theme.stylesheet(self.theme, indicators.image_paths(self.theme))
+        target = app or self
+        # Nur bei Änderung setzen (P06d, Vorschlag 2 aus P08): setStyleSheet gestaltet alle Widgets neu und war der
+        # Ort des sporadischen Absturzes in P08. Dasselbe Design erneut zu wählen, ändert deshalb nichts.
+        if target.styleSheet() != sheet:
+            target.setStyleSheet(sheet)
         self.connections.apply_theme(self.theme)
         self.perf.apply_theme(self.theme)
         self._update_minimum_width()

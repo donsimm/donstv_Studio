@@ -205,6 +205,26 @@ LONGEST = {
 TITLES = {"cpu": "CPU", "ram": "RAM", "lan": "LAN"}
 FIELDS = tuple(TITLES)
 
+# Zahlen mit grösster Stellenzahl je Einheit (wie _rate_parts sie höchstens liefert)
+_RATE_WIDEST = (("999", "kbit/s"), ("999.9", "Mbit/s"), ("99.9", "Gbit/s"))
+
+
+def width_texts(key: str) -> list[str]:
+    """Alle Texte, deren Breite die feste Breite eines Feldes bestimmt (F-78).
+
+    Die längsten Texte jeder Einheitenkombination; jede Ziffer wird durch jede Ziffer 0 bis 9 ersetzt, damit auch in
+    Schriften mit unterschiedlich breiten Ziffern kein möglicher Wert breiter ist. Dazu «–» (kein Wert).
+    """
+    bases = [LONGEST[key]]
+    if key == "lan":
+        for rx, ru in _RATE_WIDEST:
+            for tx, tu in _RATE_WIDEST:
+                bases.append(f"↓ {rx}  ↑ {tx} {tu}" if ru == tu else f"↓ {rx} {ru}  ↑ {tx} {tu}")
+    texts = [NO_VALUE]
+    for base in bases:
+        texts.extend("".join(d if ch.isdigit() else ch for ch in base) for d in "0123456789")
+    return texts
+
 
 # --- Verlauf und Messer -------------------------------------------------------------------------
 
