@@ -49,3 +49,32 @@ Unbewiesene Hypothesen (alle aus `git diff 6dc8f44..c3509cb -- src`):
 3. `ui/editor_view.py`: `PointerBadge` (neues Widget über der Vorschau).
 4. `ui/theme.py`, `ui/indicators.py`: Stylesheet mit Bildern (`indicators.image_paths`), Neuberechnung des Aussehens aller Widgets beim ersten `setStyleSheet`.
 5. `ui/editor_docks.py`: Feld «Name» und Aktionen.
+
+## Nachtrag 2026-11-01 (nach P06d2): Absturz im Handtest mit echten Daten
+
+Laptop, Stand `54f6696` (P06d2), Qt 6.8.2, PyQt6 6.9.0, Sitzung Wayland (XWayland unter `DISPLAY=:0`).
+
+| Lauf | Bedingungen | Ergebnis |
+|---|---|---|
+| `tools/laptop_pruefung.sh kurz` | Beenden-Prüfung 5×, Startprüfung `standard` 5× (`xcb`, **leerer Kern**) | alle Exit-Code 0 |
+| Handtest | `python -X faulthandler -c "from donstv_studio.ui.main import main; main()"`, Plattform nicht gesetzt, **echte Daten** | Exit-Code 139 |
+| Handtest | wie oben mit `QT_QPA_PLATFORM=xcb` | Exit-Code 139 |
+| Handtest | wie oben mit `DONSTV_OFF="perf_equalize pointer_badge qss_images min_width rename"` | Exit-Code 139 |
+
+Schlüsse:
+
+1. Die Startprüfung bildet den Handtest nicht ab: Sie startet mit **leeren Daten** (kein Overlay, keine Quelle, keine gespeicherte Lage ausser Variante `schmal`). Der Handtest läuft mit echten Daten.
+2. Die Plattform (Wayland oder `xcb`) ist nicht die Ursache.
+3. Die fünf Diagnose-Schalter aus P06d2 sind **nicht** die Ursache; die Ursache liegt in einem anderen Teil der P06d-Änderungen (`git diff 6dc8f44..54f6696 -- src/donstv_studio/ui`: `editor_view.py`, `editor_model.py`, `geometry.py`, `theme.py`, `indicators.py`, `perf.py`, `widgets.py`, `editor_docks.py`, `main_window.py`) oder in deren Zusammenspiel mit den Daten.
+4. Python-Aufrufliste des Hauptthreads beim Absturz (`faulthandler`, Lauf mit allen Schaltern aus):
+
+```
+File ".../ui/editor_docks.py", line 169 in sync          (self.setCurrentWidget(...) im QStackedWidget _ListWithHint)
+File ".../ui/editor_docks.py", line 226 in refresh       (OverlaysDock.refresh)
+File ".../ui/editor_model.py", line 153 in _loaded
+File ".../ui/backend.py", line 244 in _drain
+File ".../ui/main.py", line 60 in main                    (app.exec())
+```
+
+   Der Absturz geschieht also beim **ersten Laden der Overlay-Liste** nach dem Start, wenn die Liste nicht mehr leer ist und die Seite des `QStackedWidget` von «Hinweis» auf «Liste» wechselt. Das löst ein Layout aus (passt zur C++-Aufrufliste: `QLayoutPrivate::doResize()`). `_ListWithHint.sync` ist seit P06 (`4d9a1c4`) unverändert; die Ursache liegt daher im Zustand, den P06d davor erzeugt hat. Das ist eine Lesart, kein Beweis.
+5. Offen: ob der Absturz mit leerer Datenbank ausbleibt (spricht für 1.) und ob schon die Overlay-Liste allein genügt oder erst Quellen nötig sind.
