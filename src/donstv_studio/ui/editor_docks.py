@@ -35,8 +35,8 @@ from PyQt6.QtWidgets import (
 )
 
 from donstv_studio.overlays.models import MAX_SOURCE_NAME
+from donstv_studio.ui import diagnose, icons, theme
 from donstv_studio.ui import geometry as geo
-from donstv_studio.ui import icons, theme
 from donstv_studio.ui.editor_model import EditorModel, box_of, source_label
 from donstv_studio.ui.editor_prefs import GRID_MAX, GRID_MIN, EditorPrefs
 from donstv_studio.ui.geometry import Box
@@ -382,7 +382,8 @@ class SourcesDock(QWidget):
         self.rename_action.setShortcut(QKeySequence(Qt.Key.Key_F2))
         self.rename_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.rename_action.triggered.connect(self.rename_current)
-        self.list.addAction(self.rename_action)
+        if not diagnose.off("rename"):  # DIAGNOSE (P06d2): ohne Umbenennen wie P08
+            self.list.addAction(self.rename_action)
 
         self.list.currentItemChanged.connect(self._current_changed)
         self.list.customContextMenuRequested.connect(self._menu)
@@ -491,6 +492,8 @@ class SourcesDock(QWidget):
         if item is None:
             return
         self.model.select_source(item.data(Qt.ItemDataRole.UserRole))
+        if diagnose.off("rename"):  # DIAGNOSE (P06d2): kein Kontextmenü wie P08
+            return
         menu = QMenu(self)
         menu.addAction(self.rename_action)
         menu.exec(self.list.mapToGlobal(pos))
@@ -517,13 +520,19 @@ class PropertiesDock(QWidget):
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(4)
         # F-74: Name oben, nur eine Bezeichnung. Übernommen mit Eingabe oder beim Verlassen des Feldes.
-        grid.addWidget(QLabel("Name"), 0, 0)
         self.name = QLineEdit()
         self.name.setObjectName("field_name")
         self.name.setAccessibleName("Name der Quelle")
         self.name.setMaxLength(MAX_SOURCE_NAME)
         self.name.editingFinished.connect(self._name_edited)
-        grid.addWidget(self.name, 0, 1, 1, 3)
+        if diagnose.off(
+            "rename"
+        ):  # DIAGNOSE (P06d2): kein Feld «Name» wie P08 (das Objekt bleibt unsichtbar)
+            self.name.setParent(self)
+            self.name.hide()
+        else:
+            grid.addWidget(QLabel("Name"), 0, 0)
+            grid.addWidget(self.name, 0, 1, 1, 3)
         for row, (label, key, lo, hi) in enumerate(
             (("X", "x", -COORD_RANGE, COORD_RANGE), ("Breite", "w", 1, SIDE_MAX)), start=1
         ):

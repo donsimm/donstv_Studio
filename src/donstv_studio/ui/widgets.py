@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer
+from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QPen, QPixmap, QPolygonF
 from PyQt6.QtWidgets import (
     QDockWidget,
@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from donstv_studio.ui import perf, theme
+from donstv_studio.ui import diagnose, perf, theme
 
 log = logging.getLogger(__name__)
 
@@ -278,6 +278,12 @@ class PerfField(QWidget):
         self.setFixedHeight(PERF_HEIGHT)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setAccessibleName(f"{self.title}: {self.value_text}")
+        self._width_timer = QTimer(
+            self
+        )  # P06d2: Breite nach Schrift- oder Stilwechsel, zusammengefasst
+        self._width_timer.setSingleShot(True)
+        self._width_timer.setInterval(0)
+        self._width_timer.timeout.connect(self.update_width)
         self.update_width()
 
     def _value_font(self) -> QFont:
@@ -292,20 +298,48 @@ class PerfField(QWidget):
         longest = max(fm.horizontalAdvance(t) for t in perf.width_texts(self.key))
         return max(self.MIN_WIDTH, 2 * self.PAD + title_w + 2 * self.PAD + longest)
 
+    def p08_width(self) -> int:
+        """DIAGNOSE (P06d2, `DONSTV_OFF=perf_equalize` und `min_width`): Breite des Feldes wie in P08."""
+        title_w = QFontMetrics(self.font()).horizontalAdvance(self.title)
+        fm = QFontMetrics(self._value_font())
+        longest = max(fm.horizontalAdvance(t) for t in (perf.LONGEST[self.key], perf.NO_VALUE))
+        return max(self.MIN_WIDTH, 2 * self.PAD + title_w + 2 * self.PAD + longest)
+
     def update_width(self) -> None:
-        """Feste Breite. In der Leistungsanzeige sind alle drei Felder gleich breit (F-78): die Leiste gleicht an."""
+        """Feste Breite sofort setzen. Nie aus `event()` rufen (P06d2, CLAUDE.md Regel 16), sondern über
+        `request_width_update()`. In der Leistungsanzeige sind alle drei Felder gleich breit (F-78)."""
         bar = self.parentWidget()
         if isinstance(bar, PerfBar):
             bar.equalize()
-        elif self.width() != self.needed_width() or self.minimumWidth() != self.maximumWidth():
-            self.setFixedWidth(self.needed_width())
+            return
+        width = self.p08_width() if diagnose.off("perf_equalize") else self.needed_width()
+        if self.minimumWidth() != width or self.maximumWidth() != width:
+            self.setFixedWidth(width)
+
+    def request_width_update(self) -> None:
+        """Breite nach einem Schrift- oder Stilwechsel anpassen, zusammengefasst und nach dem Ereignis.
+
+        P06d2: Vorher setzte `event()` die Breite direkt (über `PerfBar.equalize` auch die der Nachbarfelder),
+        also während Qt Stil, Schrift und Anordnung verarbeitet. Jetzt startet ein Zeitgeber mit 0 ms; mehrere
+        Ereignisse hintereinander ergeben einen Aufruf. Der Zeitgeber ist ein Kind des Widgets und endet mit ihm.
+        """
+        bar = self.parentWidget()
+        if isinstance(bar, PerfBar):
+            bar.request_equalize()
+        elif not self._width_timer.isActive():
+            self._width_timer.start()
 
     def event(self, e: QEvent) -> bool:
+        ok = super().event(e)
         if e.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange, QEvent.Type.PolishRequest):
-            ok = super().event(e)
-            self.update_width()
-            return ok
-        return super().event(e)
+            if diagnose.off("perf_equalize"):
+                # DIAGNOSE: Stand P08, eigene Breite sofort im Ereignis
+                width = self.p08_width()
+                if self.minimumWidth() != width or self.maximumWidth() != width:
+                    self.setFixedWidth(width)
+            else:
+                self.request_width_update()
+        return ok
 
     def apply_palette(self, palette: dict[str, str]) -> None:
         self._palette = palette
@@ -376,10 +410,18 @@ class PerfBar(QWidget):
     """CPU, RAM, LAN mit Verlauf (F-68). Ein Zeitgeber der Oberfläche, 1 Messung pro Sekunde, keine Threads."""
 
     INTERVAL_MS = 1000
+    # Die Felder haben eine neue Breite (P06d2): das Hauptfenster berechnet daraufhin seine Mindestbreite neu
+    widths_changed = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None, sampler: perf.Sampler | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("perf_bar")
+        self._equalize_timer = QTimer(
+            self
+        )  # P06d2: gleiche Breite nach dem Ereignis, zusammengefasst
+        self._equalize_timer.setSingleShot(True)
+        self._equalize_timer.setInterval(0)
+        self._equalize_timer.timeout.connect(self.equalize)
         self.sampler = sampler or perf.Sampler()
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -400,13 +442,31 @@ class PerfBar(QWidget):
         self.equalize()
 
     def equalize(self) -> None:
-        """F-78: CPU, RAM und LAN gleich breit, nämlich so breit wie das breiteste nötige Feld."""
+        """F-78: CPU, RAM und LAN gleich breit, nämlich so breit wie das breiteste nötige Feld.
+
+        Setzt Breiten sofort; deshalb nur ausserhalb von Stil-, Schrift- und Layout-Ereignissen rufen (beim Aufbau,
+        aus `MainWindow._update_minimum_width` oder über `request_equalize`). Idempotent: Ein zweiter Aufruf ohne
+        Schriftwechsel ändert nichts und meldet nichts.
+        """
         if not getattr(self, "fields", None) or len(self.fields) < len(perf.FIELDS):
             return
-        width = max(f.needed_width() for f in self.fields.values())
-        for f in self.fields.values():
-            if f.minimumWidth() != width or f.maximumWidth() != width:
-                f.setFixedWidth(width)
+        if diagnose.off("perf_equalize"):  # DIAGNOSE: Stand P08, jedes Feld eigene Breite
+            widths = {k: f.p08_width() for k, f in self.fields.items()}
+        else:
+            width = max(f.needed_width() for f in self.fields.values())
+            widths = dict.fromkeys(self.fields, width)
+        changed = False
+        for key, f in self.fields.items():
+            if f.minimumWidth() != widths[key] or f.maximumWidth() != widths[key]:
+                f.setFixedWidth(widths[key])
+                changed = True
+        if changed:
+            self.widths_changed.emit()
+
+    def request_equalize(self) -> None:
+        """`equalize` nach dem laufenden Ereignis, mehrere Anfragen ergeben einen Aufruf (P06d2)."""
+        if not self._equalize_timer.isActive():
+            self._equalize_timer.start()
 
     def apply_theme(self, name: str) -> None:
         pal = theme.palette(name)

@@ -130,6 +130,23 @@ Das Skript meldet zuerst den Programmstand (Commit) und startet dann jede Widget
 tools/beenden_pruefung.sh
 ```
 
+### Start prüfen (P06d2)
+
+`tools/start_pruefung.sh` startet die echte Oberfläche mit dem **echten Fenstersystem** (`QT_QPA_PLATFORM=xcb`, vorhandenes `DISPLAY`) mehrmals hintereinander (Vorgabe 20), jeden Lauf mit eigenem Kern-Dienst als eigenem Prozess in einem leeren Ordner. Die Oberfläche beendet sich nach `DONSTV_AUTOQUIT_MS` Millisekunden selbst (Vorgabe im Skript 4000). Ausgabe: Exit-Code je Lauf (139 = Speicherzugriffsfehler), die letzten 15 Zeilen von stderr, am Ende «N von M Läufen mit Exit-Code 0». Ohne `DISPLAY` startet das Skript ein eigenes `Xvfb` (falls installiert) und meldet das; das zählt nicht als Prüfung auf dem Laptop.
+
+```bash
+tools/start_pruefung.sh 20 standard
+```
+
+Varianten (zweites Argument): `standard` (leere Daten), `schmal` (gespeicherte Fensterlage schmaler als die Mindestbreite, wie aus P08), `aus=<Liste>` (Diagnose-Schalter, siehe unten).
+
+Umgebungsvariablen nur für Prüfung und Diagnose:
+
+- `DONSTV_AUTOQUIT_MS=<ms>`: Die Oberfläche beendet sich nach so vielen Millisekunden selbst (`ui/main.py`).
+- `DONSTV_OFF=<Liste>`: schaltet einzelne Teile aus P06d ab und stellt für diesen Teil den Stand von P08 her (`ui/diagnose.py`): `perf_equalize` (Leistungsfelder nicht gleich breit), `pointer_badge` (keine Zeigeranzeige in der Vorschau), `qss_images` (Stylesheet ohne Bilder für Häkchen und Pfeile), `min_width` (Mindestbreite wie P08), `rename` (kein Umbenennen). Nicht für den Betrieb.
+
+`tools/laptop_pruefung.sh kurz` prüft nur Qt-Version, Beenden und Start (je 5 Läufe); ohne Option läuft zusätzlich die ganze Testsuite, danach die Startprüfung mit 20 Läufen in den Varianten `standard` und `schmal`.
+
 ### Fensterkopf und Dienst-Symbole (P05b)
 
 Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). PNG-Dateien gleichen Namens haben Vorrang und erscheinen auch ohne das Qt-SVG-Modul. Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.

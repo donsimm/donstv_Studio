@@ -1,5 +1,9 @@
 """Diagnose: zeigt jede Widget-Klasse des Editors einzeln in einem eigenen Prozess und meldet, welche abstürzt.
 
+Jeder Fall endet geordnet wie `donstv_studio.ui.main` (`shutdown`: Webansichten, dann Fenster), damit das Skript nicht
+selbst beim Beenden abstürzt (P06d2). «ABSTURZ» mit Rückgabecode 139 oder −11 ist ein Speicherzugriffsfehler,
+andere Rückgabecodes sind Fehler im Fall selbst (Python-Ausnahme, letzte Zeile wird gezeigt).
+
 Aufruf: python tools/diagnose_qt.py   (im Ordner des Projekts, mit aktivierter Umgebung)
 """
 
@@ -61,7 +65,7 @@ elif case.startswith("CL:"):
     from donstv_studio.ui.editor_model import EditorModel as _EM
     from donstv_studio.ui.editor_prefs import EditorPrefs as _EP
     from donstv_studio.ui.widgets import PreviewArea as _PA
-    if patch == "ohne_stylesheet": _theme.stylesheet = lambda t: ""
+    if patch == "ohne_stylesheet": _theme.stylesheet = lambda *a, **k: ""  # seit P06d mit zweitem Argument (Bilder)
     elif patch == "ohne_editor_einbettung": _PA.set_editor = lambda self, e: None
     elif patch == "ohne_modell_load": _EM.load = lambda self: None
     elif patch == "ohne_prefs_und_hilfslinien": _EP.load = lambda self, v: None; _EM.load_guides = lambda self, v: None
@@ -70,12 +74,13 @@ elif case.startswith("CL:"):
         from donstv_studio.ui.editor_view import PointerBadge as _PB; _PB.set_pointer = lambda self, *p: None
         mw.MainWindow._show_zoom = lambda self, z, f: None
     elif patch == "ohne_dock_inhalt":
+        from PyQt6.QtGui import QAction
         from PyQt6.QtWidgets import QFrame, QLabel
         class _Stub:
             def __init__(self, *a, **k):
                 self.body = QFrame(); self.body.setObjectName("dockbody"); QLabel("x", self.body)
-                from PyQt6.QtCore import QObject, pyqtSignal
                 self.copied = type("S", (), {"connect": lambda *a: None})()
+                self.rename_action = QAction("Umbenennen", self.body)  # seit P06d (F-74) vom Hauptfenster gebraucht
             def apply_theme(self, n): pass
         mw.OverlaysDock = mw.SourcesDock = mw.PropertiesDock = _Stub
         mw.ControlDock = lambda model, prefs: _Stub()
@@ -134,7 +139,12 @@ if case != "MainWindow" and not case.startswith(("MainWindow_", "CL:")):
 host.resize(500, 300); host.show()
 QTimer.singleShot(1200, app.quit)
 app.exec()
-print("OK", qVersion(), PYQT_VERSION_STR)
+# Geordnet beenden wie donstv_studio.ui.main (P06d2): Signale, Kern-Verbindung, dann Webansichten vor Fenster
+if "bridge" in globals(): bridge.close()
+if "c" in globals() and hasattr(c, "stop"): c.stop()
+from donstv_studio.ui.main import shutdown
+shutdown(app, host)
+print("OK", qVersion(), PYQT_VERSION_STR, flush=True)
 """
 
 
@@ -156,9 +166,15 @@ def main() -> int:
         )
         ok = r.returncode == 0 and "OK" in r.stdout
         bad += not ok
-        print(
-            f"{'OK       ' if ok else 'ABSTURZ  '} {case}  {r.stdout.strip() if ok else '(Rückgabecode ' + str(r.returncode) + ')'}"
-        )
+        crash = r.returncode in (139, -11, 134, -6)
+        if ok:
+            label, detail = "OK       ", r.stdout.strip()
+        elif crash:
+            label, detail = "ABSTURZ  ", f"(Rückgabecode {r.returncode})"
+        else:
+            last = (r.stderr.strip().splitlines() or [""])[-1]
+            label, detail = "FEHLER   ", f"(Rückgabecode {r.returncode}: {last})"
+        print(f"{label} {case}  {detail}", flush=True)
     return 1 if bad else 0
 
 

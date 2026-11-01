@@ -20,6 +20,8 @@ def main() -> int:
         )
         return 1
     # QtWebEngine muss vor der QApplication importiert werden (siehe preview_web.py).
+    from PyQt6.QtCore import QTimer
+
     from donstv_studio.ui import preview_web  # noqa: F401
     from donstv_studio.ui.core_link import CoreLink
     from donstv_studio.ui.main_window import MainWindow
@@ -52,11 +54,25 @@ def main() -> int:
 
     bridge.received.connect(on_signal)
     log.info("Oberfläche bereit; SIGTERM und SIGINT speichern das Layout")
+    autoquit_ms = _autoquit_ms()
+    if autoquit_ms is not None:  # nur für Prüfungen (tools/start_pruefung.py)
+        QTimer.singleShot(autoquit_ms, app.quit)
     code = app.exec()
     bridge.close()
     core.stop()
     shutdown(app, window)
     return code
+
+
+def _autoquit_ms() -> int | None:
+    """`DONSTV_AUTOQUIT_MS`: Die Oberfläche beendet sich nach so vielen Millisekunden selbst (P06d2).
+
+    Nur für die Startprüfung (`tools/start_pruefung.py`); ohne die Variable oder mit ungültigem Wert läuft sie normal.
+    """
+    raw = os.environ.get("DONSTV_AUTOQUIT_MS", "").strip()
+    if not raw.isdigit():
+        return None
+    return int(raw)
 
 
 def shutdown(app, window) -> None:

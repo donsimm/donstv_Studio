@@ -17,8 +17,8 @@ from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFontMetrics, QPainter, QPen
 from PyQt6.QtWidgets import QScrollBar, QWidget
 
+from donstv_studio.ui import diagnose, preview_web, theme
 from donstv_studio.ui import geometry as geo
-from donstv_studio.ui import preview_web, theme
 from donstv_studio.ui.editor_model import EditorModel, box_of
 from donstv_studio.ui.editor_prefs import EditorPrefs
 from donstv_studio.ui.geometry import FIT, Box
@@ -191,14 +191,17 @@ class PointerBadge(QWidget):
         )
 
     def place(self) -> None:
+        """Links unten in die Vorschaufläche, über die Bedienebene. Setzt die Lage nur, wenn sie sich ändert (P06d2)."""
         size = self.sizeHint()
         parent = self.parentWidget()
-        self.setGeometry(
+        rect = QRect(
             BADGE_MARGIN,
             parent.height() - size.height() - BADGE_MARGIN,
             size.width(),
             size.height(),
         )
+        if self.geometry() != rect:
+            self.setGeometry(rect)
         self.raise_()
 
     def colors(self) -> tuple[QColor, QColor]:
@@ -604,7 +607,8 @@ class EditorView(QWidget):
             None  # entsteht erst mit dem ersten Overlay (Chromium startet dann)
         )
         self.layer = InteractionLayer(self)
-        self.pointer_badge = PointerBadge(self)
+        # DIAGNOSE (P06d2): DONSTV_OFF=pointer_badge baut die Zeigeranzeige nicht (Stand P08)
+        self.pointer_badge = None if diagnose.off("pointer_badge") else PointerBadge(self)
         self.ruler_top = Ruler(self, True)
         self.ruler_left = Ruler(self, False)
         self.hbar = QScrollBar(Qt.Orientation.Horizontal, self)
@@ -624,7 +628,8 @@ class EditorView(QWidget):
             sig.connect(lambda *_: self.layer.update())
         prefs.changed.connect(self._on_prefs)
         self.layer.pointer_pixel.connect(self.pointer_changed)
-        self.layer.pointer_pixel.connect(self.pointer_badge.set_pointer)
+        if self.pointer_badge is not None:
+            self.layer.pointer_pixel.connect(self.pointer_badge.set_pointer)
         self._loaded_url: str | None = None
         self._size: tuple[int, int] = model.size()
         self._on_overlay(model.current_id)
@@ -725,7 +730,8 @@ class EditorView(QWidget):
         self.theme_name = name
         self.stage.palette_ = theme.palette(name)
         for w in (self.stage, self.ruler_top, self.ruler_left, self.layer, self.pointer_badge):
-            w.update()
+            if w is not None:
+                w.update()
 
     def set_ruler_pointer(self, pos: QPointF | None) -> None:
         self.ruler_top.pointer = pos.x() if pos is not None else None
@@ -807,7 +813,8 @@ class EditorView(QWidget):
         self.ruler_left.setGeometry(0, RULER, RULER, vh)
         self.layer.setGeometry(0, 0, vw, vh)
         self.layer.raise_()
-        self.pointer_badge.place()
+        if self.pointer_badge is not None:
+            self.pointer_badge.place()
         self._place_stage()
         for w in (self.ruler_top, self.ruler_left):
             w.update()

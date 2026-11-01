@@ -36,8 +36,8 @@ from PyQt6.QtWidgets import (
 )
 
 from donstv_studio import __version__
+from donstv_studio.ui import diagnose, indicators, theme
 from donstv_studio.ui import geometry as geo
-from donstv_studio.ui import indicators, theme
 from donstv_studio.ui.backend import DirectRunner, TaskRunner
 from donstv_studio.ui.bot_page import BotModel, BotSettingsTab, ChatPanel, CommandsTab, LogPanel
 from donstv_studio.ui.editor_docks import ControlDock, OverlaysDock, PropertiesDock, SourcesDock
@@ -166,6 +166,14 @@ class MainWindow(QMainWindow):
 
         self.arrange_docks()
         self._default_state = self.saveState(STATE_VERSION)
+        # P06d2: Mindestbreite nach Schrift- oder Breitenwechsel der Leistungsfelder zusammengefasst nach dem Ereignis
+        # neu berechnen, nie innerhalb eines Stil- oder Layout-Ereignisses (CLAUDE.md Regel 16)
+        self._min_width_timer = QTimer(self)
+        self._min_width_timer.setSingleShot(True)
+        self._min_width_timer.setInterval(0)
+        self._min_width_timer.timeout.connect(self._update_minimum_width)
+        self.perf.widths_changed.connect(self._request_minimum_width)
+        self._applied_geometry: bytes | None = None  # zuletzt angewandte gespeicherte Fensterlage
         self._apply_theme_style()
 
         self._countdown = QTimer(self)
@@ -299,7 +307,8 @@ class MainWindow(QMainWindow):
         self.overlays_panel = OverlaysDock(self.model)
         self.sources_panel = SourcesDock(self.model)
         # F-74: F2 benennt die gewählte Quelle auch um, wenn der Fokus in der Vorschau liegt
-        self.editor.addAction(self.sources_panel.rename_action)
+        if not diagnose.off("rename"):  # DIAGNOSE (P06d2): ohne Umbenennen wie P08
+            self.editor.addAction(self.sources_panel.rename_action)
         self.properties_panel = PropertiesDock(self.model)
         self.control_panel = ControlDock(self.model, self.prefs)
         self.control_panel.copied.connect(
@@ -558,7 +567,8 @@ class MainWindow(QMainWindow):
 
     def _apply_theme_style(self) -> None:
         app = QApplication.instance()
-        sheet = theme.stylesheet(self.theme, indicators.image_paths(self.theme))
+        images = None if diagnose.off("qss_images") else indicators.image_paths(self.theme)
+        sheet = theme.stylesheet(self.theme, images)
         target = app or self
         # Nur bei Änderung setzen (P06d, Vorschlag 2 aus P08): setStyleSheet gestaltet alle Widgets neu und war der
         # Ort des sporadischen Absturzes in P08. Dasselbe Design erneut zu wählen, ändert deshalb nichts.
@@ -566,7 +576,10 @@ class MainWindow(QMainWindow):
             target.setStyleSheet(sheet)
         self.connections.apply_theme(self.theme)
         self.perf.apply_theme(self.theme)
-        self._update_minimum_width()
+        if self.isVisible():
+            self._request_minimum_width()  # Designwechsel im Betrieb: nach dem Ereignis, zusammengefasst
+        else:
+            self._update_minimum_width()  # Aufbau: vor dem Anzeigen und vor der gespeicherten Fensterlage
         for bar in self.dock_titles + self.bot_dock_titles:
             bar.apply_theme(self.theme)
         for panel in self.panels:
@@ -575,13 +588,30 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_core_state"):
             self._set_core_status(*self._core_state)
 
+    def _request_minimum_width(self) -> None:
+        """`_update_minimum_width` nach dem laufenden Ereignis; mehrere Anfragen ergeben einen Aufruf (P06d2)."""
+        if not self._min_width_timer.isActive():
+            self._min_width_timer.start()
+
     def _update_minimum_width(self) -> None:
-        """Mindestbreite: Reiter, Leistungsfelder und vier Verbindungsanzeigen passen nebeneinander (F-68)."""
+        """Mindestbreite: Reiter, Leistungsfelder und vier Verbindungsanzeigen passen nebeneinander (F-68).
+
+        Setzt Grössen sofort; deshalb nur beim Aufbau, vor dem Anwenden der Fensterlage oder über
+        `_request_minimum_width` rufen, nie aus einem Stil- oder Layout-Ereignis (P06d2). Die Leistungsfelder
+        werden hier direkt angeglichen, damit ihre Breite nach dem Polieren (Schrift aus dem Stylesheet) zählt.
+        """
         self.header.ensurePolished()
+        self.perf.equalize()
         lay = self.header.layout()
         lay.invalidate()
         lay.activate()
-        self.setMinimumWidth(max(lay.minimumSize().width() + 2 * theme.HEADER_MARGIN, 1))
+        width = lay.minimumSize().width() + 2 * theme.HEADER_MARGIN
+        if diagnose.off("min_width"):  # DIAGNOSE: Leistungsfelder mit ihrer Breite aus P08 gezählt
+            p08 = sum(f.p08_width() for f in self.perf.fields.values())
+            width -= sum(f.width() for f in self.perf.fields.values()) - p08
+        width = max(width, 1)
+        if self.minimumWidth() != width:
+            self.setMinimumWidth(width)
 
     # --- Leistungsanzeige läuft nur bei sichtbarem, nicht minimiertem Fenster -------------------
     def _sync_perf(self) -> None:
@@ -684,7 +714,7 @@ class MainWindow(QMainWindow):
             self.set_theme(name, save=False)
         geometry = _decode(values.get(KEY_GEOMETRY, ""))
         if geometry is not None and not geometry.isEmpty():
-            self.restoreGeometry(geometry)
+            self._restore_geometry(geometry)
         state = _decode(values.get(KEY_STATE, ""))
         if state is not None and not state.isEmpty():
             if self._module == MODULE_OVERLAYS:
@@ -693,6 +723,24 @@ class MainWindow(QMainWindow):
             else:
                 self._overlay_dock_state = state
         self._settings_loaded = True
+
+    def _restore_geometry(self, geometry: QByteArray) -> None:
+        """Gespeicherte Fensterlage anwenden (P06d2).
+
+        - Dieselbe Lage nur einmal: Beim Start kommt sie zweimal (vor dem Anzeigen und nach dem Verbinden über
+          `settings_loaded`); das zweite Mal würde das schon sichtbare Fenster ohne Grund neu setzen.
+        - Erst die Mindestbreite, dann die Lage. Ist die gespeicherte Lage schmaler als die Mindestbreite (z. B. aus
+          P08, vor den gleich breiten Leistungsfeldern), wird die Breite einmal auf die Mindestbreite gesetzt.
+        """
+        data = bytes(geometry)
+        if data == self._applied_geometry:
+            return
+        self._applied_geometry = data
+        self._min_width_timer.stop()
+        self._update_minimum_width()
+        self.restoreGeometry(geometry)
+        if self.width() < self.minimumWidth():
+            self.resize(self.minimumWidth(), self.height())
 
     def save_layout_now(self) -> bool:
         """Speichert Theme, Fensterlage und Dock-Anordnung sofort (beim Schliessen und bei SIGTERM/SIGINT)."""
