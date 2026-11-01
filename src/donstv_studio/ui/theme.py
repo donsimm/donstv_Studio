@@ -15,6 +15,7 @@ LIGHT = "light"
 THEME_NAMES = {DARK: "Dunkel", LIGHT: "Hell"}
 DEFAULT_THEME = DARK
 MIN_CONTRAST = 4.5
+MIN_GRAPH_CONTRAST = 3.0  # Grafik (Linie der Verläufe) gegen die Fläche: WCAG 1.4.11, https://www.w3.org/TR/WCAG21/#non-text-contrast
 
 # Schriftgrösse der Oberfläche. Die Schriftart bleibt die des Systems; nur die Grösse ist festgelegt.
 # Gemessen in den Referenzbildern (docs/referenz, je 1920×1080): Der Text von OBS ist etwa 0,9-mal so
@@ -29,6 +30,12 @@ LIST_ROW_HEIGHT = 26
 DOCK_GAP = 4
 PREVIEW_BAR_HEIGHT = 44
 STATUS_BAR_HEIGHT = 29
+
+# Fensterkopf (F-68): kräftiger als in P05b (dort etwa 30 px). Höhe des Kopfes inklusive unterer Linie;
+# darin Leistungsfelder mit Beschriftungszeile und Verlaufsgrafik von 28 px.
+HEADER_HEIGHT = 48
+PERF_TEXT_ROW = 16
+PERF_GRAPH_HEIGHT = 28
 
 # Dunkel: im OBS-Bild gemessene Farben (Fenster #1d1f26, Dockkörper #272a33, Titel und Rahmen
 # #3c404d, Vorschau #13141a, Leinwand #000000, Auswahl #284cb8). Nebentext und Statusfarben sind
@@ -52,6 +59,9 @@ PALETTES: dict[str, dict[str, str]] = {
         "preview_bg": "#13141a",   # Fläche um die Leinwand
         "canvas": "#000000",       # Leinwand der Vorschau
         "canvas_text": "#b4b8c0",  # Text auf der Leinwand (auch im hellen Design schwarzer Grund)
+        "perf_cpu": "#5b9dff",     # Linien der Verläufe in der Leistungsanzeige (blau, violett, grün)
+        "perf_ram": "#c58af9",
+        "perf_lan": "#4fcf8a",
     },
     LIGHT: {
         "bg": "#f4f5f7",
@@ -70,6 +80,9 @@ PALETTES: dict[str, dict[str, str]] = {
         "preview_bg": "#e4e6ea",
         "canvas": "#000000",
         "canvas_text": "#b4b8c0",
+        "perf_cpu": "#1d5fd1",
+        "perf_ram": "#7b3fb0",
+        "perf_lan": "#17692f",
     },
 }
 
@@ -92,6 +105,13 @@ TEXT_PAIRS: tuple[tuple[str, str], ...] = (
     ("warn", "surface"),
     ("error", "bg"),
     ("error", "surface"),
+)
+
+# Grafik-Farben der Leistungsanzeige auf der Fläche des Verlaufs («surface»): mindestens 3:1.
+GRAPH_PAIRS: tuple[tuple[str, str], ...] = (
+    ("perf_cpu", "surface"),
+    ("perf_ram", "surface"),
+    ("perf_lan", "surface"),
 )
 
 

@@ -55,3 +55,18 @@ def test_dark_theme_uses_the_colors_measured_in_the_obs_screenshot():
     assert (p["bg"], p["surface"], p["title_bg"], p["preview_bg"], p["canvas"], p["selection_bg"]) == (
         "#1d1f26", "#272a33", "#3c404d", "#13141a", "#000000", "#284cb8")
     assert theme.contrast_ratio(p["selection_text"], p["selection_bg"]) >= 7  # weisse Schrift auf kräftigem Blau
+
+
+@pytest.mark.parametrize("name", [theme.DARK, theme.LIGHT])
+def test_f68_graph_colors_have_contrast_3_to_the_graph_surface(name):
+    p = theme.PALETTES[name]
+    for fg, bg in theme.GRAPH_PAIRS:
+        ratio = theme.contrast_ratio(p[fg], p[bg])
+        assert ratio >= theme.MIN_GRAPH_CONTRAST, f"{name}: {fg} auf {bg} = {ratio:.2f}"
+    assert {fg for fg, _ in theme.GRAPH_PAIRS} == {"perf_cpu", "perf_ram", "perf_lan"}
+    assert len({p[fg] for fg, _ in theme.GRAPH_PAIRS}) == 3  # je Feld eine eigene Farbe
+
+
+def test_f68_perf_colors_in_the_palette_of_both_themes():
+    for name in (theme.DARK, theme.LIGHT):
+        assert {"perf_cpu", "perf_ram", "perf_lan"} <= theme.PALETTES[name].keys()

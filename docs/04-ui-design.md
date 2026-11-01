@@ -27,13 +27,27 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 
 ## 3. Hauptfenster: Variante A gewählt
 
-Gewählt: **Variante A**. Aufbau: Menüleiste, fester Fensterkopf mit Modul-Reitern (Overlays, Chat-Bot) und Verbindungsstatus rechts (Twitch, YouTube, OBS, NDI), Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
+Gewählt: **Variante A**. Aufbau: Menüleiste, fester Fensterkopf (48 px hoch) mit Modul-Reitern (Overlays, Chat-Bot) links, der Leistungsanzeige daneben (CPU, RAM, LAN, siehe unten) und Verbindungsstatus rechts (Twitch, YouTube, OBS, NDI), Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
 
 | Variante | Idee | Stärke | Schwäche |
 |---|---|---|---|
 | A – OBS klassisch | Vorschaufläche oben, vier Docks unten (Overlays, Quellen, Eigenschaften, Steuerung); Modul-Reiter oben | Am nächsten an OBS, vertraut | Docks unten sind schmal, wenig Platz für Eigenschaften |
 | B – Seitenleiste mit Baum | Linke Leiste mit Modulwahl, Baum Overlay → Quellen, Werkzeugleiste über der Fläche, Eigenschaften rechts | Alles sichtbar, viel Platz für Eigenschaften | Weicht stärker von OBS ab |
 | C – Filmstreifen | Overlays als Vorschaukarten oben, Fläche in der Mitte, Quelle-hinzufügen-Leiste, rechts Reiter Quellen/Eigenschaften/Vorlagen | Overlays schnell erkennbar, gut für Vorlagen | Kein Quellenbaum, Platz für viele Overlays begrenzt |
+
+### Leistungsanzeige im Fensterkopf (F-68)
+
+Drei Felder zwischen Reitern und Verbindungsanzeigen, jedes mit Beschriftung links, Wert rechts (immer als Text, U-04) und einem Verlauf der letzten 60 Sekunden (28 px hoch, Fläche mit Linie). Quelle des Aufbaus: `docs/referenz/vorbild-leistungsanzeige.png` (übernommen sind Aufbau und Inhalt, nicht Farben und Schrift).
+
+| Feld | Wert | Quelle |
+|---|---|---|
+| CPU | «4 %» (alle Kerne) | `/proc/stat` |
+| RAM | «5.3 / 15.5 GiB» (gesamt − `MemAvailable` / gesamt) | `/proc/meminfo` |
+| LAN | «↓ 3  ↑ 99 kbit/s» (Summe ohne `lo` und virtuelle Schnittstellen) | `/proc/net/dev` |
+
+Jedes Feld hat eine feste Breite für den längsten Text; der Kopf hat eine Mindestbreite, bei der alles nebeneinander Platz hat. Linienfarben je Feld im Theme (`perf_cpu`, `perf_ram`, `perf_lan`), Kontrast zur Fläche mindestens 3:1. Fehlt eine Datei, steht «–». Ein Zeitgeber, 1 Messung pro Sekunde, nicht bei minimiertem Fenster.
+
+Dienst-Symbole der Verbindungsanzeigen sind einfarbig und werden in der Textfarbe des Themes eingefärbt (PNG vor SVG).
 
 ## 4. Modul «Chat-Bot» (nach Streamer.bot-Vorbild)
 

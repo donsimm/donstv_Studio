@@ -202,7 +202,8 @@ def test_layout_saved_and_restored(make, app):
     w, core = make()
     core.settings_loaded.emit({})
     w.move(37, 53)
-    w.resize(640, 480)  # unter der Offscreen-Bildschirmgrösse (800×600)
+    size = (w.minimumWidth() + 40, 480)  # Mindestbreite des Fensterkopfes (F-68) beachten
+    w.resize(*size)
     w.docks[1].hide()
     w.docks[2].setFloating(True)
     w.docks[2].move(200, 150)
@@ -225,7 +226,8 @@ def test_layout_saved_and_restored(make, app):
     assert w2.docks[1].isHidden()
     assert w2.docks[2].isFloating()
     assert not w2.docks[0].isFloating() and not w2.docks[0].isHidden()
-    assert (w2.width(), w2.height()) == (640, 480)
+    # Die Breite ist durch die Mindestbreite und den Offscreen-Bildschirm (800×600) begrenzt, die Höhe nicht.
+    assert w2.height() == size[1] and w2.minimumWidth() <= w2.width() <= size[0]
 
 
 def test_layout_not_saved_before_settings_were_loaded(make):

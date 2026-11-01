@@ -10,7 +10,7 @@ import binascii
 import logging
 from pathlib import Path
 
-from PyQt6.QtCore import QByteArray, Qt, QTimer
+from PyQt6.QtCore import QByteArray, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QSizePolicy,
     QStackedWidget,
     QTabBar,
     QTabWidget,
@@ -37,6 +38,7 @@ from donstv_studio.ui.widgets import (
     STATUS_STYLE,
     ConnectionStatusBar,
     DockTitleBar,
+    PerfBar,
     PreviewArea,
     PreviewBar,
     find_service_icon,
@@ -51,6 +53,7 @@ MODULE_OVERLAYS, MODULE_BOT = 0, 1
 MODULES = ("Overlays", "Chat-Bot")
 BOT_TABS = ("Actions", "Commands", "Timer", "Queues", "Einstellungen")
 # (Objektname, Titel, Platzhaltertext)
+PERF_LEFT_GAP = 12  # zusätzlicher Abstand zwischen Reitern und Leistungsanzeige
 DOCK_HEIGHT = 215  # Höhe der Docks unten in Pixeln (OBS-Bild: 215)
 DOCKS = (
     ("dock_overlays", "Overlays", "Liste der Overlays: anlegen, kopieren, löschen."),
@@ -155,17 +158,25 @@ class MainWindow(QMainWindow):
         self.header.setObjectName("header")
         self.header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         row = QHBoxLayout(self.header)
-        row.setContentsMargins(8, 4, 8, 0)
+        row.setContentsMargins(8, 0, 8, 0)
         row.setSpacing(12)
+        self.header.setFixedHeight(theme.HEADER_HEIGHT)
         self.tabbar = QTabBar()
         self.tabbar.setObjectName("module_tabs")
         self.tabbar.setExpanding(False)
         self.tabbar.setDrawBase(False)
         self.tabbar.setAccessibleName("Modul")
+        # Die Reiter behalten ihre natürliche Breite: weder gestaucht noch mit Laufpfeilen verschoben.
+        self.tabbar.setUsesScrollButtons(False)
+        self.tabbar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         for name in MODULES:
             self.tabbar.addTab(name)
         self.tabbar.currentChanged.connect(self.set_module)
-        row.addWidget(self.tabbar, 0, Qt.AlignmentFlag.AlignBottom)
+        row.addWidget(self.tabbar, 0, Qt.AlignmentFlag.AlignVCenter)
+        # Leistungsanzeige (F-68): links angeschlossen an die Reiter, feste Breite je Feld
+        row.addSpacing(PERF_LEFT_GAP)
+        self.perf = PerfBar()
+        row.addWidget(self.perf, 0, Qt.AlignmentFlag.AlignVCenter)
         row.addStretch(1)
         self.connections = ConnectionStatusBar()
         row.addWidget(self.connections, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -348,10 +359,37 @@ class MainWindow(QMainWindow):
         sheet = theme.stylesheet(self.theme)
         (app or self).setStyleSheet(sheet)
         self.connections.apply_theme(self.theme)
+        self.perf.apply_theme(self.theme)
+        self._update_minimum_width()
         for bar in self.dock_titles:
             bar.apply_theme(self.theme)
         if hasattr(self, "_core_state"):
             self._set_core_status(*self._core_state)
+
+    def _update_minimum_width(self) -> None:
+        """Mindestbreite: Reiter, Leistungsfelder und vier Verbindungsanzeigen passen nebeneinander (F-68)."""
+        self.header.ensurePolished()
+        lay = self.header.layout()
+        lay.invalidate()
+        lay.activate()
+        self.setMinimumWidth(max(lay.minimumSize().width(), 1))
+
+    # --- Leistungsanzeige läuft nur bei sichtbarem, nicht minimiertem Fenster -------------------
+    def _sync_perf(self) -> None:
+        self.perf.set_active(self.isVisible() and not self.isMinimized())
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._sync_perf()
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._sync_perf()
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange:
+            self._sync_perf()
 
     def open_settings(self) -> None:
         self.settings_dialog = SettingsDialog(self)

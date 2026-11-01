@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QPen, QPixmap, QPolygonF
 from PyQt6.QtWidgets import (
     QDockWidget,
     QFrame,
@@ -17,7 +18,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from donstv_studio.ui import theme
+from donstv_studio.ui import perf, theme
+
+log = logging.getLogger(__name__)
+
+try:  # Das SVG-Modul ist optional: PNG-Symbole müssen auch ohne es erscheinen (F-04).
+    from PyQt6 import QtSvg  # noqa: F401
+
+    HAS_SVG = True
+except ImportError:  # pragma: no cover - hängt von der Installation ab
+    HAS_SVG = False
+_svg_hint_given = False
 
 # Status -> (Zustandszeichen, Farbname). U-04: Zustand nie nur durch Farbe, sondern Zeichen + Text.
 STATUS_STYLE = {
@@ -30,6 +41,7 @@ STATUS_STYLE = {
 # Reihenfolge der Anzeigen: Twitch, YouTube, OBS, NDI
 SERVICES = (("twitch", "Twitch"), ("youtube", "YouTube"), ("obs", "OBS"), ("ndi", "NDI"))
 SERVICE_ICON_SIZE = 16  # Pixel
+ICON_SCALE = 2  # Symbole werden doppelt gross vorbereitet, damit sie auch bei hoher Auflösung scharf sind
 ICON_GAP = 6
 SERVICE_GAP = 12
 INDICATOR_PADDING = 8
@@ -40,25 +52,56 @@ def connection_icon_dir() -> Path:
     return Path(__file__).resolve().parents[3] / "assets" / "icons" / "connections"
 
 
-def find_service_icon(key: str, directory: Path | None = None) -> QIcon | None:
-    """Symbol des Dienstes aus <key>.svg oder <key>.png. None, wenn keine brauchbare Datei da ist.
+def load_service_pixmap(key: str, directory: Path | None = None) -> QPixmap | None:
+    """Quell-Bild des Dienst-Symbols (einfarbig, mit Alpha). None, wenn keine brauchbare Datei da ist.
 
-    Die Logos legt der Nutzer ab; sie werden hier weder erzeugt noch geladen (siehe README dort).
+    PNG zuerst: Es wird auch ohne das Qt-SVG-Modul angezeigt. Nur eine SVG-Datei und kein SVG-Modul:
+    einmalig ein Hinweis im Protokoll. Die Logos legt der Nutzer ab (siehe README dort).
     """
+    global _svg_hint_given
     folder = directory or connection_icon_dir()
-    for ext in ("svg", "png"):
-        path = folder / f"{key}.{ext}"
-        if path.is_file():
-            icon = QIcon(str(path))
-            if not icon.isNull() and not icon.pixmap(SERVICE_ICON_SIZE, SERVICE_ICON_SIZE).isNull():
-                return icon
+    size = SERVICE_ICON_SIZE * ICON_SCALE
+    png = folder / f"{key}.png"
+    if png.is_file():
+        pm = QPixmap(str(png))
+        if not pm.isNull():
+            return pm.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+    svg = folder / f"{key}.svg"
+    if svg.is_file():
+        if not HAS_SVG:
+            if not _svg_hint_given:
+                _svg_hint_given = True
+                log.warning("SVG-Symbole brauchen das Qt-SVG-Modul, Debian: vermutlich libqt6svg6")
+            return None
+        pm = QIcon(str(svg)).pixmap(size, size)
+        if not pm.isNull():
+            return pm
     return None
+
+
+def tint_pixmap(source: QPixmap, color: str) -> QPixmap:
+    """Füllt die Alpha-Maske des Bildes mit der Farbe (SourceIn); Grösse SERVICE_ICON_SIZE bei Faktor 2."""
+    pm = QPixmap(source.size())
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.drawPixmap(0, 0, source)
+    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+    p.fillRect(pm.rect(), QColor(color))
+    p.end()
+    pm.setDevicePixelRatio(ICON_SCALE)
+    return pm
+
+
+def find_service_icon(key: str, directory: Path | None = None) -> QIcon | None:
+    """Symbol des Dienstes (PNG vor SVG) als QIcon, unverändert eingefärbt. None, wenn keine Datei brauchbar ist."""
+    pm = load_service_pixmap(key, directory)
+    return QIcon(pm) if pm is not None else None
 
 
 class ConnectionIndicator(QWidget):
     """Eine Verbindungsanzeige: [Dienst-Symbol] «✔ Twitch: verbunden». Feste Breite (F-04)."""
 
-    def __init__(self, key: str, title: str, icon: QIcon | None, parent: QWidget | None = None) -> None:
+    def __init__(self, key: str, title: str, icon: QPixmap | None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.key, self.title = key, title
         self.status = "unbekannt"
@@ -74,9 +117,8 @@ class ConnectionIndicator(QWidget):
         self.icon_label = QLabel()
         self.icon_label.setObjectName(f"icon_{key}")
         self.icon_label.setFixedSize(SERVICE_ICON_SIZE, SERVICE_ICON_SIZE)
+        self._icon_source = icon
         self.has_icon = icon is not None
-        if icon is not None:
-            self.icon_label.setPixmap(icon.pixmap(SERVICE_ICON_SIZE, SERVICE_ICON_SIZE))
         lay.addWidget(self.icon_label)
         self.text_label = QLabel()
         self.text_label.setObjectName(f"status_{key}")
@@ -84,6 +126,12 @@ class ConnectionIndicator(QWidget):
         lay.addWidget(self.text_label)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.render()
+        self._tint_icon()
+
+    def _tint_icon(self) -> None:
+        """Symbol in der Textfarbe des aktuellen Themes (sonst weiss auf hellem Grund unsichtbar)."""
+        if self._icon_source is not None:
+            self.icon_label.setPixmap(tint_pixmap(self._icon_source, self._palette["text"]))
 
     def text(self) -> str:
         return self.text_label.text()
@@ -96,6 +144,7 @@ class ConnectionIndicator(QWidget):
     def apply_palette(self, palette: dict[str, str]) -> None:
         self._palette = palette
         self.render()
+        self._tint_icon()
 
     def render(self) -> None:
         symbol, color = STATUS_STYLE[self.status]
@@ -137,7 +186,7 @@ class ConnectionStatusBar(QWidget):
         lay.setSpacing(SERVICE_GAP)
         self.indicators: dict[str, ConnectionIndicator] = {}
         for key, title in SERVICES:
-            ind = ConnectionIndicator(key, title, find_service_icon(key, icon_dir))
+            ind = ConnectionIndicator(key, title, load_service_pixmap(key, icon_dir))
             self.indicators[key] = ind
             lay.addWidget(ind)
 
@@ -165,6 +214,171 @@ class ConnectionStatusBar(QWidget):
         pal = theme.palette(name)
         for ind in self.indicators.values():
             ind.apply_palette(pal)
+
+
+# --- Leistungsanzeige (F-68) -----------------------------------------------------------------
+
+PERF_HEIGHT = theme.PERF_TEXT_ROW + 1 + theme.PERF_GRAPH_HEIGHT
+PERF_TEXT_ROW = theme.PERF_TEXT_ROW
+PERF_GAP = 8
+
+
+class PerfField(QWidget):
+    """Ein Feld: Beschriftung links, Wert rechts, darunter der Verlauf der letzten 60 Sekunden.
+
+    Alles wird in einem Widget gezeichnet; feste Breite für den längsten möglichen Text. Der Wert steht
+    immer als Text da (U-04), die Grafik allein sagt nichts.
+    """
+
+    PAD = 6
+    MIN_WIDTH = 120
+
+    def __init__(self, key: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.key = key
+        self.title = perf.TITLES[key]
+        self.value_text = perf.NO_VALUE
+        self.values: list[float] = [0.0] * perf.HISTORY_LENGTH
+        self.scale = 1.0
+        self._palette = theme.palette(theme.DEFAULT_THEME)
+        self.setObjectName(f"perf_{key}")
+        self.setFixedHeight(PERF_HEIGHT)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setAccessibleName(f"{self.title}: {self.value_text}")
+        self.update_width()
+
+    def _value_font(self) -> QFont:
+        font = QFont(self.font())
+        font.setBold(True)
+        return font
+
+    def update_width(self) -> None:
+        """Feste Breite für den längsten möglichen Text (z. B. «↓ 999.9 Mbit/s  ↑ 999.9 Mbit/s»)."""
+        title_w = QFontMetrics(self.font()).horizontalAdvance(self.title)
+        longest = max(
+            QFontMetrics(self._value_font()).horizontalAdvance(t) for t in (perf.LONGEST[self.key], perf.NO_VALUE)
+        )
+        self.setFixedWidth(max(self.MIN_WIDTH, 2 * self.PAD + title_w + 2 * self.PAD + longest))
+
+    def event(self, e: QEvent) -> bool:
+        if e.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange, QEvent.Type.PolishRequest):
+            ok = super().event(e)
+            self.update_width()
+            return ok
+        return super().event(e)
+
+    def apply_palette(self, palette: dict[str, str]) -> None:
+        self._palette = palette
+        self.update()
+
+    def set_value(self, text: str, values: list[float], scale: float) -> None:
+        self.value_text, self.values, self.scale = text, values, scale
+        tip = f"{self.title}: {text} (letzte {perf.HISTORY_LENGTH} Sekunden)"
+        self.setToolTip(tip)
+        self.setAccessibleName(f"{self.title}: {text}")
+        self.update()
+
+    def graph_rect(self) -> QRectF:
+        return QRectF(0, PERF_TEXT_ROW + 1, self.width(), theme.PERF_GRAPH_HEIGHT)
+
+    def paintEvent(self, _e) -> None:
+        pal = self._palette
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Textzeile: Beschriftung (Nebentext) links, Wert (fett) rechts
+        row = QRectF(self.PAD, 0, self.width() - 2 * self.PAD, PERF_TEXT_ROW)
+        p.setPen(QColor(pal["text_muted"]))
+        p.drawText(row, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), self.title)
+        p.setFont(self._value_font())
+        p.setPen(QColor(pal["text"]))
+        p.drawText(row, int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter), self.value_text)
+        # Verlauf: Fläche mit Linie
+        g = self.graph_rect()
+        p.fillRect(g, QColor(pal["surface"]))
+        line = QColor(pal[f"perf_{self.key}"])
+        inner = g.adjusted(1, 2, -1, -1)
+        n = len(self.values)
+        if n > 1 and self.scale > 0:
+            pts = [
+                QPointF(
+                    inner.left() + i * inner.width() / (n - 1),
+                    inner.bottom() - min(max(v / self.scale, 0.0), 1.0) * inner.height(),
+                )
+                for i, v in enumerate(self.values)
+            ]
+            fill = QColor(line)
+            fill.setAlpha(70)
+            area = QPolygonF([QPointF(inner.left(), inner.bottom()), *pts, QPointF(inner.right(), inner.bottom())])
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(fill)
+            p.drawPolygon(area)
+            pen = QPen(line)
+            pen.setWidthF(1.5)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            p.setPen(pen)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPolyline(QPolygonF(pts))
+        p.setPen(QPen(QColor(pal["border"])))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRect(g.adjusted(0, 0, -1, -1))
+        p.end()
+
+
+class PerfBar(QWidget):
+    """CPU, RAM, LAN mit Verlauf (F-68). Ein Zeitgeber der Oberfläche, 1 Messung pro Sekunde, keine Threads."""
+
+    INTERVAL_MS = 1000
+
+    def __init__(self, parent: QWidget | None = None, sampler: perf.Sampler | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("perf_bar")
+        self.sampler = sampler or perf.Sampler()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(PERF_GAP)
+        self.fields: dict[str, PerfField] = {}
+        self.history: dict[str, perf.History] = {}
+        for key in perf.FIELDS:
+            self.fields[key] = PerfField(key)
+            self.history[key] = perf.History()
+            lay.addWidget(self.fields[key])
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._mem: tuple[int, int] | None = None
+        self.timer = QTimer(self)
+        self.timer.setInterval(self.INTERVAL_MS)
+        self.timer.timeout.connect(self.tick)
+        for key in perf.FIELDS:
+            self._show(key, perf.NO_VALUE)
+
+    def apply_theme(self, name: str) -> None:
+        pal = theme.palette(name)
+        for f in self.fields.values():
+            f.apply_palette(pal)
+
+    # --- Zeitgeber: läuft nur, solange das Fenster sichtbar und nicht minimiert ist ---
+    def set_active(self, active: bool) -> None:
+        if active and not self.timer.isActive():
+            self.sampler.reset()  # die erste Messung nach einer Pause setzt nur den Ausgangspunkt
+            self.timer.start()
+            self.tick()
+        elif not active and self.timer.isActive():
+            self.timer.stop()
+
+    def tick(self) -> None:
+        self.apply(self.sampler.sample())
+
+    def apply(self, s: perf.Sample) -> None:
+        self._mem = s.mem
+        self.history["cpu"].add(s.cpu)
+        self.history["ram"].add(s.mem[0] if s.mem else None)
+        self.history["lan"].add(sum(s.net) if s.net else None)
+        self._show("cpu", perf.format_cpu(s.cpu))
+        self._show("ram", perf.format_mem(s.mem))
+        self._show("lan", perf.format_net(s.net))
+
+    def _show(self, key: str, text: str) -> None:
+        values = self.history[key].values()
+        self.fields[key].set_value(text, values, perf.graph_scale(key, values, self._mem))
 
 
 def placeholder(text: str, *, muted: bool = True) -> QLabel:

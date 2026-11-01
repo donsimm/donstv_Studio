@@ -1,5 +1,7 @@
 """F-01, F-02, F-04: fester Fensterkopf, YouTube, Dienst-Symbole, Standardanordnung, OBS-Stil."""
 
+import itertools
+
 import pytest
 
 pytest.importorskip(
@@ -9,9 +11,10 @@ pytest.importorskip(
 )
 
 from PyQt6.QtCore import QObject, QPoint, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFontMetrics
 from PyQt6.QtWidgets import QApplication, QDockWidget, QListWidget, QMessageBox
 
-from donstv_studio.ui import theme, widgets
+from donstv_studio.ui import perf, theme, widgets
 from donstv_studio.ui.main_window import STATE_VERSION, MainWindow
 from donstv_studio.ui.widgets import SERVICES, STATUS_STYLE, ConnectionStatusBar
 
@@ -79,7 +82,10 @@ def header_geometry(w):
         inds[k] = (w.width() - (x + wd), y, wd, h)  # Abstand zum rechten Rand
         ix, iy, iw, ih = rect(ind.icon_label)
         inds[k + "_icon"] = (ix - x, iy - y, iw, ih)
-    return {"tabs": tabs, "indicators": inds, "header_height": w.header.height()}
+    fields = {}
+    for k, f in w.perf.fields.items():  # von links gemessen (links angeschlossen an die Reiter)
+        fields[k] = rect(f)
+    return {"tabs": tabs, "indicators": inds, "perf": fields, "header_height": w.header.height()}
 
 
 # --- 1. Fester Kopf ---------------------------------------------------------------------------
@@ -128,11 +134,143 @@ def test_f01_header_never_moves_dock_positions(make, app):
 def test_f01_header_ignores_window_size(make, app):
     w = make()
     base = header_geometry(w)
-    for size in ((900, 600), (1500, 1000), (1100, 640), (1920, 1080)):
+    low = w.minimumWidth()
+    for size in ((low, 600), (low + 1, 700), (low + 120, 640), (1920, 1080), (2400, 1300), (low, 900)):
         w.resize(*size)
         app.processEvents()
         g = header_geometry(w)
         assert g == base, size  # linke Lage der Reiter und Abstand der Anzeigen zum rechten Rand gleich
+
+
+def test_f68_perf_fields_keep_position_and_size_when_values_change(make, app):
+    w = make()
+    base = header_geometry(w)
+    longest = perf.Sample(cpu=100.0, mem=(int(999.9 * perf.GIB), int(999.9 * perf.GIB)), net=(999.9e6, 999.9e6))
+    shortest = perf.Sample(cpu=0.0, mem=(0, 1024), net=(0.0, 0.0))
+    for sample in (longest, shortest, perf.Sample(), longest, perf.Sample(cpu=4.0, mem=(5 * perf.GIB, 15 * perf.GIB), net=(3000, 99000))):
+        w.perf.apply(sample)
+        app.processEvents()
+        assert header_geometry(w) == base
+        w.grab()  # zeichnet: keine Ausnahme
+    w.set_theme("light")
+    app.processEvents()
+    assert header_geometry(w) == base
+
+
+def test_f68_perf_texts_fit_into_fixed_widths(make):
+    w = make()
+    for key, f in w.perf.fields.items():
+        fm = QFontMetrics(f._value_font())
+        title_w = QFontMetrics(f.font()).horizontalAdvance(f.title)
+        for text in (perf.LONGEST[key], perf.NO_VALUE):
+            assert title_w + fm.horizontalAdvance(text) + 2 * f.PAD <= f.width(), (key, text)
+        assert f.height() == widgets.PERF_HEIGHT <= theme.HEADER_HEIGHT
+    assert [f.title for f in w.perf.fields.values()] == ["CPU", "RAM", "LAN"]
+
+
+def test_f68_perf_shows_value_as_text_and_dash_without_data(make):
+    w = make()
+    w.perf.apply(perf.Sample(cpu=4.2, mem=(int(5.3 * perf.GIB), int(15.5 * perf.GIB)), net=(3000, 99000)))
+    f = w.perf.fields
+    assert (f["cpu"].value_text, f["ram"].value_text) == ("4 %", "5.3 / 15.5 GiB")
+    assert f["lan"].value_text == "↓ 3  ↑ 99 kbit/s"
+    assert f["cpu"].accessibleName() == "CPU: 4 %"
+    w.perf.apply(perf.Sample())  # /proc nicht lesbar
+    assert [x.value_text for x in f.values()] == ["–", "–", "–"]
+
+
+def test_f68_perf_history_has_exactly_60_values_oldest_drops_out(make):
+    w = make()
+    for i in range(75):
+        w.perf.apply(perf.Sample(cpu=float(i)))
+    values = w.perf.fields["cpu"].values
+    assert len(values) == perf.HISTORY_LENGTH == 60
+    assert values == [float(i) for i in range(15, 75)]
+
+
+def test_f68_header_height_and_vertical_centering(make):
+    w = make()
+    assert w.header.height() == theme.HEADER_HEIGHT and 44 <= theme.HEADER_HEIGHT <= 48
+    assert theme.PERF_GRAPH_HEIGHT == 28
+    mid = w.header.height() / 2
+    for widget in [w.tabbar, w.perf, w.connections]:
+        top = widget.mapTo(w.header, QPoint(0, 0)).y()
+        assert abs(top + widget.height() / 2 - mid) <= 1.5, widget
+
+
+def header_parts(w):
+    parts = [("tabs", w.tabbar), ("perf", w.perf)] + [(k, i) for k, i in w.connections.indicators.items()]
+    return [(n, widget.mapTo(w, QPoint(0, 0)).x(), widget.width()) for n, widget in parts]
+
+
+def test_f68_minimum_width_fits_everything_without_overlap_or_clipping(make, app):
+    w = make()
+    assert w.minimumWidth() == w.header.layout().minimumSize().width()
+    w.resize(100, 700)  # kleiner geht nicht
+    app.processEvents()
+    assert w.width() == w.minimumWidth()
+    parts = header_parts(w)
+    for (n1, x1, w1), (n2, x2, w2) in itertools.pairwise(parts):
+        assert x1 + w1 <= x2, (n1, n2)  # nichts überlappt
+    assert parts[0][1] >= 0 and parts[-1][1] + parts[-1][2] <= w.width()  # nichts abgeschnitten
+    for ind in w.connections.indicators.values():
+        assert ind.text_label.sizeHint().width() <= ind.text_label.width()
+    assert w.tabbar.width() >= w.tabbar.sizeHint().width()  # Reiter nicht gestaucht, keine Laufpfeile
+    for i in range(w.tabbar.count()):
+        assert w.tabbar.tabRect(i).left() >= 0
+    # in beiden Themes
+    w.set_theme("light")
+    app.processEvents()
+    assert w.minimumWidth() == w.header.layout().minimumSize().width()
+
+
+def test_f68_perf_bar_does_not_run_while_minimized_or_hidden(make, app):
+    w = make()
+    assert w.perf.timer.isActive() and w.perf.timer.interval() == 1000
+    w.showMinimized()
+    app.processEvents()
+    assert not w.perf.timer.isActive()
+    w.showNormal()
+    app.processEvents()
+    assert w.perf.timer.isActive()
+    w.hide()
+    assert not w.perf.timer.isActive()
+
+
+def test_f68_perf_is_always_visible_no_switch(make):
+    w = make()
+    assert w.perf.isVisible() and all(f.isVisible() for f in w.perf.fields.values())
+    from PyQt6.QtGui import QAction
+
+    texts = [a.text().lower() for m in w.menu_bar.findChildren(type(w.docks_menu)) for a in m.actions()]
+    assert not any("leistung" in t for t in texts)  # kein Schalter
+    assert not [a for a in w.findChildren(QAction) if "leistung" in a.text().lower()]
+
+
+def test_f68_perf_tick_with_missing_proc_files_does_not_fail(make, tmp_path):
+    w = make()
+    w.perf.sampler = perf.Sampler(paths=perf.ProcPaths(tmp_path / "a", tmp_path / "b", tmp_path / "c"))
+    w.perf.tick()
+    w.perf.tick()
+    assert [x.value_text for x in w.perf.fields.values()] == ["–", "–", "–"]
+
+
+def test_f68_perf_load_per_tick_is_small(make, app):
+    """Eigenlast: Messen, Rechnen, Zeichnen. Ziel < 1 % einer CPU-Sekunde (also < 10 ms pro Messung)."""
+    import time
+
+    w = make()
+    for _ in range(5):  # Aufwärmen
+        w.perf.tick()
+        w.perf.grab()
+    n = 100
+    start = time.process_time()
+    for _ in range(n):
+        w.perf.tick()
+        w.perf.grab()  # erzwingt das Zeichnen der drei Felder
+    per_tick_ms = (time.process_time() - start) / n * 1000
+    print(f"Eigenlast pro Messung samt Zeichnen: {per_tick_ms:.2f} ms")
+    assert per_tick_ms < 10, per_tick_ms
 
 
 def test_f01_header_ignores_module_switch_and_banner(make, app):
@@ -507,3 +645,123 @@ def test_all_docks_are_qdockwidgets_with_custom_title(make):
     w = make()
     for d in w.docks:
         assert isinstance(d, QDockWidget) and d.titleBarWidget() is not None
+
+
+# --- Dienst-Symbole mit den echten Dateien (P05c) ------------------------------------------------
+
+def tinted_pixels(label):
+    """Farben (ohne Alpha) aller sichtbaren Pixel des Symbols."""
+    img = label.pixmap().toImage()
+    out = set()
+    for y in range(img.height()):
+        for x in range(img.width()):
+            c = img.pixelColor(x, y)
+            if c.alpha() > 200:
+                out.add(c.name())
+    return out
+
+
+@pytest.mark.parametrize("name", [theme.DARK, theme.LIGHT])
+def test_f04_real_icons_are_drawn_in_the_text_color_of_the_theme(make, app, name):
+    w = make()
+    w.set_theme(name)
+    app.processEvents()
+    text = theme.palette(name)["text"]
+    for key in SERVICE_KEYS:
+        assert w.connections.has_icon(key), key  # die Dateien liegen im Repo
+        colors = tinted_pixels(w.connections.indicators[key].icon_label)
+        assert colors, key  # sichtbare Pixel vorhanden
+        ref = QColor(text)
+        for c in colors:  # Textfarbe (±2 wegen Rundung bei Alpha), nicht weiss auf weiss
+            q = QColor(c)
+            assert max(abs(q.red() - ref.red()), abs(q.green() - ref.green()), abs(q.blue() - ref.blue())) <= 2, (key, c)
+        assert theme.contrast_ratio(text, theme.palette(name)["bg"]) >= 4.5
+
+
+def test_f04_icons_are_retinted_when_the_theme_changes(make, app):
+    w = make()
+    label = w.connections.indicators["twitch"].icon_label
+    dark = label.pixmap().toImage()
+    w.set_theme("light")
+    app.processEvents()
+    light = label.pixmap().toImage()
+    assert dark != light
+    w.set_theme("dark")
+    assert label.pixmap().toImage() == dark
+
+
+def test_f04_icon_files_in_the_repo_are_single_colour_with_alpha():
+    from PyQt6.QtGui import QPixmap
+
+    for key in SERVICE_KEYS:
+        pm = QPixmap(str(widgets.connection_icon_dir() / f"{key}.png"))
+        assert not pm.isNull() and pm.width() >= 64
+        assert pm.hasAlphaChannel()
+
+
+def make_png_dir(folder, keys, color="#ff0000"):
+    from PyQt6.QtGui import QColor, QImage
+
+    folder.mkdir(parents=True, exist_ok=True)
+    for k in keys:
+        img = QImage(64, 64, QImage.Format.Format_ARGB32)
+        img.fill(QColor(color))
+        img.save(str(folder / f"{k}.png"))
+
+
+def test_f04_png_is_shown_without_the_svg_module(make, app, tmp_path, monkeypatch):
+    monkeypatch.setattr(widgets, "HAS_SVG", False)  # Qt-SVG-Modul fehlt (simuliert)
+    folder = tmp_path / "png"
+    make_png_dir(folder, SERVICE_KEYS)
+    monkeypatch.setattr(widgets, "connection_icon_dir", lambda: folder)
+    w = make()
+    assert all(w.connections.has_icon(k) for k in SERVICE_KEYS)
+    assert tinted_pixels(w.connections.indicators["obs"].icon_label)
+    # auch die echten Dateien im Repo: PNG vorhanden, also angezeigt
+    monkeypatch.undo()
+    monkeypatch.setattr(widgets, "HAS_SVG", False)
+    w2 = make()
+    assert all(w2.connections.has_icon(k) for k in SERVICE_KEYS)
+
+
+def test_f04_png_wins_over_svg_when_both_exist(tmp_path, monkeypatch):
+    make_png_dir(tmp_path, ["twitch"])
+    (tmp_path / "twitch.svg").write_text(SVG)  # grau, 64 × 64
+    for has_svg in (True, False):
+        monkeypatch.setattr(widgets, "HAS_SVG", has_svg)
+        QApplication.instance() or QApplication([])
+        pm = widgets.load_service_pixmap("twitch", tmp_path)
+        assert pm is not None
+        assert pm.toImage().pixelColor(pm.width() // 2, pm.height() // 2).name() == "#ff0000"  # PNG, nicht SVG
+
+
+def test_f04_only_svg_without_svg_module_gives_one_hint_in_the_log(tmp_path, monkeypatch, caplog):
+    QApplication.instance() or QApplication([])
+    write_test_icons(tmp_path, ["twitch", "obs"])
+    monkeypatch.setattr(widgets, "HAS_SVG", False)
+    monkeypatch.setattr(widgets, "_svg_hint_given", False)
+    with caplog.at_level("WARNING"):
+        assert widgets.load_service_pixmap("twitch", tmp_path) is None
+        assert widgets.load_service_pixmap("obs", tmp_path) is None
+    hints = [r for r in caplog.records if "Qt-SVG-Modul" in r.getMessage()]
+    assert len(hints) == 1  # einmalig
+    assert "libqt6svg6" in hints[0].getMessage()
+
+
+def test_f04_layout_is_the_same_with_png_only_svg_only_and_no_files(make, tmp_path, monkeypatch):
+    monkeypatch.setattr(widgets, "connection_icon_dir", lambda: tmp_path / "leer")
+    base = header_geometry(make())
+    png = tmp_path / "png"
+    make_png_dir(png, SERVICE_KEYS)
+    monkeypatch.setattr(widgets, "connection_icon_dir", lambda: png)
+    assert header_geometry(make()) == base
+    monkeypatch.setattr(widgets, "connection_icon_dir", lambda: widgets.Path(__file__).parents[1] / "assets/icons/connections")
+    assert header_geometry(make()) == base  # echte Dateien
+
+
+def test_help_about_names_ndi_trademark_with_the_real_icon_file(make, monkeypatch):
+    shown = []
+    monkeypatch.setattr(QMessageBox, "about", lambda parent, title, text: shown.append(text))
+    w = make()
+    w._about()  # echte Dateien im Repo: ndi.png/ndi.svg vorhanden
+    assert "NDI® is a registered trademark of Vizrt NDI AB" in shown[-1]
