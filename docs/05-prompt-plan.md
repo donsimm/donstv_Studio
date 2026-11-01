@@ -25,6 +25,7 @@ Nachträge und Korrekturen (in der Reihenfolge der Ausführung, Stand P08):
 | P06c | `P06c-laptop-befunde.md` | Befunde vom Laptop: PNG-Testsymbole, sichtbare Fehler im Unterprozess-Test, Freigabe-Reihenfolge von QtWebEngine | F-01, F-04, F-65 (Bericht `docs/berichte/P06c.md`) |
 | P08 | `P08-aufraeumen.md` | Aufräumen ohne Verhaltensänderung: Signale nach Regel 12, toter und doppelter Code, `ruff format`, Dokumente gegen Code, Testdauer | – (Bericht `docs/berichte/P08.md`) |
 | P06d | `P06d-editor-fehler.md` | Editor: Fehler und Kleinkram (Bildrahmen, Kontrast, Zeigerposition, Umbenennen, Leistungsanzeige, README, Stylesheet nur bei Änderung) | F-74 bis F-78 |
+| P06d2 | `P06d2-absturz.md` | Absturz beim Start seit P06d: Startprüfung mit echtem Fenstersystem, Ursachensuche, Behebung, Option `kurz` im Laptop-Skript | F-01, F-78 (Befund `docs/befunde/absturz-p06d.md`) |
 | P06e | `P06e-eigenschaften.md` | Eigenschaften-Dock: Regler-Felder und Reset, Transformation kopieren/einfügen, Sperren, Leinwandgrösse, Ausgabe-Schalter | F-80 bis F-84 |
 | P06f | `P06f-quellenfenster.md` | Quellenfenster per Doppelklick (Text: Rand, Schatten, Gewicht, Ausrichtung; Bild: Einpassen) | F-79, F-67, F-70, F-38 |
 
