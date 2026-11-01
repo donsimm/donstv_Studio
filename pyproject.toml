@@ -8,10 +8,11 @@ version = "0.1.0"
 description = "donstv_Studio – Overlays und Chat-Bot für den Studio-Betrieb"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["fastapi", "uvicorn", "websockets", "keyring"]
+# Mindestversionen entsprechen den Debian-13-Paketen (apt-cache policy auf dem Studio-Laptop).
+dependencies = ["fastapi>=0.115.11", "uvicorn>=0.32.0", "websockets>=15.0.1", "keyring>=25.6.0"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "ruff", "httpx"]
+dev = ["pytest", "pytest-asyncio", "ruff", "httpx>=0.28.1"]
 
 [project.scripts]
 donstv-core = "donstv_studio.core.main:main"

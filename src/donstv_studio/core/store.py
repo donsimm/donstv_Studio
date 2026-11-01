@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sqlite3
 import threading
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
@@ -16,6 +18,34 @@ MIGRATIONS: list[tuple[int, str]] = [
     (
         1,
         "CREATE TABLE settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)",
+    ),
+    (
+        # F-10, F-11, F-12, F-66: Overlays und Quellen. Lage und Grösse als INTEGER (F-65).
+        2,
+        """
+        CREATE TABLE overlays (
+            id TEXT PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            width INTEGER NOT NULL CHECK (width >= 1),
+            height INTEGER NOT NULL CHECK (height >= 1),
+            output TEXT NOT NULL,
+            token TEXT NOT NULL UNIQUE
+        );
+        CREATE TABLE sources (
+            id TEXT PRIMARY KEY NOT NULL,
+            overlay_id TEXT NOT NULL REFERENCES overlays(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            x INTEGER NOT NULL,
+            y INTEGER NOT NULL,
+            width INTEGER NOT NULL CHECK (width >= 1),
+            height INTEGER NOT NULL CHECK (height >= 1),
+            rotation REAL NOT NULL,
+            z INTEGER NOT NULL,
+            visible INTEGER NOT NULL CHECK (visible IN (0, 1)),
+            props TEXT NOT NULL
+        );
+        CREATE INDEX sources_overlay ON sources(overlay_id, z)
+        """,
     ),
 ]
 
@@ -35,6 +65,7 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
+        self._db.execute("PRAGMA foreign_keys=ON")
         self._migrate()
 
     # --- Schema ---------------------------------------------------------
@@ -64,6 +95,24 @@ class Store:
                     self._db.execute("ROLLBACK")
                     raise
                 log.info("Datenbank auf Schema %d migriert", version)
+
+    # --- Allgemeiner Zugriff für Bausteine (Overlays usw.) ---------------
+    @contextlib.contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Eine Transaktion; bei Fehler Rollback."""
+        with self._lock:
+            self._db.execute("BEGIN")
+            try:
+                yield self._db
+            except BaseException:
+                self._db.execute("ROLLBACK")
+                raise
+            else:
+                self._db.execute("COMMIT")
+
+    def query(self, sql: str, params: tuple = ()) -> list[tuple]:
+        with self._lock:
+            return self._db.execute(sql, params).fetchall()
 
     # --- Einstellungen --------------------------------------------------
     def get_setting(self, key: str, default: str | None = None) -> str | None:

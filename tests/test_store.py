@@ -7,6 +7,8 @@ import pytest
 
 from donstv_studio.core.store import MIGRATIONS, Store
 
+LATEST = MIGRATIONS[-1][0]
+
 
 def test_f03_wal_and_settings(tmp_path):
     s = Store(tmp_path / "a.db")
@@ -23,9 +25,10 @@ def test_f03_migration_from_old_version(tmp_path):
     s = Store(path, migrations=MIGRATIONS[:1])
     s.set_setting("k", "v")
     s.close()
-    more = [*MIGRATIONS, (2, "CREATE TABLE extra (id INTEGER PRIMARY KEY)")]
+    nxt = LATEST + 1
+    more = [*MIGRATIONS, (nxt, "CREATE TABLE extra (id INTEGER PRIMARY KEY)")]
     s2 = Store(path, migrations=more)
-    assert s2.schema_version == 2
+    assert s2.schema_version == nxt
     assert s2.get_setting("k") == "v"
     s2.close()
 
@@ -33,17 +36,17 @@ def test_f03_migration_from_old_version(tmp_path):
 def test_f03_failed_migration_rolls_back(tmp_path):
     path = tmp_path / "a.db"
     Store(path).close()
-    bad = [*MIGRATIONS, (2, "CREATE TABLE t (id INTEGER); INSERT INTO gibtsnicht VALUES (1)")]
+    bad = [*MIGRATIONS, (LATEST + 1, "CREATE TABLE t (id INTEGER); INSERT INTO gibtsnicht VALUES (1)")]
     with pytest.raises(sqlite3.OperationalError):
         Store(path, migrations=bad)
     s = Store(path)
-    assert s.schema_version == 1
+    assert s.schema_version == LATEST
     s.close()
 
 
 def test_f03_newer_schema_refused(tmp_path):
     path = tmp_path / "a.db"
-    Store(path, migrations=[*MIGRATIONS, (2, "CREATE TABLE t (id INTEGER)")]).close()
+    Store(path, migrations=[*MIGRATIONS, (LATEST + 1, "CREATE TABLE t (id INTEGER)")]).close()
     with pytest.raises(RuntimeError):
         Store(path)
 

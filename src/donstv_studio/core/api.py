@@ -19,6 +19,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from donstv_studio.core.bus import Event, EventBus
 from donstv_studio.core.config import Config, ConfigError
 from donstv_studio.core.connections.manager import ConnectionManager
+from donstv_studio.overlays.api import create_router as create_overlay_router
+from donstv_studio.overlays.service import OverlayService
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +40,11 @@ def create_token_file(path: Path) -> str:
 
 
 def create_app(
-    token: str, bus: EventBus, manager: ConnectionManager, config: Config
+    token: str,
+    bus: EventBus,
+    manager: ConnectionManager,
+    config: Config,
+    overlays: OverlayService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="donstv-core", docs_url=None, redoc_url=None, openapi_url=None)
     def valid(candidate: str | None) -> bool:
@@ -49,6 +55,9 @@ def create_app(
     ) -> None:
         if cred is None or not valid(cred.credentials):
             raise HTTPException(status_code=401, detail="Token fehlt oder ist falsch")
+
+    if overlays is not None:
+        app.include_router(create_overlay_router(overlays), dependencies=[Depends(require_token)])
 
     @app.get("/health", dependencies=[Depends(require_token)])
     async def health() -> dict[str, str]:

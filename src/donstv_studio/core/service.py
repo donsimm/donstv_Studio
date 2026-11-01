@@ -16,6 +16,8 @@ from donstv_studio.core.config import Config, Paths
 from donstv_studio.core.connections.manager import ConnectionManager
 from donstv_studio.core.secrets import SecretStore, open_secret_store
 from donstv_studio.core.store import Store
+from donstv_studio.overlays.repository import OverlayRepository
+from donstv_studio.overlays.service import OverlayService
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +53,8 @@ class Service:
         self.secrets = open_secret_store(self.paths.config_dir)
         self.token = create_token_file(self.paths.token_file)
         port = self._port_override if self._port_override is not None else config.api_port
-        app = create_app(self.token, self.bus, self.manager, config)
+        self.overlays = OverlayService(OverlayRepository(self.store), self.bus)
+        app = create_app(self.token, self.bus, self.manager, config, self.overlays)
         server = uvicorn.Server(
             uvicorn.Config(
                 app, host=LOCAL_HOST, port=port, log_config=None, access_log=False
