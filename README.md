@@ -115,9 +115,17 @@ python tools/diagnose_qt.py
 
 Das Skript meldet zuerst den Programmstand (Commit) und startet dann jede Widget-Klasse des Editors, das Hauptfenster mit und ohne Kern-Verbindung und mehrere Varianten mit jeweils einem abgeschalteten Teil einzeln in einem eigenen Prozess (ca. 1 Sekunde sichtbar). Jede Zeile heisst `OK` (mit Qt- und PyQt-Version) oder `ABSTURZ` (mit Rückgabecode, -11 = Speicherzugriffsfehler). Die Fälle `MainWindow_CoreLink_gestartet` und `CL:…` stürzen nur bei laufendem Kern ab, wenn die Ursache mit der Verbindung zusammenhängt; für ein aussagekräftiges Ergebnis das Skript einmal mit und einmal ohne laufenden `donstv-core` ausführen. Man braucht es, wenn die Oberfläche beim Start oder kurz danach abstürzt. Zusätzlich liefert `gdb -batch -ex run -ex bt --args python -c "from donstv_studio.ui.main import main; main()"` den Absturzort in Qt. Hintergrund und bisherige Ursachen: `docs/02-architektur.md`, «Befund Debian 13».
 
+### Beenden prüfen (P06c)
+
+`tools/beenden_pruefung.sh` startet fünfmal je in einem eigenen Prozess die echte Oberfläche mit Vorschau (offscreen, eigener Kern-Dienst in einem leeren Ordner), legt ein Overlay an, zeigt es, schliesst das Fenster und meldet den Exit-Code jedes Laufs, die letzten Zeilen von stderr und am Ende «N von 5 Läufen mit Exit-Code 0». Die Daten des Nutzers werden nicht berührt. `tools/laptop_pruefung.sh` ruft es nach der Testsuite auf.
+
+```bash
+tools/beenden_pruefung.sh
+```
+
 ### Fensterkopf und Dienst-Symbole (P05b)
 
-Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.
+Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). PNG-Dateien gleichen Namens haben Vorrang und erscheinen auch ohne das Qt-SVG-Modul. Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.
 
 ## Chat-Bot (P07)
 

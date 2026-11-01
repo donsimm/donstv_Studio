@@ -7,16 +7,27 @@ import json
 import socket
 import sys
 import time
+import traceback
 from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "src"))
 
+
+def step(text: str) -> None:
+    """Fortschritt in stderr, sofort geschrieben: Bei einem Absturz zeigt die letzte Zeile, wie weit es kam."""
+    print(f"Schritt: {text}", file=sys.stderr, flush=True)
+
+
+step("Start, Import PyQt6")
+from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
 from PyQt6.QtWidgets import QApplication
 
+step(f"Qt {QT_VERSION_STR}, PyQt6 {PYQT_VERSION_STR}; Import QtWebEngine")
 from donstv_studio.ui import preview_web  # noqa: F401  (vor der QApplication)
 
+step("QApplication anlegen")
 app = QApplication(["donstv-dpr"])
 import os
 
@@ -52,6 +63,8 @@ def js(web, code):
 
 
 paths = Paths.under(Path(sys.argv[1]))
+exit_code = 0
+step("Kern-Dienst starten")
 svc = RunningService(paths, free_port(), free_port()).start()
 try:
     backend = CoreBackend(svc.base_url, paths.token_file)
@@ -59,14 +72,19 @@ try:
     model = EditorModel(backend, DirectRunner(), None)
     model.load()
     model.select_overlay(ids["overlay"])
+    if os.environ.get("DONSTV_DPR_SELFTEST_FAIL") == "1":  # nur für den Test der Fehlermeldung
+        raise RuntimeError("absichtlicher Fehler (Selbsttest)")
+    step("Editor anlegen und anzeigen")
     view = EditorView(model, EditorPrefs())
     view.resize(1100, 700)  # logisch; physisch 2200 × 1400
     view.show()
     view.set_zoom(1.0)
+    step("auf erstes Zeichnen der Overlay-Seite warten (QtWebEngine)")
     end = time.time() + 30
     while time.time() < end and not (js(view.web, "window.__overlay && window.__overlay.renders") or 0) > 0:
         pump(100)
     pump(1000)
+    step("Bild der Bühne aufnehmen")
     t = view.transform()
     img = view.stage.grab().toImage()
     x, y, w, h = (RED_BOX[k] for k in ("x", "y", "width", "height"))
@@ -81,8 +99,16 @@ try:
         "red_inside": px(x, y), "red_outside_left": px(x - 1, y), "red_outside_top": px(x, y - 1),
         "red_right_last": px(x + w - 1, y + h - 1), "red_right_next": px(x + w, y + h - 1),
     }  # fmt: skip
-    print(json.dumps(out))
+    print(json.dumps(out), flush=True)  # vor os._exit: sonst kann die Zeile im Puffer bleiben
+    step("Ergebnis geschrieben")
     view.close()
+except BaseException:  # noqa: BLE001 - jede Ausnahme muss vor os._exit sichtbar werden
+    # Ohne diesen Block verschluckt os._exit unten jede Ausnahme: Der Prozess endete mit Exit-Code 0 und leerer
+    # Ausgabe (Befund vom Laptop, P06c). Jetzt: Aufrufliste in stderr und Exit-Code 1.
+    traceback.print_exc()
+    exit_code = 1
 finally:
     svc.stop()
-    os._exit(0)  # Chromium-Prozesse nicht abwarten
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(exit_code)  # Chromium-Prozesse nicht abwarten

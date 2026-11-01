@@ -119,10 +119,14 @@ if HAS_WEBENGINE:
         def __init__(self, parent: QWidget | None = None) -> None:
             super().__init__(parent)
             # Profil ohne Namen: nichts wird auf die Platte geschrieben. Es darf erst nach der Seite verschwinden
-            # («Release of profile requested but WebEnginePage still not deleted»), darum ohne Eltern.
+            # («Release of profile requested but WebEnginePage still not deleted. Expect troubles !», Meldung aus
+            # libQt6WebEngineCore). Darum wird das Profil ein Kind der Seite: Qt löscht Kinder im Destruktor von
+            # QObject, also nachdem der Destruktor von QWebEnginePage gelaufen ist (Seite vor Profil). Damit gehört
+            # das Profil Qt (C++) und nicht Python; das Aufräumen von Python beim Beenden kann es nicht zu früh
+            # löschen. Quellen siehe RELEASE_ORDER unten.
             self.profile_ = QWebEngineProfile()
             self.page_ = PreviewPage(self.profile_, self)
-            self.page_.destroyed.connect(self.profile_.deleteLater)
+            self.profile_.setParent(self.page_)
             self.setPage(self.page_)
             s = self.page_.settings()
             for attr in (
@@ -174,3 +178,48 @@ if HAS_WEBENGINE:
 
 else:  # pragma: no cover - ohne QtWebEngine bleibt die Vorschau leer, der Editor funktioniert trotzdem
     WebPreview = None  # type: ignore[assignment,misc]
+
+
+# Reihenfolge beim Freigeben (F-01, P06c): Ansicht vor Seite, Seite vor Profil, QApplication zuletzt.
+# Quellen (in dieser Sitzung nicht abrufbar, Wortlaut nicht geprüft):
+# - https://doc.qt.io/qt-6/qwebenginepage.html#QWebEnginePage-1 : Bei einem anderen als dem Standardprofil muss
+#   der Aufrufer sicherstellen, dass das Profil so lange lebt wie die Seite.
+# - https://doc.qt.io/qt-6/qwebengineprofile.html : Profil und Seiten; Meldung «Release of profile requested but
+#   WebEnginePage still not deleted», wenn ein Profil vor seinen Seiten freigegeben wird (Text in
+#   libQt6WebEngineCore.so.6 von Qt 6.8.2 gefunden, mit `strings` geprüft).
+# - https://doc.qt.io/qt-6/qobject.html#dtor.QObject : Der Destruktor von QObject löscht alle Kinder.
+RELEASE_ORDER = ("QWebEngineView", "QWebEnginePage", "QWebEngineProfile", "QApplication")
+
+
+def release_web_views(app=None) -> int:
+    """Gibt alle Webansichten (WebPreview und andere QWebEngineView) kontrolliert frei, solange die
+    QApplication noch läuft. Gibt die Anzahl der freigegebenen Ansichten zurück.
+
+    Ablauf: Seite anhalten (about:blank), Ansicht schliessen und von ihrem Eltern-Widget lösen, `deleteLater`,
+    dann die verzögerten Löschungen ausführen. Die Seite ist ein Kind der Ansicht, das Profil ein Kind der Seite;
+    so folgt die Reihenfolge aus RELEASE_ORDER. Aufruf beim Beenden der Anwendung (`ui/main.py`) und am Ende der
+    Testsitzung (`tests/conftest.py`). Nicht nach jedem Test: Das führte in P06 zu Abstürzen.
+    """
+    if not HAS_WEBENGINE:
+        return 0
+    from PyQt6.QtCore import QCoreApplication, QEvent
+    from PyQt6.QtWidgets import QApplication
+
+    app = app or QApplication.instance()
+    if app is None:
+        return 0
+    views = [w for w in QApplication.allWidgets() if isinstance(w, QWebEngineView)]
+    for v in views:
+        try:
+            v.page().triggerAction(QWebEnginePage.WebAction.Stop)
+            v.setUrl(QUrl("about:blank"))
+            v.close()
+            v.setParent(None)  # nicht mehr mit dem Eltern-Widget löschen; sonst doppelt
+            v.deleteLater()
+        except RuntimeError:  # C++-Objekt ist schon weg
+            continue
+    # Verzögerte Löschungen ausführen; Chromium braucht danach noch einige Durchläufe der Ereignisschleife.
+    for _ in range(3):
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.processEvents()
+    return len(views)

@@ -413,12 +413,27 @@ def test_f04_youtube_tooltip_says_not_configured(make):
 
 SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#808080"/></svg>'
 
+# P06c: Auf dem Laptop fehlt das Qt-SVG-Modul. Die Tests nutzen deshalb graue PNG-Testsymbole; die SVG-Fälle
+# laufen zusätzlich, werden aber ohne Modul mit Begründung übersprungen (sichtbar mit `pytest -rs`).
+NEEDS_SVG = pytest.mark.skipif(
+    not widgets.HAS_SVG,
+    reason="Qt-SVG-Modul fehlt (import PyQt6.QtSvg schlägt fehl); SVG-Symbole werden dann nicht angezeigt",
+)
+ICON_FORMATS = ["png", pytest.param("svg", marks=NEEDS_SVG)]
 
-def write_test_icons(folder, keys):
-    """Selbst erzeugte Test-SVGs, keine Logos."""
+
+def write_test_icons(folder, keys, fmt="png"):
+    """Selbst erzeugte, graue Testsymbole (keine Logos) als PNG oder SVG."""
+    from PyQt6.QtGui import QImage
+
     folder.mkdir(parents=True, exist_ok=True)
     for k in keys:
-        (folder / f"{k}.svg").write_text(SVG)
+        if fmt == "svg":
+            (folder / f"{k}.svg").write_text(SVG)
+        else:
+            img = QImage(64, 64, QImage.Format.Format_ARGB32)
+            img.fill(QColor("#808080"))
+            assert img.save(str(folder / f"{k}.png"), "PNG")
 
 
 def bar_geometry(bar):
@@ -428,7 +443,8 @@ def bar_geometry(bar):
     return out
 
 
-def test_f04_service_icons_do_not_change_position_or_width(make, app, tmp_path, monkeypatch):
+@pytest.mark.parametrize("fmt", ICON_FORMATS)
+def test_f04_service_icons_do_not_change_position_or_width(make, app, tmp_path, monkeypatch, fmt):
     # ohne Symbole (Ordner im Repo enthält noch keine Dateien)
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: tmp_path / "leer")
     w_without = make()
@@ -436,7 +452,7 @@ def test_f04_service_icons_do_not_change_position_or_width(make, app, tmp_path, 
     before = header_geometry(w_without)
     # mit Symbolen für alle vier
     folder = tmp_path / "mit"
-    write_test_icons(folder, SERVICE_KEYS)
+    write_test_icons(folder, SERVICE_KEYS, fmt)
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: folder)
     w_with = make()
     assert all(w_with.connections.has_icon(k) for k in SERVICE_KEYS)
@@ -447,16 +463,17 @@ def test_f04_service_icons_do_not_change_position_or_width(make, app, tmp_path, 
     assert header_geometry(w_with) == before  # Lage und Breite unverändert
     # nur einige Symbole: ebenfalls gleich
     folder2 = tmp_path / "teilweise"
-    write_test_icons(folder2, ["twitch", "ndi"])
+    write_test_icons(folder2, ["twitch", "ndi"], fmt)
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: folder2)
     w_part = make()
     assert [w_part.connections.has_icon(k) for k in SERVICE_KEYS] == [True, False, False, True]
     assert header_geometry(w_part) == before
 
 
-def test_f04_state_symbol_and_text_with_service_icons(make, tmp_path, monkeypatch):
+@pytest.mark.parametrize("fmt", ICON_FORMATS)
+def test_f04_state_symbol_and_text_with_service_icons(make, tmp_path, monkeypatch, fmt):
     folder = tmp_path / "i"
-    write_test_icons(folder, SERVICE_KEYS)
+    write_test_icons(folder, SERVICE_KEYS, fmt)
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: folder)
     w = make()
     for state in STATES:
@@ -464,6 +481,16 @@ def test_f04_state_symbol_and_text_with_service_icons(make, tmp_path, monkeypatc
         t = w.connections.text_of("obs")
         assert state in t and "OBS" in t and t.split()[0] == STATUS_STYLE[state][0]  # Zeichen + Text
         assert w.connections.indicators["obs"].icon_pixmap() is not None
+
+
+def test_help_about_names_ndi_trademark_with_the_real_png(make, monkeypatch):
+    """Der NDI-Hinweis erscheint auch, wenn nur die PNG-Datei verwendet wird (ohne SVG-Modul)."""
+    shown = []
+    monkeypatch.setattr(QMessageBox, "about", lambda parent, title, text: shown.append(text))
+    monkeypatch.setattr(widgets, "HAS_SVG", False)
+    w = make()
+    w._about()
+    assert "NDI® is a registered trademark of Vizrt NDI AB" in shown[-1]
 
 
 def test_f04_missing_or_broken_icon_file_is_no_error(tmp_path):
@@ -492,7 +519,8 @@ def test_f04_icon_dir_documented_in_repo():
     assert "ß" not in text
 
 
-def test_help_about_names_ndi_trademark_only_when_ndi_icon_is_used(make, tmp_path, monkeypatch):
+@pytest.mark.parametrize("fmt", ICON_FORMATS)
+def test_help_about_names_ndi_trademark_only_when_ndi_icon_is_used(make, tmp_path, monkeypatch, fmt):
     shown = []
     monkeypatch.setattr(QMessageBox, "about", lambda parent, title, text: shown.append(text))
     w = make()
@@ -500,7 +528,7 @@ def test_help_about_names_ndi_trademark_only_when_ndi_icon_is_used(make, tmp_pat
     w._about()
     assert "NDI® is a registered trademark of Vizrt NDI AB" not in shown[-1]
     folder = tmp_path / "i"
-    write_test_icons(folder, ["ndi"])
+    write_test_icons(folder, ["ndi"], fmt)
     monkeypatch.setattr(
         "donstv_studio.ui.main_window.find_service_icon",
         lambda key, d=None: widgets.find_service_icon(key, folder),
@@ -793,7 +821,7 @@ def test_f04_png_wins_over_svg_when_both_exist(tmp_path, monkeypatch):
 
 def test_f04_only_svg_without_svg_module_gives_one_hint_in_the_log(tmp_path, monkeypatch, caplog):
     QApplication.instance() or QApplication([])
-    write_test_icons(tmp_path, ["twitch", "obs"])
+    write_test_icons(tmp_path, ["twitch", "obs"], "svg")
     monkeypatch.setattr(widgets, "HAS_SVG", False)
     monkeypatch.setattr(widgets, "_svg_hint_given", False)
     with caplog.at_level("WARNING"):

@@ -81,6 +81,27 @@ def wait_rendered(view) -> None:
     pump(300)  # Zoom, Ausschnitt und Zeichnen
 
 
+def dpr_failure_report(proc) -> str:
+    """Vollständige Angaben, wenn der Unterprozess keine Ergebniszeile liefert (P06c, Laptop-Befund)."""
+    code = proc.returncode
+    if code < 0:
+        art = f"Absturz durch Signal {-code}" + (" (Speicherzugriffsfehler, SIGSEGV)" if code == -11 else "")
+    elif code == 139:
+        art = "Absturz (139 = Speicherzugriffsfehler)"
+    elif code == 0:
+        art = "beendet ohne Ergebniszeile"
+    else:
+        art = "Fehler im Unterprozess"
+    from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
+
+    return (
+        f"Unterprozess lieferte keine Ergebniszeile. Exit-Code: {code} ({art}); "
+        f"Qt {QT_VERSION_STR}, PyQt6 {PYQT_VERSION_STR}\n"
+        f"--- stdout (vollständig, {len(proc.stdout)} Zeichen) ---\n{proc.stdout}\n"
+        f"--- stderr (vollständig, {len(proc.stderr)} Zeichen) ---\n{proc.stderr}"
+    )
+
+
 @pytest.fixture(scope="module")
 def app():
     return QApplication.instance() or QApplication(["donstv-tests"])
@@ -392,12 +413,14 @@ def test_t02_preview_vs_playwright_chromium_pixel_difference(editor, pw_browser,
 # --- devicePixelRatio 2 (eigener Prozess: Qt liest den Faktor beim Start) --------------------------------
 def test_f65_dpr_2_zoom_100_is_still_one_overlay_pixel_per_screen_pixel(webengine, tmp_path):
     env = {**os.environ, "QT_SCALE_FACTOR": "2", "QT_QPA_PLATFORM": "offscreen"}
+    # -X faulthandler: Bei einem Absturz (Exit-Code negativ, z. B. -11, oder 139 über eine Shell) steht die
+    # Aufrufliste von Python in stderr. Der Unterprozess meldet seine Schritte in stderr («Schritt: …»).
     proc = subprocess.run(
-        [sys.executable, str(HERE / "editor_dpr_script.py"), str(tmp_path)],
+        [sys.executable, "-X", "faulthandler", str(HERE / "editor_dpr_script.py"), str(tmp_path)],
         capture_output=True, text=True, timeout=180, env=env, cwd=str(HERE), check=False,
     )  # fmt: skip
     lines = [ln for ln in proc.stdout.splitlines() if ln.startswith("{")]
-    assert lines, f"Unterprozess lieferte nichts.\nstdout:\n{proc.stdout[-2000:]}\nstderr:\n{proc.stderr[-2000:]}"
+    assert lines, dpr_failure_report(proc)
     r = json.loads(lines[-1])
     print("\ndpr-2-Test:", r)
     assert r["dpr"] == 2.0
@@ -406,3 +429,27 @@ def test_f65_dpr_2_zoom_100_is_still_one_overlay_pixel_per_screen_pixel(webengin
     assert r["image_physical"] == [1920, 1080]
     assert r["red_inside"] == "#ff0000" and r["red_outside_left"] != "#ff0000" and r["red_outside_top"] != "#ff0000"
     assert r["red_right_last"] == "#ff0000" and r["red_right_next"] != "#ff0000"
+
+
+def test_f65_dpr_failure_report_names_exit_code_and_full_output():
+    """P06c: Bei leerer Ergebniszeile stehen Exit-Code und die vollständige Ausgabe in der Meldung."""
+    long_err = "x" * 5000 + "ENDE"
+    proc = subprocess.CompletedProcess([], -11, stdout="", stderr=long_err)
+    text = dpr_failure_report(proc)
+    assert "Exit-Code: -11" in text and "SIGSEGV" in text
+    assert long_err in text  # nicht gekürzt
+    assert "Exit-Code: 0 (beendet ohne Ergebniszeile)" in dpr_failure_report(
+        subprocess.CompletedProcess([], 0, stdout="", stderr="")
+    )
+
+
+def test_f65_dpr_script_reports_exceptions_instead_of_silent_exit(webengine, tmp_path):
+    """P06c: Eine Ausnahme im Unterprozess endet mit Exit-Code 1 und Aufrufliste, nicht still mit Exit-Code 0."""
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "DONSTV_DPR_SELFTEST_FAIL": "1"}
+    proc = subprocess.run(
+        [sys.executable, "-X", "faulthandler", str(HERE / "editor_dpr_script.py"), str(tmp_path)],
+        capture_output=True, text=True, timeout=120, env=env, cwd=str(HERE), check=False,
+    )  # fmt: skip
+    assert proc.returncode == 1, dpr_failure_report(proc)
+    assert "absichtlicher Fehler (Selbsttest)" in proc.stderr and "Traceback" in proc.stderr
+    assert "Schritt: Kern-Dienst starten" in proc.stderr

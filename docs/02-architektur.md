@@ -105,6 +105,14 @@ Auf dem Studio-Laptop (Debian 13) stürzte die Oberfläche mit «Speicherzugriff
 
 Warum Qt beim Wiederherstellen abstürzt, ist nicht geklärt; der Zusammenhang mit der Versionsmischung ist eine Vermutung. Unsere Testumgebungen (Qt 6.9.2 mit PyQt6 6.9.0 und Qt 6.12.0 mit PyQt6 6.12.0, Python 3.13) zeigten beide Ursachen nicht, weil dort Qt und PyQt zusammenpassen. Diagnose: `tools/diagnose_qt.py` (siehe README). Quellen: Commits `9555c6c` und `9475a43` in diesem Repository; Ausgabe von `dpkg -l` und `gdb` des Nutzers vom 1. November 2026.
 
+### Befund Debian 13: Testsuite auf dem Laptop (P06c)
+
+Stand Commit `f688d81`: 4 Fehler, 410 bestanden, danach Speicherzugriffsfehler beim Beenden von pytest (Exit-Code 139), vorher 18 Mal «Release of profile requested but WebEnginePage still not deleted. Expect troubles !».
+
+1. **Qt-SVG-Modul fehlt** (`import PyQt6.QtSvg` schlägt fehl). Die Anwendung zeigt trotzdem die Dienst-Symbole, weil `assets/icons/connections/` PNG-Dateien enthält und PNG Vorrang hat; die Tests mit den echten Dateien liefen auf dem Laptop durch. Fehlgeschlagen sind nur Tests mit selbst erzeugten SVG-Testsymbolen. Seit P06c: Testsymbole als PNG, SVG-Fälle werden ohne Modul mit Begründung übersprungen.
+2. **Unterprozess-Test bei `QT_SCALE_FACTOR=2`** lieferte weder stdout noch stderr. Ursache im Testskript `tests/editor_dpr_script.py` belegt: `os._exit(0)` im `finally` beendete den Prozess, bevor Python eine Ausnahme ausgeben konnte. Jede Ausnahme ergab daher Exit-Code 0 ohne Ausgabe. Seit P06c: Ausnahme mit Aufrufliste in stderr, Exit-Code 1, Schrittmeldungen, `-X faulthandler`, vollständige Ausgabe im Fehlerfall. Welche Ausnahme oder welcher Absturz auf dem Laptop auftritt, ist noch nicht bekannt; ein Überspringen für Qt unter 6.9 ist deshalb nicht eingebaut.
+3. **Freigabe-Reihenfolge von QtWebEngine**: Ansicht vor Seite, Seite vor Profil, `QApplication` zuletzt. Das Profil der Vorschau war ein Python-Objekt ohne Eltern; Python konnte es beim Aufräumen vor der Seite löschen. Seit P06c ist das Profil ein Kind der Seite (Qt löscht Kinder nach dem Destruktor der Seite), `ui/main.py` gibt nach `app.exec()` Webansichten und Fenster frei, und `tests/conftest.py` tut dasselbe einmal am Ende der Testsitzung (`preview_web.release_web_views`). Quellen: https://doc.qt.io/qt-6/qwebenginepage.html, https://doc.qt.io/qt-6/qwebengineprofile.html, https://doc.qt.io/qt-6/qobject.html (in der Sitzung nicht abrufbar, Wortlaut nicht geprüft); Text der Meldung in `libQt6WebEngineCore.so.6` (Qt 6.8.2) mit `strings` gefunden. Ob damit der Absturz auf dem Laptop behoben ist, zeigt erst `tools/laptop_pruefung.sh` dort.
+
 ## 8. Offene Punkte
 
 1. [ENTSCHIEDEN] Getrennter Kern-Dienst und Oberfläche.

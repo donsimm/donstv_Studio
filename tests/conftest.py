@@ -21,3 +21,19 @@ def pytest_configure(config):
     if QApplication.instance() is None:
         config._qt_app = QApplication(["donstv-tests"])  # Verweis halten, sonst wird die Anwendung abgeräumt
 
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Einmal am Ende der Sitzung (P06c): alle QWebEngineView mit Seite und Profil kontrolliert freigeben,
+    solange die QApplication noch besteht. Grund: Speicherzugriffsfehler beim Beenden von pytest auf dem
+    Laptop nach «Release of profile requested but WebEnginePage still not deleted». Nach jedem Test
+    aufzuräumen führte in P06 zu Abstürzen; darum nur hier. Reihenfolge: `preview_web.RELEASE_ORDER`.
+    """
+    try:
+        from donstv_studio.ui import preview_web
+    except ImportError:
+        return
+    n = preview_web.release_web_views()
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if n and reporter is not None:  # print() wäre hier noch abgefangen
+        reporter.write_line(f"Aufräumen am Sitzungsende: {n} Webansicht(en) freigegeben")

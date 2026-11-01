@@ -53,4 +53,22 @@ def main() -> int:
     code = app.exec()
     bridge.close()
     core.stop()
+    shutdown(app, window)
     return code
+
+
+def shutdown(app, window) -> None:
+    """Explizites Aufräumen beim Beenden (P06c, F-01): Webansichten, dann Fenster, die QApplication zuletzt.
+
+    Ohne diesen Schritt räumt Python beim Beenden in beliebiger Reihenfolge auf; dann kann ein Profil von
+    QtWebEngine vor seiner Seite freigegeben werden. Reihenfolge und Quellen: `preview_web.RELEASE_ORDER`.
+    """
+    from PyQt6.QtCore import QCoreApplication, QEvent
+
+    from donstv_studio.ui import preview_web
+
+    n = preview_web.release_web_views(app)  # Ansicht vor Seite vor Profil
+    window.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
+    log.info("Beenden: %d Webansicht(en) und Hauptfenster freigegeben", n)
