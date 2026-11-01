@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Virtuelle Umgebung
+.venv/
+venv/
+
+# Daten- und Konfigurationsordner (Laufzeit, enthalten Zugangsdaten)
+data/
+config/
+*.db
+*.sqlite3
+
+# Editor
+.idea/
+.vscode/

@@ -1,0 +1,1 @@
+"""Teilpaket core (Platzhalter)."""

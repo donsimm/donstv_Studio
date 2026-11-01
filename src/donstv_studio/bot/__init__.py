@@ -1,0 +1,1 @@
+"""Teilpaket bot (Platzhalter)."""

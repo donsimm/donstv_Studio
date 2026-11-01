@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "donstv_studio"
+version = "0.1.0"
+description = "donstv_Studio – Overlays und Chat-Bot für den Studio-Betrieb"
+readme = "README.md"
+requires-python = ">=3.12"
+# Laufzeitpakete werden erst in späteren Bausteinen eingetragen.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "ruff"]
+
+[project.scripts]
+donstv-core = "donstv_studio.core.main:main"
+donstv-studio = "donstv_studio.ui.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
