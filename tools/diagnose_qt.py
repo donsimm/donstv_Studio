@@ -10,6 +10,7 @@ import sys
 CASES = [
     "plain_toolbutton", "IconButton", "ButtonBar", "ListWithHint", "SourceList", "OverlaysDock",
     "SourcesDock", "PropertiesDock", "ControlDock", "EditorView", "MainWindow",
+    "MainWindow_mit_Daten", "MainWindow_CoreLink", "MainWindow_CoreLink_gestartet", "MainWindow_Signale",
 ]  # fmt: skip
 
 CHILD = r"""
@@ -50,7 +51,35 @@ elif case == "MainWindow":
         def save_settings_blocking(self, *a, **k): return True
     from donstv_studio.ui.main_window import MainWindow
     w = MainWindow(C()); host = w
-if case != "MainWindow":
+elif case.startswith("MainWindow_"):
+    from PyQt6.QtCore import QObject, pyqtSignal
+    from donstv_studio.ui.main_window import MainWindow
+    if case == "MainWindow_mit_Daten":
+        class B:
+            def list_overlays(self):
+                src = lambda i, k: {"id": f"s{i}", "kind": k, "x": 10 * i, "y": 5, "width": 200, "height": 80, "rotation": 0.0,
+                                    "z": i, "visible": True, "props": {"text": "Hallo"} if k == "text" else {}}
+                return [{"id": "o1", "name": "Test", "width": 1920, "height": 1080, "output": "browser",
+                         "output_status": "verfügbar", "token": "t", "url": "http://127.0.0.1:1/o/o1?t=t",
+                         "sources": [src(0, "text"), src(1, "image")]}]
+        class C(QObject):
+            connected = pyqtSignal(); unreachable = pyqtSignal(str, float); status_changed = pyqtSignal(str, str, str)
+            statuses_loaded = pyqtSignal(dict); settings_loaded = pyqtSignal(dict)
+            backend = B(); runner = DirectRunner()
+            def save_setting(self, *a): pass
+            def save_settings_blocking(self, *a, **k): return True
+        c = C(); w = MainWindow(c); host = w
+        w.show(); c.connected.emit(); c.settings_loaded.emit({})
+    else:
+        from donstv_studio.ui.core_link import CoreLink
+        c = CoreLink(); w = MainWindow(c); host = w
+        saved = c.fetch_settings_blocking()
+        if saved is not None: w.apply_settings(saved)
+        if case in ("MainWindow_CoreLink_gestartet", "MainWindow_Signale"): c.start()
+        if case == "MainWindow_Signale":
+            from donstv_studio.ui.signals import SignalBridge
+            bridge = SignalBridge(parent=app)
+if case != "MainWindow" and not case.startswith("MainWindow_"):
     lay.addWidget(w)
 host.resize(500, 300); host.show()
 QTimer.singleShot(1200, app.quit)
