@@ -87,7 +87,7 @@ Beide Arten nutzen dieselbe Overlay-Seite. Ob ein Overlay beides gleichzeitig au
 1. [ENTSCHIEDEN] Getrennter Kern-Dienst und Oberfläche.
 2. [ENTSCHIEDEN] Ein Overlay darf Browserquelle und NDI gleichzeitig ausgeben (Datenmodell: `output` wird bei NDI-Ausbau zur Liste; im Gerüst P03 genügt ein Wert, die Änderung ist eine Migration).
 3. [ENTSCHIEDEN] Der Laptop kann später durch bessere Hardware (Intel-Prozessor, Nvidia-Grafikkarte) ersetzt werden. Bildrate, Auflösung und Hardware-Beschleunigung von Vorschau und Renderer sind einstellbar und nicht auf den i7-4500U ausgelegt.
-4. [OFFEN] Verfügbarkeit von PyQt6 mit QtWebEngine in Debian 13 prüfen (Paketnamen und Versionen).
+4. [ERLEDIGT] Auf dem Studio-Laptop (Debian 13, `apt-cache policy`, Quelle http://deb.debian.org/debian trixie/main amd64): `python3-pyqt6` 6.9.0-2 und `python3-pyqt6.qtwebengine` 6.9.0-1 sind als Installationskandidaten verfügbar. Noch nicht installiert und nicht getestet (T-01). Ebenso verfügbar (gleiche Quelle): python3-fastapi 0.115.11-4, python3-uvicorn 0.32.0-3, python3-websockets 15.0.1-1, python3-keyring 25.6.0-2, python3-httpx 0.28.1-1. Versionen von starlette und pydantic in Debian 13: noch nicht bekannt. Die Installation mit `pip install -e '.[dev]'` auf dem Laptop (Debian-Pakete, `--system-site-packages`) hat keine dieser Pakete nachgeladen.
 5. [OFFEN] NDI-SDK: Lizenzbedingungen und Linux-Bezug prüfen (Hinweis «NDI® is a registered trademark of Vizrt NDI AB»).
 6. [OFFEN] Zugangsdaten-Speicher auf dem Laptop (X11, ohne Desktop-Schlüsselbund?).
 

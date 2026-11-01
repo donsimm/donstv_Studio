@@ -77,6 +77,7 @@ Die Spalte «Quelle» verweist auf die Nummern aus der Funktionsliste (S1 overla
 | F-35 | Quellen «Pflanze giessen» und «Katze streicheln» (Chat-/Kanalpunkte-Spiele). | KANN | S1.15 |
 | F-36 | NDI-Ausgabe der Overlays mit Transparenz. Die Ausgabeart ist pro Overlay wählbar (Browserquelle oder NDI), siehe F-66. Die NDI-Ausgabe wird erst nach einem Machbarkeitstest auf dem Studio-Laptop gebaut. | KANN | S4.1, S4.2 |
 | F-66 | Pro Overlay wählbare Ausgabeart «Browserquelle» oder «NDI». Das Gerüst enthält die Auswahl und die Browserquelle (URL im Heimnetz); NDI folgt mit F-36. | MUSS | Vorgabe |
+| F-67 | Textquelle: Schriftgewicht und Ausrichtung (links, Mitte, rechts) einstellbar. Standard ist Gewicht 800 und Mitte (wie im overlay-game-tool). | SOLL | Vorgabe, P04c |
 | F-37 | Weitere Plattform-Zielbalken (z. B. YouTube Super Chat). | KANN | S2.4 |
 
 ## 5. Modul «Chat-Bot»
