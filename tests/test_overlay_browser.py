@@ -228,7 +228,7 @@ def test_f19_f38_f15_local_font_style_and_no_external_requests(browser, scene):
     api, o, ids, url, base = scene
     ctx, page, requests = open_page(browser, url)
     try:
-        assert page.evaluate("document.fonts.check('16px \"Be Vietnam Pro\"')")
+        assert page.evaluate("document.fonts.check('800 16px \"Be Vietnam Pro\"')")  # Gewicht der Textquelle
         loaded = page.evaluate("[...document.fonts].filter(f => f.status === 'loaded').map(f => f.family)")
         assert any("Be Vietnam Pro" in f for f in loaded)
         css = lambda sid, prop: page.evaluate(
@@ -311,5 +311,40 @@ def test_f15_text_styles_match_reference(browser, scene):
         # Standardstil ohne Angabe: comic
         api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Aa", "size": 48}})
         page.wait_for_function(f"id => {sel}.classList.contains('txt-comic')", arg=ids["text"])
+    finally:
+        ctx.close()
+
+
+def test_f15_f19_text_base_rule_and_extrabold_really_loaded(browser, scene):
+    """Textquelle ohne weitere Angaben: Gewicht 800, zentriert, Zeilenhöhe 1.15, echte Schriftdatei."""
+    api, o, ids, url, base = scene
+    ctx, page, requests = open_page(browser, url)
+    try:
+        r = api.post(f"/overlays/{o['id']}/sources", json={
+            "kind": "text", "x": 0, "y": 700, "width": 600, "height": 200, "props": {"text": "Hallo"}})
+        assert r.status_code == 201
+        sid = r.json()["id"]
+        page.wait_for_function(
+            "id => document.querySelector(`[data-source-id=\"${id}\"]`)?.textContent === 'Hallo'", arg=sid)
+        page.evaluate("document.fonts.ready.then(() => true)")
+        css = lambda prop: page.evaluate(
+            "([id, p]) => getComputedStyle(document.querySelector(`[data-source-id=\"${id}\"]`))[p]", [sid, prop])
+        assert css("fontWeight") == "800"
+        assert css("textAlign") == "center"
+        assert css("lineHeight") == "55.2px"  # 1.15 × 48 px (Standardgrösse der Seite)
+        assert css("fontFamily").startswith('"Be Vietnam Pro"')
+        assert css("whiteSpace") == "pre-wrap"  # bewusste Abweichung vom Original (`pre`)
+        # Echte Datei, kein Ersatz: Das FontFace mit Gewicht 800 ist geladen, die Datei wurde geholt.
+        # (document.fonts.check allein genügt nicht: es meldet auch bei fehlender Schriftdefinition «wahr».)
+        assert page.evaluate("document.fonts.check('800 48px \"Be Vietnam Pro\"', 'Hallo')")
+        faces = page.evaluate(
+            "[...document.fonts].map(f => [f.family, f.weight, f.status])")
+        assert ["Be Vietnam Pro", "800", "loaded"] in [[a.strip('"'), b, c] for a, b, c in faces], faces
+        assert any(u.endswith("/static/fonts/BeVietnamPro-ExtraBold.ttf") for u in requests), requests
+        # Sichtbar: Text ist mittig im Rahmen (Rahmen 0..600), nicht linksbündig
+        img = shot(page)
+        bbox = img.opaque_bbox(0, 700, 600, 900)
+        assert bbox is not None
+        assert abs((bbox[0] + bbox[2]) / 2 - 300) < 30, bbox
     finally:
         ctx.close()

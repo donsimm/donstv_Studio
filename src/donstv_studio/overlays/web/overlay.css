@@ -13,6 +13,13 @@
   font-style: normal;
   font-display: block;
 }
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/static/fonts/BeVietnamPro-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+}
 
 html, body {
   margin: 0;
@@ -45,10 +52,17 @@ html, body {
   object-fit: contain;
 }
 
+/* Grundregel der Textquelle (F-15, F-19): Gewicht, Zeilenhöhe und Ausrichtung wie `.txt` in
+   docs/referenz/textstile-overlay-game-tool.css (overlay-game-tool, web/overlays/_base.css).
+   Bewusste Abweichung: Dort steht `white-space: pre`; hier gilt `pre-wrap` mit `overflow-wrap`,
+   weil eine Quelle ein festes Rechteck hat und am Rand umbrechen soll. Ebenfalls anders: Farbe und
+   Grösse kommen aus `props` (Pixel) statt aus `--c` und `--sz` (vh). */
 .source.text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.2;
+  text-align: center;
+  font-weight: 800;
+  line-height: 1.15;
   font-family: "Be Vietnam Pro", sans-serif;
 }
 

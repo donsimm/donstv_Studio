@@ -118,7 +118,12 @@ def test_f19_font_served_locally_from_static(env):
     client, *_ = env
     r = client.get("/static/fonts/BeVietnamPro-Regular.ttf")
     assert r.status_code == 200 and len(r.content) > 50_000
-    assert "BeVietnamPro-Regular.ttf" in client.get("/static/overlay.css").text
+    css = client.get("/static/overlay.css").text
+    for weight, name in ((400, "Regular"), (700, "Bold"), (800, "ExtraBold")):
+        assert f"BeVietnamPro-{name}.ttf" in css
+        r = client.get(f"/static/fonts/BeVietnamPro-{name}.ttf")
+        assert r.status_code == 200 and len(r.content) > 50_000 and r.content[:4] == b"\x00\x01\x00\x00"
+        assert f"font-weight: {weight};" in css
     assert client.get("/static/fonts/OFL.txt").status_code == 200
     assert client.get("/static/../server.py").status_code == 404
     import re
