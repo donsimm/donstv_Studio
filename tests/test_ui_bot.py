@@ -18,7 +18,6 @@ from donstv_studio.ui.backend import BackendError, DirectRunner
 from donstv_studio.ui.bot_page import CHAT_LIMIT
 from donstv_studio.ui.main_window import MainWindow
 from fake_core import FakeCore
-from helpers import dispose
 
 
 class FakeBotBackend:
@@ -125,7 +124,8 @@ def env(app):
     w.set_module(1)
     app.processEvents()
     yield w, core, core.bot_backend
-    dispose(app, w)
+    w.close()
+    w.deleteLater()
 
 
 def table_rows(w):

@@ -23,7 +23,6 @@ from donstv_studio.ui.editor_prefs import EditorPrefs
 from donstv_studio.ui.editor_view import EditorView
 from donstv_studio.ui.geometry import FIT
 from fake_backend import FakeBackend
-from helpers import dispose
 
 NO, SHIFT = Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier
 
@@ -42,7 +41,8 @@ def env(app):
     view.set_zoom(1.0)
     app.processEvents()
     yield view, model, prefs, backend, saved
-    dispose(app, view)
+    view.close()
+    view.deleteLater()
 
 
 def add(model, x, y, w, h, text="Q"):

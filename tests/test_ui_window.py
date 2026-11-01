@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import QDockWidget, QLabel, QTabWidget
 from donstv_studio.ui import theme
 from donstv_studio.ui.main_window import KEY_THEME, MainWindow
 from fake_core import FakeCore
-from helpers import dispose
 
 
 @pytest.fixture
@@ -32,7 +31,10 @@ def make(app):
         return w, core
 
     yield factory
-    dispose(app, *windows)
+    for w in windows:
+        w.close()
+        w.deleteLater()
+    app.processEvents()
 
 
 def test_f01_window_structure(make):

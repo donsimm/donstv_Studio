@@ -46,11 +46,6 @@ def pytest_sessionfinish(session, exitstatus):
         from donstv_studio.ui import preview_web
     except ImportError:
         return
-    import helpers
-
-    for w in helpers.KEEP_UNTIL_SESSION_END:  # Fenster mit Webansicht aus `helpers.dispose`
-        w.deleteLater()
-    helpers.KEEP_UNTIL_SESSION_END.clear()
     n = preview_web.release_web_views()
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if n and reporter is not None:  # print() wäre hier noch abgefangen

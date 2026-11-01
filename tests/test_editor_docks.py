@@ -19,7 +19,7 @@ from donstv_studio.ui.backend import DirectRunner
 from donstv_studio.ui.main_window import MainWindow
 from fake_backend import FakeBackend
 from fake_core import FakeCore
-from helpers import dispose, solid_png
+from helpers import solid_png
 
 
 @pytest.fixture
@@ -36,7 +36,8 @@ def env(app):
     core.settings_loaded.emit(json.dumps({}))
     app.processEvents()
     yield w, core
-    dispose(app, w)
+    w.close()
+    w.deleteLater()
 
 
 def texts(listing):

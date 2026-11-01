@@ -165,35 +165,3 @@ class RunningService:
         """Führt eine Coroutine in der Schleife des Dienstes aus und wartet auf das Ergebnis."""
         fut = self._asyncio.run_coroutine_threadsafe(coro_func(*args), self.loop)
         return fut.result(10)
-
-
-# Fenster mit QtWebEngine bleiben bis zum Ende der Testsitzung (P06c: Freigabe nach jedem Test stürzte in P06 ab);
-# `tests/conftest.py` gibt sie in `pytest_sessionfinish` frei.
-KEEP_UNTIL_SESSION_END: list = []
-
-
-def dispose(app, *widgets) -> None:
-    """Schliesst Test-Fenster und gibt sie sofort frei (P08, Testdauer).
-
-    `deleteLater()` allein wirkt in Tests nicht: Ohne laufende Ereignisschleife verarbeitet Qt die verzögerte Löschung
-    nicht, alle Fenster bleiben bis zum Ende der Sitzung bestehen, und jedes `QApplication.setStyleSheet` (beim Anlegen
-    eines Hauptfensters) muss alle alten Widgets neu gestalten. `sendPostedEvents(None, DeferredDelete)` führt die
-    Löschung aus (wie `preview_web.release_web_views`). Widgets mit einer QWebEngineView werden nur geschlossen und
-    erst am Sitzungsende freigegeben.
-    """
-    from PyQt6.QtCore import QCoreApplication, QEvent
-
-    try:
-        from PyQt6.QtWebEngineWidgets import QWebEngineView
-    except ImportError:
-        QWebEngineView = None
-    for w in widgets:
-        w.close()
-        if QWebEngineView is not None and (
-            isinstance(w, QWebEngineView) or w.findChildren(QWebEngineView)
-        ):
-            KEEP_UNTIL_SESSION_END.append(w)
-        else:
-            w.deleteLater()
-    app.processEvents()
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)

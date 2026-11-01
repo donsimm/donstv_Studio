@@ -36,7 +36,7 @@ from donstv_studio.ui.editor_model import EditorModel
 from donstv_studio.ui.editor_prefs import EditorPrefs
 from donstv_studio.ui.editor_view import EditorView
 from editor_web_scene import RED_BOX, TEXT_BOX, CoreBackend, H, RunningService, W, build_scene
-from helpers import Image, dispose, free_port, pump
+from helpers import Image, free_port, pump
 
 HERE = Path(__file__).parent
 
@@ -136,7 +136,8 @@ def editor(core, app):
     view.set_zoom(1.0)
     wait_rendered(view)
     yield view, model, prefs, ids, backend
-    dispose(app, view)
+    view.close()
+    view.deleteLater()
 
 
 def qimage_rows(img: QImage):

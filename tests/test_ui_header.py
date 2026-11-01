@@ -19,7 +19,6 @@ from donstv_studio.ui import perf, theme, widgets
 from donstv_studio.ui.main_window import STATE_VERSION, MainWindow
 from donstv_studio.ui.widgets import SERVICES, STATUS_STYLE, ConnectionStatusBar
 from fake_core import FakeCore
-from helpers import dispose
 
 STATES = tuple(STATUS_STYLE)
 SERVICE_KEYS = [k for k, _ in SERVICES]
@@ -38,7 +37,10 @@ def make(app):
         return w
 
     yield factory
-    dispose(app, *windows)
+    for w in windows:
+        w.close()
+        w.deleteLater()
+    app.processEvents()
 
 
 def header_geometry(w):
