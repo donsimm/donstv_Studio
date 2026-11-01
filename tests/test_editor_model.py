@@ -4,7 +4,9 @@ import json
 
 import pytest
 
-pytest.importorskip("PyQt6.QtCore", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtCore", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 
 from donstv_studio.ui.backend import DirectRunner, TaskRunner
 from donstv_studio.ui.editor_model import EditorModel, box_of, source_label
@@ -31,7 +33,9 @@ def test_f10_load_selects_first_overlay(env):
     backend, model, _, o = env
     assert [x["name"] for x in model.overlays] == ["Hauptbild"] and model.current_id == o["id"]
     assert model.size() == (1920, 1080)
-    assert model.preview_url().endswith(f"/o/{o['id']}?t={o['token']}")  # Feld «url» der Schnittstelle (P04)
+    assert model.preview_url().endswith(
+        f"/o/{o['id']}?t={o['token']}"
+    )  # Feld «url» der Schnittstelle (P04)
 
 
 def test_f10_create_rename_duplicate_delete(env):
@@ -58,7 +62,10 @@ def test_f12_add_text_source_is_centered_and_selected(env):
     sid = add_text(model, "Willkommen")
     s = model.source(sid)
     assert s["kind"] == "text" and s["props"]["text"] == "Willkommen"
-    assert (s["width"], s["height"]) == (600, 120) and (s["x"], s["y"]) == ((1920 - 600) // 2, (1080 - 120) // 2)
+    assert (s["width"], s["height"]) == (600, 120) and (s["x"], s["y"]) == (
+        (1920 - 600) // 2,
+        (1080 - 120) // 2,
+    )
     assert backend.source(o["id"], sid)["x"] == s["x"]
     assert source_label(s) == "Text: Willkommen"
 
@@ -70,7 +77,9 @@ def test_f12_add_image_source_uploads_then_adds(env):
     assert s["kind"] == "image" and (s["width"], s["height"]) == (300, 200)
     assert s["props"]["media_id"] in backend.media
     assert source_label(s, model.media_names) == "Bild: logo.png"
-    model.add_image_source("/tmp/gross.png", (5000, 3000))  # grösser als das Overlay: auf die Overlay-Grösse begrenzt
+    model.add_image_source(
+        "/tmp/gross.png", (5000, 3000)
+    )  # grösser als das Overlay: auf die Overlay-Grösse begrenzt
     assert (model.selected()["width"], model.selected()["height"]) == (1920, 1080)
     model.add_image_source("/tmp/x.svg", None)  # Grösse unbekannt (SVG): Standardgrösse
     assert (model.selected()["width"], model.selected()["height"]) == (400, 300)
@@ -105,7 +114,13 @@ def test_f65_set_box_whole_pixels_and_sync(env):
     model.change_box(sid, Box(10, 20, 300, 80, 15.0))
     assert box_of(model.source(sid)) == Box(10, 20, 300, 80, 15.0)
     sent = backend.source(o["id"], sid)
-    assert (sent["x"], sent["y"], sent["width"], sent["height"], sent["rotation"]) == (10, 20, 300, 80, 15.0)
+    assert (sent["x"], sent["y"], sent["width"], sent["height"], sent["rotation"]) == (
+        10,
+        20,
+        300,
+        80,
+        15.0,
+    )
     assert all(isinstance(sent[k], int) for k in ("x", "y", "width", "height"))
 
 
@@ -168,7 +183,9 @@ def test_f13_failed_update_resyncs_from_core(env):
     backend.fail_next = "Der Kern-Dienst antwortet nicht"
     model.set_box(sid, Box(5, 5, 50, 50))
     assert errors == ["Der Kern-Dienst antwortet nicht"]
-    assert box_of(model.source(sid)) == box_of(backend.source(o["id"], sid))  # Stand nach dem Neuladen = Kern
+    assert box_of(model.source(sid)) == box_of(
+        backend.source(o["id"], sid)
+    )  # Stand nach dem Neuladen = Kern
 
 
 def test_f65_guides_per_overlay_saved_and_restored(env):
@@ -194,7 +211,10 @@ def test_f65_guides_per_overlay_saved_and_restored(env):
 def test_f66_output_choice_saved_to_core(env):
     backend, model, _, o = env
     model.set_output(o["id"], "ndi")
-    assert backend.overlays[0]["output"] == "ndi" and model.current()["output_status"] == "nicht verfügbar"
+    assert (
+        backend.overlays[0]["output"] == "ndi"
+        and model.current()["output_status"] == "nicht verfügbar"
+    )
     model.set_output(o["id"], "browser")
     assert model.current()["output_status"] == "verfügbar"
 

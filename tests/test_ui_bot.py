@@ -7,7 +7,9 @@ import uuid
 
 import pytest
 
-pytest.importorskip("PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
@@ -60,10 +62,26 @@ class FakeBotBackend:
         self.commands = [c for c in self.commands if c["id"] != command_id]
 
     def bot_log(self):
-        return [{"seq": 1, "ts": time.time(), "kind": "connection", "message": "Twitch: verbunden", "data": {}}]
+        return [
+            {
+                "seq": 1,
+                "ts": time.time(),
+                "kind": "connection",
+                "message": "Twitch: verbunden",
+                "data": {},
+            }
+        ]
 
     def bot_chat_recent(self):
-        return [{"message_id": "a", "display_name": "Anna", "text": "Hallo", "ts": time.time(), "roles": {}}]
+        return [
+            {
+                "message_id": "a",
+                "display_name": "Anna",
+                "text": "Hallo",
+                "ts": time.time(),
+                "roles": {},
+            }
+        ]
 
     def bot_send(self, text):
         self._check()
@@ -134,7 +152,11 @@ def test_f43_commands_table_and_buttons(env):
     assert tab.import_button.text() == "Importieren" and not tab.import_button.isEnabled()
     assert "folgt" in tab.import_button.toolTip() and tab.import_hint.text() == "Importieren folgt"
     assert not tab.duplicate_button.isEnabled() and not tab.delete_button.isEnabled()
-    assert not tab.save_button.isEnabled() and tab.hint.isVisibleTo(tab) and tab.hint.text() == "Kein Command gewählt"
+    assert (
+        not tab.save_button.isEnabled()
+        and tab.hint.isVisibleTo(tab)
+        and tab.hint.text() == "Kein Command gewählt"
+    )
     tab.new_button.click()
     assert table_rows(w) == [["Neuer Command", "!neu", "Alle", "0 s / 0 s", "nein"]]
     assert w.bot.selected_id == backend.commands[0]["id"] and tab.save_button.isEnabled()
@@ -168,7 +190,10 @@ def test_f43_active_checkbox_duplicate_delete(env):
     tab.table.item(0, 4).setCheckState(Qt.CheckState.Checked)
     assert backend.commands[0]["enabled"] is True
     tab.duplicate_button.click()
-    assert [r[1] for r in table_rows(w)] == ["!neu", "!neu2"] and w.bot.selected_id == backend.commands[1]["id"]
+    assert [r[1] for r in table_rows(w)] == [
+        "!neu",
+        "!neu2",
+    ] and w.bot.selected_id == backend.commands[1]["id"]
     tab.ask_confirm = lambda *a: True
     tab.delete_button.click()
     assert [r[1] for r in table_rows(w)] == ["!neu"] and w.bot.selected_id == ""
@@ -186,12 +211,20 @@ def test_f41_chat_dock_shows_history_events_and_limits(env, app):
     w, core, _ = env
     chat = w.chat_panel.list
     assert chat.count() == 1 and chat.item(0).text().endswith("Anna: Hallo")
-    msg = {"message_id": "b", "display_name": "Ben", "text": "Hi", "ts": time.time(), "roles": {"moderator": True}}
+    msg = {
+        "message_id": "b",
+        "display_name": "Ben",
+        "text": "Hi",
+        "ts": time.time(),
+        "roles": {"moderator": True},
+    }
     core.event_received.emit("twitch.chat.message", json.dumps(msg))
     core.event_received.emit("twitch.chat.message", json.dumps(msg))  # gleiche Kennung: nur einmal
     assert chat.count() == 2 and "⚔ Ben: Hi" in chat.item(1).text()
     for i in range(CHAT_LIMIT + 5):
-        core.event_received.emit("twitch.chat.message", json.dumps({**msg, "message_id": f"x{i}", "text": str(i)}))
+        core.event_received.emit(
+            "twitch.chat.message", json.dumps({**msg, "message_id": f"x{i}", "text": str(i)})
+        )
     assert chat.count() == CHAT_LIMIT and len(w.bot.chat) == CHAT_LIMIT
     assert chat.item(CHAT_LIMIT - 1).text().endswith(f": {CHAT_LIMIT + 4}")
 
@@ -216,7 +249,13 @@ def test_f45_log_dock(env):
     w, core, _ = env
     log = w.log_panel.list
     assert log.count() == 1 and "Verbindung: Twitch: verbunden" in log.item(0).text()
-    entry = {"seq": 2, "ts": time.time(), "kind": "cooldown", "message": "!test von Anna abgelehnt", "data": {}}
+    entry = {
+        "seq": 2,
+        "ts": time.time(),
+        "kind": "cooldown",
+        "message": "!test von Anna abgelehnt",
+        "data": {},
+    }
     core.event_received.emit("bot.log", json.dumps(entry))
     assert "Cooldown: !test von Anna abgelehnt" in log.item(1).text()
 
@@ -238,7 +277,9 @@ def test_f40_settings_client_id_and_login(env):
     assert opened == ["https://www.twitch.tv/activate?public=true"]
     s.copy_button.click()
     assert QApplication.clipboard().text() == "ABCDEFGH"
-    core.event_received.emit("twitch.auth", json.dumps({"role": "bot", "state": "done", "login": "donstvbot"}))
+    core.event_received.emit(
+        "twitch.auth", json.dumps({"role": "bot", "state": "done", "login": "donstvbot"})
+    )
     assert s.account_label.text() == "Angemeldet als donstvbot" and not s.code_frame.isVisibleTo(s)
     assert s.logout_button.isEnabled()
     s.logout_button.click()
@@ -250,7 +291,9 @@ def test_f04_twitch_tooltip_names_account(env):
     core.status_changed.emit("twitch", "verbunden", "donstvbot im Kanal donstv2020")
     assert w.connections.tooltip_of("twitch") == "Twitch: verbunden (donstvbot im Kanal donstv2020)"
     core.status_changed.emit("twitch", "getrennt", "nicht eingerichtet: Client-ID fehlt")
-    assert w.connections.indicators["twitch"].color_name() == "text_muted"  # grau: nicht eingerichtet
+    assert (
+        w.connections.indicators["twitch"].color_name() == "text_muted"
+    )  # grau: nicht eingerichtet
     core.status_changed.emit("twitch", "getrennt", "")
     assert w.connections.indicators["twitch"].color_name() == "error"
 

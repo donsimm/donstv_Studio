@@ -82,7 +82,10 @@ class FakeHttp:
         if "/users?login=" in url:
             return 200, {"data": [{"id": CHANNEL_ID, "login": "donstv2020"}]}
         if url.endswith("/eventsub/subscriptions"):
-            return self.subscribe_status, {"data": [{"id": "sub-1", "status": "enabled"}], "message": "Forbidden"}
+            return self.subscribe_status, {
+                "data": [{"id": "sub-1", "status": "enabled"}],
+                "message": "Forbidden",
+            }
         if url.endswith("/chat/messages"):
             if self.send_status != 200:
                 return self.send_status, {"message": "kaputt"}
@@ -195,7 +198,12 @@ async def test_f41_receives_chat_and_drops_duplicate_ids(collect):
             await asyncio.sleep(0.05)
             assert [e.payload["message_id"] for e in chat] == ["m-1", "m-2"]  # Duplikat verworfen
             p = chat[0].payload
-            assert (p["user_login"], p["display_name"], p["text"], p["badges"]) == ("anna", "Anna", "!test", ["subscriber"])
+            assert (p["user_login"], p["display_name"], p["text"], p["badges"]) == (
+                "anna",
+                "Anna",
+                "!test",
+                ["subscriber"],
+            )
             assert p["roles"]["subscriber"] and not p["roles"]["moderator"] and not p["from_bot"]
             assert conn.status == Status.CONNECTED
             # F-04 Zusatz 4: Tipp nennt Konto und Kanal
@@ -219,14 +227,22 @@ async def test_f42_send_message_and_refresh_on_401(collect):
             assert await conn.send_message("Hallo Chat") == {"message_id": "sent-1"}
             assert "sent-1" in conn.sent_ids
             body = http.calls[-1][4]
-            assert body == {"broadcaster_id": CHANNEL_ID, "sender_id": BOT_ID, "message": "Hallo Chat"}
+            assert body == {
+                "broadcaster_id": CHANNEL_ID,
+                "sender_id": BOT_ID,
+                "message": "Hallo Chat",
+            }
             # Zugang läuft ab: 401, Erneuerung, Wiederholung mit neuem Token
             http.valid.discard("acc-1")
             assert await conn.send_message("Noch einmal") == {"message_id": "sent-1"}
             assert secrets.data["twitch.bot.access_token"] == "acc-2"
             assert secrets.data["twitch.bot.refresh_token"] == "ref-2"
             refresh = next(c for c in http.calls if c[3].get("grant_type") == "refresh_token")
-            assert refresh[3] == {"client_id": "cid", "grant_type": "refresh_token", "refresh_token": "ref-1"}
+            assert refresh[3] == {
+                "client_id": "cid",
+                "grant_type": "refresh_token",
+                "refresh_token": "ref-1",
+            }
             http.send_status = 400
             with pytest.raises(SendError):
                 await conn.send_message("geht nicht")
@@ -251,7 +267,9 @@ async def test_f40_without_client_id_or_login_not_configured(collect):
         assert conn.status == Status.DISCONNECTED
         settings[KEY_CLIENT_ID] = "cid"
         conn.reconfigure()
-        assert await wait_for(lambda: conn.detail == "nicht eingerichtet: Bot-Konto nicht angemeldet")
+        assert await wait_for(
+            lambda: conn.detail == "nicht eingerichtet: Bot-Konto nicht angemeldet"
+        )
         assert http.calls == []  # ohne Anmeldung kein Aufruf an Twitch
     finally:
         await conn.stop()
@@ -278,6 +296,7 @@ async def test_reconnect_with_growing_delay(collect):
 async def test_session_reconnect_moves_to_new_url_without_resubscribing(collect):
     http = FakeHttp()
     async with Server() as srv:
+
         def reconnect(server):
             return json.dumps({"metadata": {"message_type": "session_reconnect"},
                                "payload": {"session": {"id": "sess-1", "status": "reconnecting",
@@ -332,13 +351,20 @@ async def test_f40_device_login_stores_tokens_by_role(collect):
         tw.DeviceLogin = Quick
         try:
             info = await conn.begin_login("bot")
-            assert await wait_for(lambda: auth_events and auth_events[-1].payload["state"] == "done")
+            assert await wait_for(
+                lambda: auth_events and auth_events[-1].payload["state"] == "done"
+            )
         finally:
             tw.DeviceLogin = orig
     finally:
         await conn.stop()
-    assert info["user_code"] == "ABCDEFGH" and info["verification_uri"].startswith("https://www.twitch.tv/activate")
-    assert secrets.data == {"twitch.bot.access_token": "acc-new", "twitch.bot.refresh_token": "ref-new"}
+    assert info["user_code"] == "ABCDEFGH" and info["verification_uri"].startswith(
+        "https://www.twitch.tv/activate"
+    )
+    assert secrets.data == {
+        "twitch.bot.access_token": "acc-new",
+        "twitch.bot.refresh_token": "ref-new",
+    }
     device = next(c for c in http.calls if c[1].endswith("/oauth2/device"))
     assert device[3] == {"client_id": "cid", "scopes": "user:read:chat user:write:chat"}
     poll = [c for c in http.calls if c[3].get("grant_type") == DEVICE_GRANT]
@@ -358,7 +384,11 @@ async def test_device_login_slow_down_and_expiry():
     start = await TwitchAuth(http).start_device("cid", ("user:read:chat",))
     login = DeviceLogin(TwitchAuth(http), "cid", "bot", start, sleep=sleep)
     tokens = await login.wait()
-    assert tokens.access_token == "acc-new" and sleeps == [5.0, 10.0, 10.0]  # nach «slow_down» 5 s mehr
+    assert tokens.access_token == "acc-new" and sleeps == [
+        5.0,
+        10.0,
+        10.0,
+    ]  # nach «slow_down» 5 s mehr
     http.poll = ["authorization_pending"] * 3
     expired = DeviceLogin(TwitchAuth(http), "cid", "bot", {**start, "expires_in": -1}, sleep=sleep)
     with pytest.raises(TwitchAuthError, match="abgelaufen"):

@@ -82,7 +82,9 @@ class FakeTwitch(Connection):
         message_id = f"fake-sent-{next(self._ids)}"
         self.sent_ids.append(message_id)
         if self.echo:
-            await self.inject(self.bot_login, text, [], message_id=message_id, user_id=self.bot_user_id)
+            await self.inject(
+                self.bot_login, text, [], message_id=message_id, user_id=self.bot_user_id
+            )
         return {"message_id": message_id}
 
     async def begin_login(self, role: str = "bot") -> dict[str, Any]:

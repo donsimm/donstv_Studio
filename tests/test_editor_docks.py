@@ -5,7 +5,9 @@ import logging
 
 import pytest
 
-pytest.importorskip("PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtTest import QTest
@@ -52,7 +54,9 @@ def test_f10_overlays_dock_lists_and_selects(env):
     w, core = env
     p = w.overlays_panel
     assert texts(p.list) == ["Hauptbild"] and p.list.currentRow() == 0
-    assert w.editor.isVisible() and not w.preview.canvas.isVisible()  # mit Overlay: Editor statt leerer Leinwand
+    assert (
+        w.editor.isVisible() and not w.preview.canvas.isVisible()
+    )  # mit Overlay: Editor statt leerer Leinwand
     core.backend.add("Zweites")
     w.model.load()
     assert texts(p.list) == ["Hauptbild", "Zweites"]
@@ -89,7 +93,11 @@ def test_f10_empty_state_shows_hint_and_placeholder_canvas(env):
     assert core.backend.overlays == []
     assert p.stack.currentWidget() is p.stack.hint and "Noch kein Overlay" in p.stack.hint.text()
     assert w.preview.canvas.isVisible() and not w.editor.isVisible()
-    assert not p.delete_button.isEnabled() and not p.duplicate_button.isEnabled() and p.add_button.isEnabled()
+    assert (
+        not p.delete_button.isEnabled()
+        and not p.duplicate_button.isEnabled()
+        and p.add_button.isEnabled()
+    )
     assert not w.sources_panel.add_button.isEnabled()
 
 
@@ -103,7 +111,10 @@ def test_f12_sources_dock_add_remove_visibility_order(env):
     assert p.list.currentRow() == 0 and w.model.selected_id == b
     # Klick auf das Auge schaltet die Sichtbarkeit
     p.list.visibility_clicked.emit(a)
-    assert w.model.source(a)["visible"] is False and core.backend.source(w.model.current_id, a)["visible"] is False
+    assert (
+        w.model.source(a)["visible"] is False
+        and core.backend.source(w.model.current_id, a)["visible"] is False
+    )
     p.list.visibility_clicked.emit(a)
     assert w.model.source(a)["visible"] is True
     # Pfeile ändern die Reihenfolge
@@ -159,9 +170,15 @@ def test_f14_properties_fields_show_and_set_values_immediately(env):
     assert not p.fields["x"].isEnabled() and p.hint.isVisibleTo(p.body)  # ohne Auswahl
     sid = add_text(w)
     s = w.model.source(sid)
-    assert p.fields["x"].value() == s["x"] and p.fields["w"].value() == 600 and p.fields["rot"].value() == 0.0
+    assert (
+        p.fields["x"].value() == s["x"]
+        and p.fields["w"].value() == 600
+        and p.fields["rot"].value() == 0.0
+    )
     p.fields["x"].setValue(77)  # Eingabe wirkt sofort
-    assert w.model.source(sid)["x"] == 77 and core.backend.source(w.model.current_id, sid)["x"] == 77
+    assert (
+        w.model.source(sid)["x"] == 77 and core.backend.source(w.model.current_id, sid)["x"] == 77
+    )
     p.fields["y"].setValue(-20)  # auch teilweise ausserhalb
     p.fields["w"].setValue(333)
     p.fields["h"].setValue(44)
@@ -188,12 +205,21 @@ def test_f65_align_buttons_align_to_overlay(env):
     p = w.properties_panel
     sid = add_text(w)
     w.model.set_box(sid, geo.Box(333, 111, 200, 100))  # Overlay 800 × 400
-    expect = {"left": (0, 111), "center": (300, 111), "right": (600, 111), "top": (600, 0), "middle": (600, 150), "bottom": (600, 300)}
+    expect = {
+        "left": (0, 111),
+        "center": (300, 111),
+        "right": (600, 111),
+        "top": (600, 0),
+        "middle": (600, 150),
+        "bottom": (600, 300),
+    }
     for how in geo.ALIGNMENTS:
         p.align_buttons[how].click()
         s = w.model.source(sid)
         assert (s["x"], s["y"]) == expect[how], how
-    assert [b.accessibleName() for b in p.align_buttons.values()] == [geo.ALIGN_LABELS[h] for h in geo.ALIGNMENTS]
+    assert [b.accessibleName() for b in p.align_buttons.values()] == [
+        geo.ALIGN_LABELS[h] for h in geo.ALIGNMENTS
+    ]
     w.model.undo()
     assert w.model.source(sid)["y"] == 150
 
@@ -203,7 +229,9 @@ def test_f17_control_dock_shows_url_and_copies(env):
     w, core = env
     c = w.control_panel
     o = core.backend.overlays[0]
-    assert c.url.text() == w.model.preview_url() and c.url.text().endswith(f"/o/{o['id']}?t={o['token']}")
+    assert c.url.text() == w.model.preview_url() and c.url.text().endswith(
+        f"/o/{o['id']}?t={o['token']}"
+    )
     c.copy_button.click()
     assert QApplication.clipboard().text() == c.url.text()
     assert "kopiert" in w.statusBar().currentMessage()
@@ -212,7 +240,11 @@ def test_f17_control_dock_shows_url_and_copies(env):
 def test_f66_control_dock_output_choice(env):
     w, core = env
     c = w.control_panel
-    assert c.output.currentData() == "browser" and "verfügbar" in c.output_status.text() and "nicht" not in c.output_status.text()
+    assert (
+        c.output.currentData() == "browser"
+        and "verfügbar" in c.output_status.text()
+        and "nicht" not in c.output_status.text()
+    )
     c.output.setCurrentIndex(c.output.findData("ndi"))
     assert core.backend.overlays[0]["output"] == "ndi"
     assert "nicht verfügbar" in c.output_status.text()  # NDI: im Gerüst noch nicht verfügbar (P03)
@@ -223,16 +255,36 @@ def test_f66_control_dock_output_choice(env):
 def test_f13_control_dock_preview_and_editor_settings_are_saved(env):
     w, core = env
     c = w.control_panel
-    assert c.fps.value() == 30 and not c.shrink.isChecked() and c.snap.isChecked() and not c.grid_check.isChecked()  # Standard 30
+    assert (
+        c.fps.value() == 30
+        and not c.shrink.isChecked()
+        and c.snap.isChecked()
+        and not c.grid_check.isChecked()
+    )  # Standard 30
     c.fps.setValue(15)
     c.shrink.setChecked(True)
     c.snap.setChecked(False)
     c.grid_check.setChecked(True)
     c.grid_size.setValue(25)
-    assert core.store["ui.editor.preview_fps"] == "15" and core.store["ui.editor.preview_shrink"] == "1"
-    assert core.store["ui.editor.snap"] == "0" and core.store["ui.editor.grid"] == "1" and core.store["ui.editor.grid_size"] == "25"
-    assert w.prefs.fps == 15 and w.prefs.shrink and not w.prefs.snap and w.prefs.grid and w.prefs.grid_size == 25
-    assert w.snap_action.isChecked() is False and w.grid_action.isChecked() is True  # Menü bleibt gleich
+    assert (
+        core.store["ui.editor.preview_fps"] == "15"
+        and core.store["ui.editor.preview_shrink"] == "1"
+    )
+    assert (
+        core.store["ui.editor.snap"] == "0"
+        and core.store["ui.editor.grid"] == "1"
+        and core.store["ui.editor.grid_size"] == "25"
+    )
+    assert (
+        w.prefs.fps == 15
+        and w.prefs.shrink
+        and not w.prefs.snap
+        and w.prefs.grid
+        and w.prefs.grid_size == 25
+    )
+    assert (
+        w.snap_action.isChecked() is False and w.grid_action.isChecked() is True
+    )  # Menü bleibt gleich
     w.snap_action.trigger()
     assert w.prefs.snap and c.snap.isChecked()
     c.clear_guides.click()
@@ -306,10 +358,22 @@ def test_dock_button_bars_have_monochrome_icons_in_text_color(env, app):
     for name in (theme.DARK, theme.LIGHT):
         w.set_theme(name)
         color = theme.palette(name)["text"].lower()
-        img = w.overlays_panel.bar.buttons[0].icon().pixmap(32, 32).toImage()  # Originalgrösse (Faktor 2)
-        colors = {img.pixelColor(x, y).name() for x in range(img.width()) for y in range(img.height()) if img.pixelColor(x, y).alpha() > 250}
+        img = (
+            w.overlays_panel.bar.buttons[0].icon().pixmap(32, 32).toImage()
+        )  # Originalgrösse (Faktor 2)
+        colors = {
+            img.pixelColor(x, y).name()
+            for x in range(img.width())
+            for y in range(img.height())
+            if img.pixelColor(x, y).alpha() > 250
+        }
         assert colors == {color}, f"Symbol nur in der Textfarbe des Themes {name}"
-    assert not w.overlays_panel.bar.buttons[0].icon().pixmap(16, 16, mode=w.overlays_panel.bar.buttons[0].icon().Mode.Disabled).isNull()
+    assert (
+        not w.overlays_panel.bar.buttons[0]
+        .icon()
+        .pixmap(16, 16, mode=w.overlays_panel.bar.buttons[0].icon().Mode.Disabled)
+        .isNull()
+    )
 
 
 def test_dock_bars_sit_at_the_bottom_of_each_dock(env, app):
@@ -318,7 +382,9 @@ def test_dock_bars_sit_at_the_bottom_of_each_dock(env, app):
         bar = panel.bar
         body = panel.body
         assert bar.mapTo(body, QPoint(0, bar.height())).y() >= body.height() - 2
-        assert bar.height() <= 34 and bar.width() == body.width() - 2  # abzüglich des 1-Pixel-Rahmens
+        assert (
+            bar.height() <= 34 and bar.width() == body.width() - 2
+        )  # abzüglich des 1-Pixel-Rahmens
 
 
 def test_all_dock_texts_use_swiss_spelling(env):
@@ -332,14 +398,27 @@ def test_all_dock_texts_use_swiss_spelling(env):
 
 # --- Fester Fensterkopf (P05b/P05c) ------------------------------------------------------------------
 def header_geometry(w):
-    parts = [w.header, w.tabbar, w.connections, w.perf, *w.connections.indicators.values(), *w.perf.fields.values()]
-    return [(p.mapTo(w, QPoint(0, 0)).x(), p.mapTo(w, QPoint(0, 0)).y(), p.width(), p.height()) for p in parts]
+    parts = [
+        w.header,
+        w.tabbar,
+        w.connections,
+        w.perf,
+        *w.connections.indicators.values(),
+        *w.perf.fields.values(),
+    ]
+    return [
+        (p.mapTo(w, QPoint(0, 0)).x(), p.mapTo(w, QPoint(0, 0)).y(), p.width(), p.height())
+        for p in parts
+    ]
 
 
 def test_f04_header_does_not_move_with_new_docks_and_content(env, app):
     w, core = env
     before = header_geometry(w)
-    sid = add_text(w, "Ein ziemlich langer Text, der in der Quellenliste sehr viel Platz brauchen würde und umbrechen könnte")
+    sid = add_text(
+        w,
+        "Ein ziemlich langer Text, der in der Quellenliste sehr viel Platz brauchen würde und umbrechen könnte",
+    )
     w.model.set_box(sid, geo.Box(-50, 20, 5000, 40))
     w.editor.set_zoom(4.0)  # Rollbalken erscheinen
     w.editor.set_zoom(0.25)
@@ -352,7 +431,9 @@ def test_f04_header_does_not_move_with_new_docks_and_content(env, app):
         w.resize(width, height)
         app.processEvents()
         g = header_geometry(w)
-        assert g[0][1] == before[0][1] and g[0][3] == before[0][3] == theme.HEADER_HEIGHT  # gleiche Lage und Höhe
+        assert (
+            g[0][1] == before[0][1] and g[0][3] == before[0][3] == theme.HEADER_HEIGHT
+        )  # gleiche Lage und Höhe
     w.resize(1400, 900)
     w.tabbar.setCurrentIndex(1)  # Modulwechsel (Chat-Bot) und zurück
     w.tabbar.setCurrentIndex(0)

@@ -86,7 +86,9 @@ def single_run(base: Path) -> int:
     backend = CoreBackend(f"http://127.0.0.1:{port}", paths.token_file)
     backend._call("PUT", "/settings/overlay.port", {"value": str(overlay_port)})
     overlay = backend.create_overlay("Beenden-Prüfung")
-    backend.add_source(overlay["id"], "text", x=100, y=100, width=400, height=80, props={"text": "Prüfung"})
+    backend.add_source(
+        overlay["id"], "text", x=100, y=100, width=400, height=80, props={"text": "Prüfung"}
+    )
 
     from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR, QTimer
     from PyQt6.QtWidgets import QApplication
@@ -116,7 +118,11 @@ def single_run(base: Path) -> int:
                 )
             if state["rendered"] or time.monotonic() > state["deadline"]:
                 timer.stop()
-                step("Vorschau gezeichnet" if state["rendered"] else "Zeitüberschreitung: Vorschau zeichnet nicht")
+                step(
+                    "Vorschau gezeichnet"
+                    if state["rendered"]
+                    else "Zeitüberschreitung: Vorschau zeichnet nicht"
+                )
                 step("Fenster schliessen")
                 window.close()
                 QApplication.quit()
@@ -142,7 +148,9 @@ def describe(code: int) -> str:
     if code == 0:
         return "in Ordnung"
     if code < 0:
-        return f"Absturz durch Signal {-code}" + (" (Speicherzugriffsfehler)" if code == -11 else "")
+        return f"Absturz durch Signal {-code}" + (
+            " (Speicherzugriffsfehler)" if code == -11 else ""
+        )
     if code == 139:
         return "Speicherzugriffsfehler"
     if code == 3:
@@ -163,30 +171,51 @@ def main() -> int:
     codes, warnings = [], []
     for n in range(1, args.laeufe + 1):
         with tempfile.TemporaryDirectory(prefix="donstv-beenden-") as tmp:
-            cmd = [sys.executable, "-X", "faulthandler", str(Path(__file__).resolve()), "--lauf", tmp]
+            cmd = [
+                sys.executable,
+                "-X",
+                "faulthandler",
+                str(Path(__file__).resolve()),
+                "--lauf",
+                tmp,
+            ]
             start = time.monotonic()
             try:
                 proc = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT, env=env, cwd=str(ROOT), check=False
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=RUN_TIMEOUT,
+                    env=env,
+                    cwd=str(ROOT),
+                    check=False,
                 )
                 code, err = proc.returncode, proc.stderr
             except subprocess.TimeoutExpired as e:
                 code = -9999
-                err = (e.stderr or b"").decode(errors="replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+                err = (
+                    (e.stderr or b"").decode(errors="replace")
+                    if isinstance(e.stderr, bytes)
+                    else (e.stderr or "")
+                )
                 err += f"\nZeitüberschreitung nach {RUN_TIMEOUT} s"
         codes.append(code)
         label = "Zeitüberschreitung" if code == -9999 else describe(code)
         warn = err.count(PROFILE_WARNING)
         warnings.append(warn)
-        print(f"== Lauf {n}: Exit-Code {code} ({label}), {time.monotonic() - start:.1f} s, "
-              f"Meldung «WebEnginePage still not deleted»: {warn} Mal")
+        print(
+            f"== Lauf {n}: Exit-Code {code} ({label}), {time.monotonic() - start:.1f} s, "
+            f"Meldung «WebEnginePage still not deleted»: {warn} Mal"
+        )
         print(f"   letzte {TAIL_LINES} Zeilen von stderr:")
         for line in err.splitlines()[-TAIL_LINES:]:
             print(f"   | {line}")
         sys.stdout.flush()
     ok = sum(1 for c in codes if c == 0)
-    print(f"== Zusammenfassung: {ok} von {len(codes)} Läufen mit Exit-Code 0 (Exit-Codes: {codes}); "
-          f"Meldung «WebEnginePage still not deleted» insgesamt {sum(warnings)} Mal")
+    print(
+        f"== Zusammenfassung: {ok} von {len(codes)} Läufen mit Exit-Code 0 (Exit-Codes: {codes}); "
+        f"Meldung «WebEnginePage still not deleted» insgesamt {sum(warnings)} Mal"
+    )
     return 0 if ok == len(codes) else 1
 
 

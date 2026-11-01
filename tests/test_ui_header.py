@@ -68,16 +68,21 @@ def header_geometry(w):
 
 # --- 1. Fester Kopf ---------------------------------------------------------------------------
 
+
 def test_f01_header_is_part_of_the_menu_area_not_of_the_middle(make):
     w = make()
     assert w.menuWidget().isAncestorOf(w.header)
     assert not w.centralWidget().isAncestorOf(w.header)
-    assert w.header.width() == w.width() - 2 * theme.HEADER_MARGIN  # ganze Fensterbreite, Rahmen mit kleinem Rand
+    assert (
+        w.header.width() == w.width() - 2 * theme.HEADER_MARGIN
+    )  # ganze Fensterbreite, Rahmen mit kleinem Rand
     top = w.header.mapTo(w, QPoint(0, 0))
     assert top.x() == theme.HEADER_MARGIN
     for dock in w.docks:  # über allen Docks
         assert w.header.geometry().bottom() < dock.mapTo(w, QPoint(0, 0)).y()
-    assert w.header.mapTo(w, QPoint(0, 0)).y() >= w.menu_bar.geometry().bottom()  # direkt unter dem Menü
+    assert (
+        w.header.mapTo(w, QPoint(0, 0)).y() >= w.menu_bar.geometry().bottom()
+    )  # direkt unter dem Menü
 
 
 def test_f01_header_never_moves_dock_positions(make, app):
@@ -113,19 +118,36 @@ def test_f01_header_ignores_window_size(make, app):
     w = make()
     base = header_geometry(w)
     low = w.minimumWidth()
-    for size in ((low, 600), (low + 1, 700), (low + 120, 640), (1920, 1080), (2400, 1300), (low, 900)):
+    for size in (
+        (low, 600),
+        (low + 1, 700),
+        (low + 120, 640),
+        (1920, 1080),
+        (2400, 1300),
+        (low, 900),
+    ):
         w.resize(*size)
         app.processEvents()
         g = header_geometry(w)
-        assert g == base, size  # linke Lage der Reiter und Abstand der Anzeigen zum rechten Rand gleich
+        assert g == base, (
+            size
+        )  # linke Lage der Reiter und Abstand der Anzeigen zum rechten Rand gleich
 
 
 def test_f68_perf_fields_keep_position_and_size_when_values_change(make, app):
     w = make()
     base = header_geometry(w)
-    longest = perf.Sample(cpu=100.0, mem=(int(999.9 * perf.GIB), int(999.9 * perf.GIB)), net=(999.9e6, 999.9e6))
+    longest = perf.Sample(
+        cpu=100.0, mem=(int(999.9 * perf.GIB), int(999.9 * perf.GIB)), net=(999.9e6, 999.9e6)
+    )
     shortest = perf.Sample(cpu=0.0, mem=(0, 1024), net=(0.0, 0.0))
-    for sample in (longest, shortest, perf.Sample(), longest, perf.Sample(cpu=4.0, mem=(5 * perf.GIB, 15 * perf.GIB), net=(3000, 99000))):
+    for sample in (
+        longest,
+        shortest,
+        perf.Sample(),
+        longest,
+        perf.Sample(cpu=4.0, mem=(5 * perf.GIB, 15 * perf.GIB), net=(3000, 99000)),
+    ):
         w.perf.apply(sample)
         app.processEvents()
         assert header_geometry(w) == base
@@ -148,7 +170,9 @@ def test_f68_perf_texts_fit_into_fixed_widths(make):
 
 def test_f68_perf_shows_value_as_text_and_dash_without_data(make):
     w = make()
-    w.perf.apply(perf.Sample(cpu=4.2, mem=(int(5.3 * perf.GIB), int(15.5 * perf.GIB)), net=(3000, 99000)))
+    w.perf.apply(
+        perf.Sample(cpu=4.2, mem=(int(5.3 * perf.GIB), int(15.5 * perf.GIB)), net=(3000, 99000))
+    )
     f = w.perf.fields
     assert (f["cpu"].value_text, f["ram"].value_text) == ("4 %", "5.3 / 15.5 GiB")
     assert f["lan"].value_text == "↓ 3  ↑ 99 kbit/s"
@@ -168,7 +192,9 @@ def test_f68_perf_history_has_exactly_60_values_oldest_drops_out(make):
 
 def test_f68_header_height_and_vertical_centering(make):
     w = make()
-    assert w.header.height() == theme.HEADER_HEIGHT and theme.HEADER_HEIGHT > 48  # höher als in P05c (48)
+    assert (
+        w.header.height() == theme.HEADER_HEIGHT and theme.HEADER_HEIGHT > 48
+    )  # höher als in P05c (48)
     assert theme.PERF_GRAPH_HEIGHT == 28
     mid = w.header.height() / 2
     for widget in [w.tabbar, w.perf, w.connections]:
@@ -177,7 +203,11 @@ def test_f68_header_height_and_vertical_centering(make):
 
 
 def header_parts(w):
-    parts = [("tabs", w.tabbar)] + [(k, i) for k, i in w.connections.indicators.items()] + [("perf", w.perf)]
+    parts = (
+        [("tabs", w.tabbar)]
+        + [(k, i) for k, i in w.connections.indicators.items()]
+        + [("perf", w.perf)]
+    )
     return [(n, widget.mapTo(w, QPoint(0, 0)).x(), widget.width()) for n, widget in parts]
 
 
@@ -191,7 +221,9 @@ def test_f68_minimum_width_fits_everything_without_overlap_or_clipping(make, app
     for (n1, x1, w1), (n2, x2, w2) in itertools.pairwise(parts):
         assert x1 + w1 <= x2, (n1, n2)  # nichts überlappt
     assert parts[0][1] >= 0 and parts[-1][1] + parts[-1][2] <= w.width()  # nichts abgeschnitten
-    assert w.tabbar.width() >= w.tabbar.sizeHint().width()  # Reiter nicht gestaucht, keine Laufpfeile
+    assert (
+        w.tabbar.width() >= w.tabbar.sizeHint().width()
+    )  # Reiter nicht gestaucht, keine Laufpfeile
     for i in range(w.tabbar.count()):
         assert w.tabbar.tabRect(i).left() >= 0
     # in beiden Themes
@@ -218,14 +250,18 @@ def test_f68_perf_is_always_visible_no_switch(make):
     assert w.perf.isVisible() and all(f.isVisible() for f in w.perf.fields.values())
     from PyQt6.QtGui import QAction
 
-    texts = [a.text().lower() for m in w.menu_bar.findChildren(type(w.docks_menu)) for a in m.actions()]
+    texts = [
+        a.text().lower() for m in w.menu_bar.findChildren(type(w.docks_menu)) for a in m.actions()
+    ]
     assert not any("leistung" in t for t in texts)  # kein Schalter
     assert not [a for a in w.findChildren(QAction) if "leistung" in a.text().lower()]
 
 
 def test_f68_perf_tick_with_missing_proc_files_does_not_fail(make, tmp_path):
     w = make()
-    w.perf.sampler = perf.Sampler(paths=perf.ProcPaths(tmp_path / "a", tmp_path / "b", tmp_path / "c"))
+    w.perf.sampler = perf.Sampler(
+        paths=perf.ProcPaths(tmp_path / "a", tmp_path / "b", tmp_path / "c")
+    )
     w.perf.tick()
     w.perf.tick()
     assert [x.value_text for x in w.perf.fields.values()] == ["–", "–", "–"]
@@ -271,12 +307,19 @@ def test_f04_indicators_have_fixed_width_for_every_state(make, app):
         for state in STATES:
             w.connections.set_status(key, state, "x" if state == "Fehler" else "")
             app.processEvents()
-            assert header_geometry(w) == base, (key, state)  # keine andere Anzeige und kein Reiter rückt
+            assert header_geometry(w) == base, (
+                key,
+                state,
+            )  # keine andere Anzeige und kein Reiter rückt
     for state in STATES:  # alle gleichzeitig
         w.connections.set_all(state)
         app.processEvents()
         assert header_geometry(w) == base, state
-    texts = {s: w.connections.text_of("twitch") for s in STATES if not w.connections.set_status("twitch", s)}
+    texts = {
+        s: w.connections.text_of("twitch")
+        for s in STATES
+        if not w.connections.set_status("twitch", s)
+    }
     assert len(set(texts.values())) == len(STATES)
     for key in SERVICE_KEYS:  # feste Grösse der Buttons
         ind = w.connections.indicators[key]
@@ -289,7 +332,9 @@ def test_f04_buttons_left_of_the_perf_bar_and_perf_bar_at_the_far_right(make):
     assert xs == sorted(xs)  # Reihenfolge Twitch, YouTube, OBS, NDI
     ndi = w.connections.indicators["ndi"]
     perf_left = w.perf.mapTo(w, QPoint(0, 0)).x()
-    assert ndi.mapTo(w, QPoint(0, 0)).x() + ndi.width() < perf_left  # Buttons links der Leistungsanzeige
+    assert (
+        ndi.mapTo(w, QPoint(0, 0)).x() + ndi.width() < perf_left
+    )  # Buttons links der Leistungsanzeige
     right_edge = perf_left + w.perf.width()
     assert w.width() - right_edge <= theme.HEADER_MARGIN + 12  # Leistungsanzeige ganz rechts
     assert w.tabbar.mapTo(w, QPoint(0, 0)).x() <= 16  # Reiter ganz links
@@ -310,7 +355,9 @@ def test_f04_button_color_follows_the_state_and_state_is_also_a_sign_and_text(ma
     for status, detail, color in cases:
         ind.set_state(status, detail)
         assert ind.color_name() == color, (status, detail)
-        assert status in ind.text() and ind.text().split()[0] == STATUS_STYLE[status][0]  # Zeichen + Text
+        assert (
+            status in ind.text() and ind.text().split()[0] == STATUS_STYLE[status][0]
+        )  # Zeichen + Text
         assert status in ind.toolTip() and status in ind.accessibleName()
         seen.add(color)
     assert seen == {"ok", "warn", "error", "text_muted"}
@@ -342,7 +389,10 @@ def test_f04_question_mark_only_for_error_and_unknown_at_the_top_right(make):
     # unten rechts erscheint nichts mehr
     ind.set_state("Fehler")
     img = ind.grab().toImage()
-    assert img.pixelColor(ind.width() - 8, ind.height() - 8).name() != theme.palette(theme.DARK)["error"]
+    assert (
+        img.pixelColor(ind.width() - 8, ind.height() - 8).name()
+        != theme.palette(theme.DARK)["error"]
+    )
 
 
 def test_f04_header_has_a_subtle_frame_all_around(make, app):
@@ -352,8 +402,16 @@ def test_f04_header_has_a_subtle_frame_all_around(make, app):
     h = w.header
     tl = h.mapTo(w, QPoint(0, 0))
     mid_x, mid_y = tl.x() + h.width() // 2, tl.y() + h.height() // 2
-    for x, y in ((mid_x, tl.y()), (mid_x, tl.y() + h.height() - 1), (tl.x(), mid_y), (tl.x() + h.width() - 1, mid_y)):
-        assert img.pixelColor(x, y).name() == p["border"], (x, y)  # Rahmen oben, unten, links, rechts
+    for x, y in (
+        (mid_x, tl.y()),
+        (mid_x, tl.y() + h.height() - 1),
+        (tl.x(), mid_y),
+        (tl.x() + h.width() - 1, mid_y),
+    ):
+        assert img.pixelColor(x, y).name() == p["border"], (
+            x,
+            y,
+        )  # Rahmen oben, unten, links, rechts
     assert theme.contrast_ratio(p["border"], p["bg"]) < 2.5  # dezent
 
 
@@ -372,6 +430,7 @@ def test_header_test_would_catch_header_inside_the_middle_area(make, app):
 
 # --- 2. YouTube und Dienst-Symbole --------------------------------------------------------------
 
+
 def test_f04_order_and_all_four_services_with_symbol_and_text(make):
     w = make()
     assert SERVICE_KEYS == ["twitch", "youtube", "obs", "ndi"]
@@ -385,11 +444,15 @@ def test_f04_order_and_all_four_services_with_symbol_and_text(make):
 def test_f04_youtube_tooltip_says_not_configured(make):
     w = make()
     core = w._core
-    core.statuses_loaded.emit(json.dumps({"youtube": {"status": "getrennt", "detail": "nicht eingerichtet"}}))
+    core.statuses_loaded.emit(
+        json.dumps({"youtube": {"status": "getrennt", "detail": "nicht eingerichtet"}})
+    )
     assert "getrennt" in w.connections.text_of("youtube")
     assert w.connections.tooltip_of("youtube") == "YouTube: getrennt (nicht eingerichtet)"
     assert w.connections.tooltip_of("twitch") == "Twitch: getrennt"
-    core.status_changed.emit("youtube", "getrennt", "nicht eingerichtet")  # Ereignis trägt den Hinweis
+    core.status_changed.emit(
+        "youtube", "getrennt", "nicht eingerichtet"
+    )  # Ereignis trägt den Hinweis
 
 
 SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#808080"/></svg>'
@@ -453,7 +516,9 @@ def test_f04_state_symbol_and_text_with_service_icons(make, tmp_path, monkeypatc
     for state in STATES:
         w.connections.set_status("obs", state)
         t = w.connections.text_of("obs")
-        assert state in t and "OBS" in t and t.split()[0] == STATUS_STYLE[state][0]  # Zeichen + Text
+        assert (
+            state in t and "OBS" in t and t.split()[0] == STATUS_STYLE[state][0]
+        )  # Zeichen + Text
         assert w.connections.indicators["obs"].icon_pixmap() is not None
 
 
@@ -494,7 +559,9 @@ def test_f04_icon_dir_documented_in_repo():
 
 
 @pytest.mark.parametrize("fmt", ICON_FORMATS)
-def test_help_about_names_ndi_trademark_only_when_ndi_icon_is_used(make, tmp_path, monkeypatch, fmt):
+def test_help_about_names_ndi_trademark_only_when_ndi_icon_is_used(
+    make, tmp_path, monkeypatch, fmt
+):
     shown = []
     monkeypatch.setattr(QMessageBox, "about", lambda parent, title, text: shown.append(text))
     w = make()
@@ -513,13 +580,21 @@ def test_help_about_names_ndi_trademark_only_when_ndi_icon_is_used(make, tmp_pat
 
 # --- 3. Standardanordnung -----------------------------------------------------------------------
 
+
 def assert_default_arrangement(w, app):
     app.processEvents()
     tops = {d.mapTo(w, QPoint(0, 0)).y() for d in w.docks}
     xs = [d.mapTo(w, QPoint(0, 0)).x() for d in w.docks]
     assert len(tops) == 1, tops  # alle vier auf einer Höhe
-    assert xs == sorted(xs) and len(set(xs)) == 4  # nebeneinander: Overlays, Quellen, Eigenschaften, Steuerung
-    assert [d.windowTitle() for d in w.docks] == ["Overlays", "Quellen", "Eigenschaften", "Steuerung"]
+    assert (
+        xs == sorted(xs) and len(set(xs)) == 4
+    )  # nebeneinander: Overlays, Quellen, Eigenschaften, Steuerung
+    assert [d.windowTitle() for d in w.docks] == [
+        "Overlays",
+        "Quellen",
+        "Eigenschaften",
+        "Steuerung",
+    ]
     for d in w.docks:
         assert w.dockWidgetArea(d) == Qt.DockWidgetArea.BottomDockWidgetArea
         assert not d.isFloating() and d.isVisible()
@@ -572,13 +647,18 @@ def test_f01_user_can_still_move_docks_and_state_roundtrips(make, app):
 
 # --- 4. Stil nach OBS ---------------------------------------------------------------------------
 
+
 def test_obs_style_font_sizes_and_dock_title(make, app):
     w = make(1920, 1080)
     assert w.menu_bar.font().pointSizeF() == pytest.approx(theme.FONT_PT, abs=0.5)
     bar = w.dock_titles[0]
     assert bar.height() == theme.DOCK_TITLE_HEIGHT  # 26 px wie OBS
-    assert bar.title.font().bold() and bar.title.font().pointSizeF() == pytest.approx(theme.FONT_PT, abs=0.5)
-    assert bar.float_button.toolTip().startswith("Lösen") and bar.close_button.toolTip().startswith("Schliessen")
+    assert bar.title.font().bold() and bar.title.font().pointSizeF() == pytest.approx(
+        theme.FONT_PT, abs=0.5
+    )
+    assert bar.float_button.toolTip().startswith("Lösen") and bar.close_button.toolTip().startswith(
+        "Schliessen"
+    )
     assert not bar.float_button.icon().isNull() and not bar.close_button.icon().isNull()
     assert w.statusBar().height() == theme.STATUS_BAR_HEIGHT
 
@@ -592,9 +672,13 @@ def test_obs_style_dock_content_starts_below_the_title_bar(make, app):
     d, bar = w.docks[0], w.dock_titles[0]
     img = w.grab().toImage()
     x, y0 = d.mapTo(w, QPoint(0, 0)).x() + 150, d.mapTo(w, QPoint(0, 0)).y()
-    colors = ["#%06x" % (img.pixel(x, y0 + dy) & 0xFFFFFF) for dy in range(theme.DOCK_TITLE_HEIGHT + 2)]
+    colors = [
+        "#%06x" % (img.pixel(x, y0 + dy) & 0xFFFFFF) for dy in range(theme.DOCK_TITLE_HEIGHT + 2)
+    ]
     p = theme.palette(theme.DARK)
-    assert colors[: theme.DOCK_TITLE_HEIGHT] == [p["title_bg"]] * theme.DOCK_TITLE_HEIGHT  # 26 Zeilen Titelfarbe
+    assert (
+        colors[: theme.DOCK_TITLE_HEIGHT] == [p["title_bg"]] * theme.DOCK_TITLE_HEIGHT
+    )  # 26 Zeilen Titelfarbe
     assert colors[theme.DOCK_TITLE_HEIGHT] == p["surface"]
 
 
@@ -654,12 +738,16 @@ def test_obs_style_preview_has_black_canvas_with_border(make, app):
     p = theme.palette(theme.DARK)
     assert pixel(pv, 2, 2) == p["preview_bg"]  # dunkler Rand
     assert pixel(cv, cv.width() // 2, 5) == p["canvas"] == "#000000"
-    assert cv.x() > 0 and cv.y() > 0 and cv.x() + cv.width() < pv.width()  # Rand rundum, nicht bis zum Rand
+    assert (
+        cv.x() > 0 and cv.y() > 0 and cv.x() + cv.width() < pv.width()
+    )  # Rand rundum, nicht bis zum Rand
     assert abs((cv.x() + cv.width() / 2) - pv.width() / 2) <= 1  # mittig
     assert abs(cv.width() / cv.height() - 16 / 9) < 0.02
     w.resize(1000, 700)
     app.processEvents()
-    assert abs(cv.width() / cv.height() - 16 / 9) < 0.02 and cv.width() <= pv.width() - 2 * pv.MARGIN
+    assert (
+        abs(cv.width() / cv.height() - 16 / 9) < 0.02 and cv.width() <= pv.width() - 2 * pv.MARGIN
+    )
 
 
 def test_no_bar_below_the_preview(make):
@@ -669,7 +757,9 @@ def test_no_bar_below_the_preview(make):
     assert "Eigenschaften" not in texts and "Filter" not in texts
     assert all(lbl.text() != "Keine Quelle ausgewählt" for lbl in w.findChildren(QLabel))
     # die Vorschau grenzt (bis auf die Lücke) direkt an die Docks
-    gap = w.docks[0].mapTo(w, QPoint(0, 0)).y() - (w.preview.mapTo(w, QPoint(0, 0)).y() + w.preview.height())
+    gap = w.docks[0].mapTo(w, QPoint(0, 0)).y() - (
+        w.preview.mapTo(w, QPoint(0, 0)).y() + w.preview.height()
+    )
     assert 0 <= gap <= 2 * theme.DOCK_GAP
 
 
@@ -706,6 +796,7 @@ def test_all_docks_are_qdockwidgets_with_custom_title(make):
 
 # --- Dienst-Symbole mit den echten Dateien (P05c) ------------------------------------------------
 
+
 def tinted_pixels(label):
     """Farben (ohne Alpha) aller sichtbaren Pixel des Symbols."""
     img = label.icon_pixmap().toImage()
@@ -732,7 +823,14 @@ def test_f04_real_icons_are_drawn_in_the_text_color_of_the_theme(make, app, name
         ref = QColor(text)
         for c in colors:  # Textfarbe (±2 wegen Rundung bei Alpha), nicht weiss auf weiss
             q = QColor(c)
-            assert max(abs(q.red() - ref.red()), abs(q.green() - ref.green()), abs(q.blue() - ref.blue())) <= 2, (key, c)
+            assert (
+                max(
+                    abs(q.red() - ref.red()),
+                    abs(q.green() - ref.green()),
+                    abs(q.blue() - ref.blue()),
+                )
+                <= 2
+            ), (key, c)
         assert theme.contrast_ratio(text, theme.palette(name)["bg"]) >= 4.5
 
 
@@ -790,7 +888,9 @@ def test_f04_png_wins_over_svg_when_both_exist(tmp_path, monkeypatch):
         QApplication.instance() or QApplication([])
         pm = widgets.load_service_pixmap("twitch", tmp_path)
         assert pm is not None
-        assert pm.toImage().pixelColor(pm.width() // 2, pm.height() // 2).name() == "#ff0000"  # PNG, nicht SVG
+        assert (
+            pm.toImage().pixelColor(pm.width() // 2, pm.height() // 2).name() == "#ff0000"
+        )  # PNG, nicht SVG
 
 
 def test_f04_only_svg_without_svg_module_gives_one_hint_in_the_log(tmp_path, monkeypatch, caplog):
@@ -813,7 +913,11 @@ def test_f04_layout_is_the_same_with_png_only_svg_only_and_no_files(make, tmp_pa
     make_png_dir(png, SERVICE_KEYS)
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: png)
     assert header_geometry(make()) == base
-    monkeypatch.setattr(widgets, "connection_icon_dir", lambda: widgets.Path(__file__).parents[1] / "assets/icons/connections")
+    monkeypatch.setattr(
+        widgets,
+        "connection_icon_dir",
+        lambda: widgets.Path(__file__).parents[1] / "assets/icons/connections",
+    )
     assert header_geometry(make()) == base  # echte Dateien
 
 
@@ -832,4 +936,11 @@ def test_f04_not_configured_button_is_greyed_out_icon_in_muted_color(make):
     muted = QColor(theme.palette(theme.DARK)["text_muted"])
     for c in tinted_pixels(ind):
         q = QColor(c)
-        assert max(abs(q.red() - muted.red()), abs(q.green() - muted.green()), abs(q.blue() - muted.blue())) <= 2
+        assert (
+            max(
+                abs(q.red() - muted.red()),
+                abs(q.green() - muted.green()),
+                abs(q.blue() - muted.blue()),
+            )
+            <= 2
+        )

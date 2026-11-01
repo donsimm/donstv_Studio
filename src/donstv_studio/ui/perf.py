@@ -36,6 +36,7 @@ class ProcPaths:
 
 # --- Einlesen -----------------------------------------------------------------------------------
 
+
 def _read(path: Path) -> str | None:
     try:
         return path.read_text(encoding="ascii", errors="replace")
@@ -122,6 +123,7 @@ def read_net(path: Path = ProcPaths.net_dev) -> dict[str, tuple[int, int]] | Non
 
 # --- Berechnen ----------------------------------------------------------------------------------
 
+
 def cpu_percent(prev: tuple[int, int] | None, cur: tuple[int, int] | None) -> float | None:
     """Gesamtauslastung in Prozent (0 bis 100) aus zwei Messungen; None, wenn nicht berechenbar."""
     if prev is None or cur is None:
@@ -206,6 +208,7 @@ FIELDS = tuple(TITLES)
 
 # --- Verlauf und Messer -------------------------------------------------------------------------
 
+
 class History:
     """Die letzten 60 Werte; der älteste fällt heraus. Fehlende Messungen werden als 0 gezeichnet."""
 
@@ -245,7 +248,11 @@ class Sampler:
 
     def sample(self) -> Sample:
         now = self.clock()
-        cpu, net, mem = read_cpu(self.paths.stat), read_net(self.paths.net_dev), read_mem(self.paths.meminfo)
+        cpu, net, mem = (
+            read_cpu(self.paths.stat),
+            read_net(self.paths.net_dev),
+            read_mem(self.paths.meminfo),
+        )
         seconds = now - self._time if self._time is not None else 0.0
         result = Sample(
             cpu=cpu_percent(self._cpu, cpu),

@@ -48,7 +48,9 @@ def first_word(text: str) -> str:
 
 def render(template: str, payload: dict[str, Any]) -> str:
     """Setzt `{user}` ein (Anzeigename). Keine weiteren Platzhalter; kein str.format (sicher gegen Klammern)."""
-    return template.replace(USER_PLACEHOLDER, str(payload.get("display_name") or payload.get("user_login") or ""))
+    return template.replace(
+        USER_PLACEHOLDER, str(payload.get("display_name") or payload.get("user_login") or "")
+    )
 
 
 class CommandEngine:
@@ -131,7 +133,9 @@ class CommandEngine:
             return False
         now = self._clock()
         wait_global = cmd.cooldown_global - (now - self._last_global.get(cmd.id, float("-inf")))
-        wait_user = cmd.cooldown_user - (now - self._last_user.get((cmd.id, user_id), float("-inf")))
+        wait_user = cmd.cooldown_user - (
+            now - self._last_user.get((cmd.id, user_id), float("-inf"))
+        )
         if wait_global > 0 or wait_user > 0:
             which = "global" if wait_global >= wait_user else "pro Nutzer"
             remaining = max(1, round(max(wait_global, wait_user)))

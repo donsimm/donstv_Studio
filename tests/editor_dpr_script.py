@@ -68,7 +68,10 @@ try:
     view.set_zoom(1.0)
     step("auf erstes Zeichnen der Overlay-Seite warten (QtWebEngine)")
     end = time.time() + 30
-    while time.time() < end and not (js(view.web, "window.__overlay && window.__overlay.renders") or 0) > 0:
+    while (
+        time.time() < end
+        and not (js(view.web, "window.__overlay && window.__overlay.renders") or 0) > 0
+    ):
         pump(100)
     pump(1000)
     step("Bild der Bühne aufnehmen")
@@ -76,7 +79,9 @@ try:
     img = view.stage.grab().toImage()
     x, y, w, h = (RED_BOX[k] for k in ("x", "y", "width", "height"))
 
-    def px(ox, oy):  # Overlay-Pixel -> physisches Pixel im Bild der Bühne (Faktor 2 gegenüber logisch, bei 100 % genau 1:1)
+    def px(
+        ox, oy
+    ):  # Overlay-Pixel -> physisches Pixel im Bild der Bühne (Faktor 2 gegenüber logisch, bei 100 % genau 1:1)
         return img.pixelColor(ox, oy).name()
 
     out = {

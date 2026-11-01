@@ -64,8 +64,12 @@ def http_request(
     except urllib.error.HTTPError as e:
         if e.code == 401:
             raise CoreUnavailableError("Der Kern-Dienst lehnt das Token ab (401)") from e
-        detail = _detail(e) if e.code in (400, 404, 409) else None  # Meldung des Kerns für Nutzer (z. B. P07)
-        raise CoreUnavailableError(detail or f"Der Kern-Dienst antwortet mit Fehler {e.code}") from e
+        detail = (
+            _detail(e) if e.code in (400, 404, 409) else None
+        )  # Meldung des Kerns für Nutzer (z. B. P07)
+        raise CoreUnavailableError(
+            detail or f"Der Kern-Dienst antwortet mit Fehler {e.code}"
+        ) from e
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         raise CoreUnavailableError("Der Kern-Dienst antwortet nicht") from e
     return json.loads(raw) if raw else None
@@ -110,7 +114,9 @@ class CoreLink(QObject):
             CoreBackend,  # hier, weil backend.py dieses Modul importiert
         )
 
-        self.backend = CoreBackend(self.base_url, self._token_file)  # Overlay-Schnittstelle für den Editor (P06)
+        self.backend = CoreBackend(
+            self.base_url, self._token_file
+        )  # Overlay-Schnittstelle für den Editor (P06)
         self._initial = initial_delay
         self._max = max_delay
         self._thread: threading.Thread | None = None
@@ -136,8 +142,12 @@ class CoreLink(QObject):
         asyncio.run(self._main())
 
     # --- Anfragen ------------------------------------------------------
-    def _request(self, method: str, path: str, body: dict | None = None, timeout: float = HTTP_TIMEOUT):
-        return http_request(self.base_url, read_token(self._token_file), method, path, body, timeout)
+    def _request(
+        self, method: str, path: str, body: dict | None = None, timeout: float = HTTP_TIMEOUT
+    ):
+        return http_request(
+            self.base_url, read_token(self._token_file), method, path, body, timeout
+        )
 
     def fetch_settings_blocking(self, timeout: float = 1.5) -> dict | None:
         """Einstellungen vor dem ersten Anzeigen holen; None, wenn der Kern nicht antwortet."""
@@ -215,8 +225,12 @@ class CoreLink(QObject):
                     continue
                 kind = event.get("type")
                 if kind in FORWARDED_EVENTS:
-                    self.event_received.emit(str(kind), json.dumps(event.get("payload", {}), ensure_ascii=False))
+                    self.event_received.emit(
+                        str(kind), json.dumps(event.get("payload", {}), ensure_ascii=False)
+                    )
                 if kind == "connection.status":
                     p = event.get("payload", {})
                     if "name" in p and "status" in p:
-                        self.status_changed.emit(str(p["name"]), str(p["status"]), str(p.get("detail", "")))
+                        self.status_changed.emit(
+                            str(p["name"]), str(p["status"]), str(p.get("detail", ""))
+                        )

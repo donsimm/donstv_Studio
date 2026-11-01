@@ -196,14 +196,20 @@ class BotModel(QObject):
                      lambda c: self._reload_and_select(c["id"]))  # fmt: skip
 
     def delete(self, command_id: str) -> None:
-        self._submit(lambda: self._backend.bot_delete_command(command_id), lambda _r: self._reload_and_select(""))
+        self._submit(
+            lambda: self._backend.bot_delete_command(command_id),
+            lambda _r: self._reload_and_select(""),
+        )
 
     # --- Chat, Einstellungen, Anmeldung ---------------------------------------
     def send(self, text: str) -> None:
         self._submit(lambda: self._backend.bot_send(text), lambda _r: self.sent.emit())
 
     def save_settings(self, client_id: str, channel: str) -> None:
-        self._submit(lambda: self._backend.bot_save_settings(client_id=client_id, channel=channel), self._set_settings)
+        self._submit(
+            lambda: self._backend.bot_save_settings(client_id=client_id, channel=channel),
+            self._set_settings,
+        )
 
     def login(self) -> None:
         def started(state: dict) -> None:
@@ -260,7 +266,9 @@ class CommandsTab(QWidget):
         buttons.addWidget(self.import_hint)
         buttons.addStretch(1)
         self.new_button.clicked.connect(lambda: model.create())
-        self.duplicate_button.clicked.connect(lambda: model.selected_id and model.duplicate(model.selected_id))
+        self.duplicate_button.clicked.connect(
+            lambda: model.selected_id and model.duplicate(model.selected_id)
+        )
         self.delete_button.clicked.connect(self.remove)
         left.addLayout(buttons)
         outer.addLayout(left, 3)
@@ -340,8 +348,14 @@ class CommandsTab(QWidget):
                 item.setData(Qt.ItemDataRole.UserRole, cmd["id"])
                 self.table.setItem(row, col, item)
             active = QTableWidgetItem("ja" if cmd["enabled"] else "nein")
-            active.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsUserCheckable)
-            active.setCheckState(Qt.CheckState.Checked if cmd["enabled"] else Qt.CheckState.Unchecked)
+            active.setFlags(
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            active.setCheckState(
+                Qt.CheckState.Checked if cmd["enabled"] else Qt.CheckState.Unchecked
+            )
             active.setData(Qt.ItemDataRole.UserRole, cmd["id"])
             active.setToolTip("Aktiv: Haken setzen oder entfernen")
             self.table.setItem(row, 4, active)
@@ -362,7 +376,10 @@ class CommandsTab(QWidget):
 
     def _item_changed(self, item: QTableWidgetItem) -> None:
         if item.column() == 4:
-            self.model.update(item.data(Qt.ItemDataRole.UserRole), {"enabled": item.checkState() == Qt.CheckState.Checked})
+            self.model.update(
+                item.data(Qt.ItemDataRole.UserRole),
+                {"enabled": item.checkState() == Qt.CheckState.Checked},
+            )
 
     def _show(self, command_id: str) -> None:
         cmd = self.model.command(command_id) if command_id else None
@@ -427,13 +444,17 @@ class BotSettingsTab(QWidget):
         self.save_button.setObjectName("settings_save")
         self.save_button.clicked.connect(lambda: model.save_settings(self.client_id.text().strip(),
                                                                      self.channel.text().strip()))  # fmt: skip
-        for r, (label, widget) in enumerate((("Client-ID", self.client_id), ("Kanal", self.channel))):
+        for r, (label, widget) in enumerate(
+            (("Client-ID", self.client_id), ("Kanal", self.channel))
+        ):
             lbl = QLabel(label)
             lbl.setBuddy(widget)
             grid.addWidget(lbl, r, 0)
             grid.addWidget(widget, r, 1)
         grid.addWidget(self.save_button, 2, 1, Qt.AlignmentFlag.AlignRight)
-        note = QLabel("Die Client-ID ist kein Geheimnis und wird in den Einstellungen des Kerns gespeichert.")
+        note = QLabel(
+            "Die Client-ID ist kein Geheimnis und wird in den Einstellungen des Kerns gespeichert."
+        )
         note.setWordWrap(True)
         note.setProperty("muted", True)
         grid.addWidget(note, 3, 0, 1, 2)
@@ -511,7 +532,9 @@ class BotSettingsTab(QWidget):
             )
         available = self.model.available and not s.get("fake")
         self.login_button.setEnabled(available and bool(s.get("client_id")))
-        self.login_button.setToolTip("" if s.get("client_id") else "Zuerst die Client-ID eintragen und speichern")
+        self.login_button.setToolTip(
+            "" if s.get("client_id") else "Zuerst die Client-ID eintragen und speichern"
+        )
         self.logout_button.setEnabled(available and bool(s.get("logged_in")))
         self.save_button.setEnabled(self.model.available)
 

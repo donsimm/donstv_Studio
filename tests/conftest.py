@@ -4,7 +4,9 @@ import pytest
 
 # Qt-Tests ohne Bildschirm (Debian-Laptop: X11, Tests: offscreen)
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-if hasattr(os, "geteuid") and os.geteuid() == 0:  # Chromium (QtWebEngine) läuft als root nur ohne Sandbox
+if (
+    hasattr(os, "geteuid") and os.geteuid() == 0
+):  # Chromium (QtWebEngine) läuft als root nur ohne Sandbox
     os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu")
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
@@ -21,7 +23,9 @@ def pytest_configure(config):
     except ImportError:  # PyQt6 fehlt: UI-Tests werden übersprungen
         return
     if QApplication.instance() is None:
-        config._qt_app = QApplication(["donstv-tests"])  # Verweis halten, sonst wird die Anwendung abgeräumt
+        config._qt_app = QApplication(
+            ["donstv-tests"]
+        )  # Verweis halten, sonst wird die Anwendung abgeräumt
 
 
 @pytest.fixture(scope="session")
@@ -30,7 +34,6 @@ def app():
     from PyQt6.QtWidgets import QApplication
 
     return QApplication.instance() or QApplication(["donstv-tests"])
-
 
 
 def pytest_sessionfinish(session, exitstatus):

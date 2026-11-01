@@ -86,7 +86,9 @@ def create_router(
         except SendError as e:
             from donstv_studio.bot import log as botlog
 
-            await bot_log.add(botlog.SEND_ERROR, f"Senden fehlgeschlagen: {e}", {"source": "Eingabefeld"})
+            await bot_log.add(
+                botlog.SEND_ERROR, f"Senden fehlgeschlagen: {e}", {"source": "Eingabefeld"}
+            )
             raise HTTPException(status_code=409, detail=str(e)) from e
 
     # --- Einstellungen und Anmeldung (F-40) ------------------------------------
@@ -107,11 +109,18 @@ def create_router(
     @r.put("/settings")
     async def put_settings(request: Request) -> dict:
         body = await _json(request)
-        for key, field, limit in ((KEY_CLIENT_ID, "client_id", MAX_CLIENT_ID), (KEY_CHANNEL, "channel", MAX_CHANNEL)):
+        for key, field, limit in (
+            (KEY_CLIENT_ID, "client_id", MAX_CLIENT_ID),
+            (KEY_CHANNEL, "channel", MAX_CHANNEL),
+        ):
             if field not in body:
                 continue
             value = body[field]
-            if not isinstance(value, str) or len(value.strip()) > limit or any(c.isspace() for c in value.strip()):
+            if (
+                not isinstance(value, str)
+                or len(value.strip()) > limit
+                or any(c.isspace() for c in value.strip())
+            ):
                 raise HTTPException(status_code=400, detail=f"«{field}» ist ungültig")
             config.set(key, value.strip().lower() if field == "channel" else value.strip())
         twitch.reconfigure()
@@ -130,6 +139,7 @@ def create_router(
         return settings()
 
     if fake:
+
         @r.post("/test/chat")
         async def test_chat(request: Request) -> dict:
             """Nur mit der Testverbindung: Chat-Nachricht eines beliebigen Nutzers erzeugen."""

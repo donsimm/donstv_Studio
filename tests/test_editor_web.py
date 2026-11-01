@@ -17,7 +17,9 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 pytest.importorskip(
     "PyQt6.QtWebEngineWidgets", exc_type=ImportError,
     reason="PyQt6-WebEngine ist nicht installiert oder lädt nicht (Debian: python3-pyqt6.qtwebengine; sonst pip install 'donstv_studio[ui]')",
@@ -71,7 +73,9 @@ def dpr_failure_report(proc) -> str:
     """Vollständige Angaben, wenn der Unterprozess keine Ergebniszeile liefert (P06c, Laptop-Befund)."""
     code = proc.returncode
     if code < 0:
-        art = f"Absturz durch Signal {-code}" + (" (Speicherzugriffsfehler, SIGSEGV)" if code == -11 else "")
+        art = f"Absturz durch Signal {-code}" + (
+            " (Speicherzugriffsfehler, SIGSEGV)" if code == -11 else ""
+        )
     elif code == 139:
         art = "Absturz (139 = Speicherzugriffsfehler)"
     elif code == 0:
@@ -104,7 +108,9 @@ def webengine(app):
         time.sleep(0.01)
     v.close()
     if not done or done[0] is not True:
-        pytest.skip("QtWebEngine kann in dieser Umgebung keine Seite laden (Chromium startet nicht)")
+        pytest.skip(
+            "QtWebEngine kann in dieser Umgebung keine Seite laden (Chromium startet nicht)"
+        )
 
 
 @pytest.fixture(scope="module")
@@ -147,7 +153,9 @@ def test_f13_preview_loads_overlay_page_with_token_in_transparent_view(editor):
     view, model, prefs, ids, backend = editor
     assert view.web is not None and view.web.page().backgroundColor().alpha() == 0  # durchsichtig
     assert js(view.web, "location.pathname") == f"/o/{ids['overlay']}"
-    assert js(view.web, "location.hostname") == "127.0.0.1"  # immer lokal, auch wenn «url» die Netzadresse nennt
+    assert (
+        js(view.web, "location.hostname") == "127.0.0.1"
+    )  # immer lokal, auch wenn «url» die Netzadresse nennt
     assert js(view.web, "new URLSearchParams(location.search).get('t')") == model.current()["token"]
     assert js(view.web, "document.querySelectorAll('[data-source-id]').length") == 3
     assert js(view.web, "[innerWidth, innerHeight]") == [W, H]  # 100 %: Seite 1920 × 1080 CSS-Pixel
@@ -163,7 +171,10 @@ def test_f65_zoom_100_percent_one_overlay_pixel_is_one_screen_pixel(editor):
     assert red(x - 1, y).name() != "#ff0000" and red(x, y - 1).name() != "#ff0000"  # Karo statt Rot
     assert red(x + w, y + h - 1).name() != "#ff0000"
     # Karo-Hintergrund scheint durch das durchsichtige Overlay
-    a, b = theme.palette(theme.DEFAULT_THEME)["checker_a"], theme.palette(theme.DEFAULT_THEME)["checker_b"]
+    a, b = (
+        theme.palette(theme.DEFAULT_THEME)["checker_a"],
+        theme.palette(theme.DEFAULT_THEME)["checker_b"],
+    )
     assert {red(2, 2).name(), red(2 + 8, 2).name()} == {a, b}
 
 
@@ -176,7 +187,9 @@ def test_f13_selection_frame_is_drawn_by_qt_above_the_web_view(editor):
     left, top = t.to_view(RED_BOX["x"], RED_BOX["y"])
     accent = theme.palette(theme.DEFAULT_THEME)["accent"]
     # Rahmen liegt über der roten Fläche der Webansicht
-    assert img.pixelColor(round(left), round(top) + 40).name() == accent  # Rahmen: 2 Pixel, mittig auf der Kante
+    assert (
+        img.pixelColor(round(left), round(top) + 40).name() == accent
+    )  # Rahmen: 2 Pixel, mittig auf der Kante
     assert img.pixelColor(round(left) + 30, round(top) + 40).name() == "#ff0000"  # innen weiter Rot
     # und nicht in der Seite selbst: kein zusätzliches Element im DOM
     assert js(view.web, "document.querySelectorAll('[data-source-id]').length") == 3
@@ -201,18 +214,30 @@ def test_f65_zoom_200_percent_scrolled_shows_the_right_region(editor):
     pump(500)
     t = view.transform()
     vx, vy = t.to_view(RED_BOX["x"], RED_BOX["y"])
-    assert 0 < vx < view.viewport.width() - 40 and 0 < vy < view.viewport.height() - 40  # Fläche ist sichtbar
+    assert (
+        0 < vx < view.viewport.width() - 40 and 0 < vy < view.viewport.height() - 40
+    )  # Fläche ist sichtbar
     img = view.viewport.grab().toImage()
     red = lambda ox, oy: img.pixelColor(*[round(v) for v in t.to_view(ox, oy)]).name()
     # genau die Overlay-Pixel der Fläche sind rot (Bildschirm: 2 × 2 Pixel je Overlay-Pixel)
     assert red(RED_BOX["x"], RED_BOX["y"]) == "#ff0000"
-    assert red(RED_BOX["x"] + RED_BOX["width"] - 1, RED_BOX["y"] + RED_BOX["height"] - 1) == "#ff0000"
-    assert img.pixelColor(round(vx) - 1, round(vy) + 20).name() != "#ff0000"  # ein Bildschirmpixel links davon: nicht rot
+    assert (
+        red(RED_BOX["x"] + RED_BOX["width"] - 1, RED_BOX["y"] + RED_BOX["height"] - 1) == "#ff0000"
+    )
+    assert (
+        img.pixelColor(round(vx) - 1, round(vy) + 20).name() != "#ff0000"
+    )  # ein Bildschirmpixel links davon: nicht rot
     assert img.pixelColor(round(vx), round(vy) - 1).name() != "#ff0000"
     # Pixel unter dem Zeiger stimmt mit der Anzeige überein
-    assert t.pixel_at(*t.to_view(RED_BOX["x"] + 10.5, RED_BOX["y"] + 10.5)) == (RED_BOX["x"] + 10, RED_BOX["y"] + 10)
+    assert t.pixel_at(*t.to_view(RED_BOX["x"] + 10.5, RED_BOX["y"] + 10.5)) == (
+        RED_BOX["x"] + 10,
+        RED_BOX["y"] + 10,
+    )
     # Die Webansicht deckt nur den sichtbaren Teil ab (kein riesiger Puffer bei 200 %/400 %)
-    assert view.web.width() <= view.viewport.width() + 4 and view.web.height() <= view.viewport.height() + 4
+    assert (
+        view.web.width() <= view.viewport.width() + 4
+        and view.web.height() <= view.viewport.height() + 4
+    )
 
 
 def test_f65_zoom_25_percent_below_chromium_minimum_uses_css_zoom(editor):
@@ -234,12 +259,18 @@ def test_f18_edit_in_editor_updates_preview_without_reload(editor):
     from donstv_studio.ui.geometry import Box
 
     model.change_box(ids["red"], Box(900, 310, 200, 150))  # DirectRunner: sofort zum Kern
-    wait_for(view.web, f"document.querySelector('[data-source-id=\"{ids['red']}\"]').style.left === '900px'")
+    wait_for(
+        view.web,
+        f"document.querySelector('[data-source-id=\"{ids['red']}\"]').style.left === '900px'",
+    )
     assert js(view.web, "window.__marker") == 777  # kein Neuaufbau der Seite
     assert js(view.web, "performance.getEntriesByType('navigation').length") == 1
     assert js(view.web, "window.__overlay.renders") > before
     model.undo()
-    wait_for(view.web, f"document.querySelector('[data-source-id=\"{ids['red']}\"]').style.left === '700px'")
+    wait_for(
+        view.web,
+        f"document.querySelector('[data-source-id=\"{ids['red']}\"]').style.left === '700px'",
+    )
     assert js(view.web, "window.__marker") == 777
 
 
@@ -267,15 +298,24 @@ def test_f13_preview_frame_rate_is_limited_by_setting(editor):
 def test_f13_preview_page_cannot_navigate_away(editor):
     view, model, prefs, ids, backend = editor
     page = view.web.page()
-    assert page.acceptNavigationRequest(QUrl("http://127.0.0.1:8080/o/x?t=y"), page.NavigationType.NavigationTypeTyped, True)
-    assert not page.acceptNavigationRequest(QUrl("https://example.org/"), page.NavigationType.NavigationTypeLinkClicked, True)
-    assert not page.acceptNavigationRequest(QUrl("http://192.168.1.5:8080/"), page.NavigationType.NavigationTypeTyped, True)
+    assert page.acceptNavigationRequest(
+        QUrl("http://127.0.0.1:8080/o/x?t=y"), page.NavigationType.NavigationTypeTyped, True
+    )
+    assert not page.acceptNavigationRequest(
+        QUrl("https://example.org/"), page.NavigationType.NavigationTypeLinkClicked, True
+    )
+    assert not page.acceptNavigationRequest(
+        QUrl("http://192.168.1.5:8080/"), page.NavigationType.NavigationTypeTyped, True
+    )
 
 
 def test_preview_url_is_local_and_keeps_token():
     url = "http://192.168.1.50:8080/o/abc?t=a-b_c"
     assert preview_web.local_preview_url(url) == "http://127.0.0.1:8080/o/abc?t=a-b_c"
-    assert preview_web.local_preview_url("http://[fe80::1]:9000/o/x?t=1") == "http://127.0.0.1:9000/o/x?t=1"
+    assert (
+        preview_web.local_preview_url("http://[fe80::1]:9000/o/x?t=1")
+        == "http://127.0.0.1:9000/o/x?t=1"
+    )
     assert preview_web.clamp_browser_zoom(0.125) == (0.25, 0.5)
     assert preview_web.clamp_browser_zoom(8.0) == (5.0, 1.6)
     assert preview_web.clamp_browser_zoom(1.0) == (1.0, 1.0)
@@ -293,11 +333,15 @@ def test_f13_token_does_not_reach_the_ui_log(core, app, caplog):
     view.resize(900, 600)
     view.show()
     wait_rendered(view)
-    view.web.page().runJavaScript(f"console.log('Adresse: ' + location.href + ' t=' + {json.dumps(token)})")
+    view.web.page().runJavaScript(
+        f"console.log('Adresse: ' + location.href + ' t=' + {json.dumps(token)})"
+    )
     pump(300)
     view.close()
     assert all(token not in r.getMessage() for r in caplog.records)
-    assert any("Vorschau-Seite" in r.getMessage() for r in caplog.records)  # die Meldung kam an, ohne Token
+    assert any(
+        "Vorschau-Seite" in r.getMessage() for r in caplog.records
+    )  # die Meldung kam an, ohne Token
 
 
 # --- Vergleich mit Playwright-Chromium (T-02 Vorstufe) ----------------------------------------------------
@@ -334,7 +378,9 @@ def diff_stats(qt_rows, pw_rows, region=None, tol=8):
 
 @pytest.fixture(scope="module")
 def pw_browser():
-    sync_api = pytest.importorskip("playwright.sync_api", reason="Playwright (Python) ist nicht installiert")
+    sync_api = pytest.importorskip(
+        "playwright.sync_api", reason="Playwright (Python) ist nicht installiert"
+    )
     import shutil
 
     with sync_api.sync_playwright() as p:
@@ -372,11 +418,26 @@ def test_t02_preview_vs_playwright_chromium_pixel_difference(editor, pw_browser,
     pw_rows = composite_over_black(pw)
 
     # Bildflächen (rot, grün gedreht): exakt gleich, Abweichung 0
-    red_region = (RED_BOX["x"] - 3, RED_BOX["y"] - 3, RED_BOX["x"] + RED_BOX["width"] + 3, RED_BOX["y"] + RED_BOX["height"] + 3)
+    red_region = (
+        RED_BOX["x"] - 3,
+        RED_BOX["y"] - 3,
+        RED_BOX["x"] + RED_BOX["width"] + 3,
+        RED_BOX["y"] + RED_BOX["height"] + 3,
+    )
     green_region = (545, 445, 655, 655)  # gedrehtes Grün: 100 × 200 um (600, 550), mit 5 Pixel Rand
     d_red = diff_stats(qt_rows, pw_rows, red_region, tol=0)
     d_green = diff_stats(qt_rows, pw_rows, green_region, tol=0)
-    d_text = diff_stats(qt_rows, pw_rows, (TEXT_BOX["x"], TEXT_BOX["y"], TEXT_BOX["x"] + TEXT_BOX["width"], TEXT_BOX["y"] + TEXT_BOX["height"]), tol=8)
+    d_text = diff_stats(
+        qt_rows,
+        pw_rows,
+        (
+            TEXT_BOX["x"],
+            TEXT_BOX["y"],
+            TEXT_BOX["x"] + TEXT_BOX["width"],
+            TEXT_BOX["y"] + TEXT_BOX["height"],
+        ),
+        tol=8,
+    )
     d_all = diff_stats(qt_rows, pw_rows, None, tol=8)
     summary = {
         "rot_abweichende_pixel": d_red[0], "gruen_abweichende_pixel": d_green[0],
@@ -387,7 +448,9 @@ def test_t02_preview_vs_playwright_chromium_pixel_difference(editor, pw_browser,
     print("\nT-02-Vorstufe:", json.dumps(summary, ensure_ascii=False))
     record_property("t02_vorschau_vs_playwright", json.dumps(summary, ensure_ascii=False))
     assert d_red[0] == 0 and d_green[0] == 0, summary  # Bildflächen und Ränder: Abweichung 0
-    assert d_all[0] / d_all[1] < 0.005, summary  # höchstens 0,5 % der Pixel weichen um mehr als 8 Stufen ab
+    assert d_all[0] / d_all[1] < 0.005, (
+        summary
+    )  # höchstens 0,5 % der Pixel weichen um mehr als 8 Stufen ab
 
 
 # --- devicePixelRatio 2 (eigener Prozess: Qt liest den Faktor beim Start) --------------------------------
@@ -407,7 +470,11 @@ def test_f65_dpr_2_zoom_100_is_still_one_overlay_pixel_per_screen_pixel(webengin
     assert r["k"] == 0.5 and r["web_zoom"] == 0.5
     assert r["stage_logical"] == [960, 540]  # 1920 × 1080 physische Pixel
     assert r["image_physical"] == [1920, 1080]
-    assert r["red_inside"] == "#ff0000" and r["red_outside_left"] != "#ff0000" and r["red_outside_top"] != "#ff0000"
+    assert (
+        r["red_inside"] == "#ff0000"
+        and r["red_outside_left"] != "#ff0000"
+        and r["red_outside_top"] != "#ff0000"
+    )
     assert r["red_right_last"] == "#ff0000" and r["red_right_next"] != "#ff0000"
 
 

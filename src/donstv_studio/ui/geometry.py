@@ -61,7 +61,12 @@ class Box:
         return self.y + self.h / 2
 
     def corners(self) -> list[tuple[float, float]]:
-        pts = [(self.x, self.y), (self.x + self.w, self.y), (self.x + self.w, self.y + self.h), (self.x, self.y + self.h)]
+        pts = [
+            (self.x, self.y),
+            (self.x + self.w, self.y),
+            (self.x + self.w, self.y + self.h),
+            (self.x, self.y + self.h),
+        ]
         return [rotate_point(px, py, self.cx, self.cy, self.rot) for px, py in pts]
 
     def bounds(self) -> tuple[float, float, float, float]:
@@ -204,7 +209,9 @@ def snap_targets(
     return t
 
 
-def snap_axis(moving: list[float], lines: list[float], threshold: float, grid: int = 0) -> tuple[float, float | None]:
+def snap_axis(
+    moving: list[float], lines: list[float], threshold: float, grid: int = 0
+) -> tuple[float, float | None]:
     """Kleinste Verschiebung, mit der eine der Kanten (`moving`) auf eine Linie oder ein Rasterkreuz rastet.
 
     Rückgabe: (Verschiebung, getroffene Linie) oder (0, None), wenn nichts näher als `threshold` liegt.
@@ -226,7 +233,14 @@ def snap_axis(moving: list[float], lines: list[float], threshold: float, grid: i
 # --- Verschieben, Skalieren, Drehen ----------------------------------------------------------------
 
 
-def move_box(start: Box, dx: float, dy: float, snap: SnapTargets | None = None, threshold: float = 0.0, grid: int = 0) -> tuple[Box, SnapHit]:
+def move_box(
+    start: Box,
+    dx: float,
+    dy: float,
+    snap: SnapTargets | None = None,
+    threshold: float = 0.0,
+    grid: int = 0,
+) -> tuple[Box, SnapHit]:
     """Verschiebt um (dx, dy) Overlay-Pixel (Zeigerweg, gerundet), rastet auf Wunsch ein.
 
     Eingerastet werden linke Kante, Mitte und rechte Kante (oben, Mitte, unten) des umschliessenden Rechtecks.
@@ -234,8 +248,12 @@ def move_box(start: Box, dx: float, dy: float, snap: SnapTargets | None = None, 
     hit = SnapHit()
     if snap is not None:
         left, top, right, bottom = start.bounds()
-        sx, line_x = snap_axis([left + dx, (left + right) / 2 + dx, right + dx], snap.xs, threshold, grid)
-        sy, line_y = snap_axis([top + dy, (top + bottom) / 2 + dy, bottom + dy], snap.ys, threshold, grid)
+        sx, line_x = snap_axis(
+            [left + dx, (left + right) / 2 + dx, right + dx], snap.xs, threshold, grid
+        )
+        sy, line_y = snap_axis(
+            [top + dy, (top + bottom) / 2 + dy, bottom + dy], snap.ys, threshold, grid
+        )
         if line_x is not None:
             dx += sx
             hit.dx, hit.xs = sx, [line_x]
@@ -291,7 +309,9 @@ def resize_box(
     return Box(rint(cx - new_w / 2), rint(cy - new_h / 2), new_w, new_h, start.rot), hit
 
 
-def rotation_from_pointer(start: Box, press: tuple[float, float], now: tuple[float, float], step: bool) -> float:
+def rotation_from_pointer(
+    start: Box, press: tuple[float, float], now: tuple[float, float], step: bool
+) -> float:
     """Neue Drehung beim Ziehen des Drehgriffs: Startdrehung plus Winkeländerung des Zeigers um die Mitte.
 
     Ganze Grad; mit `step` (Umschalttaste) Vielfache von 15°.

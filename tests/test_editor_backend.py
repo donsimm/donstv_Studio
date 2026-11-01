@@ -4,7 +4,9 @@ import time
 
 import pytest
 
-pytest.importorskip("PyQt6.QtCore", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtCore", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 
 from PyQt6.QtCore import QCoreApplication
 
@@ -25,11 +27,17 @@ def core(tmp_path):
 def test_f10_backend_covers_overlay_and_source_calls(core, tmp_path):
     svc, b, _ = core
     o = b.create_overlay("A", width=800, height=400)
-    assert o["url"].endswith(f"/o/{o['id']}?t={o['token']}") and (o["width"], o["height"]) == (800, 400)
+    assert o["url"].endswith(f"/o/{o['id']}?t={o['token']}") and (o["width"], o["height"]) == (
+        800,
+        400,
+    )
     s1 = b.add_source(o["id"], "text", x=1, y=2, width=30, height=40, props={"text": "x"})
     s2 = b.add_source(o["id"], "text", x=5, y=6, width=30, height=40)
     assert b.update_source(o["id"], s1["id"], x=11, rotation=15.0)["x"] == 11
-    assert [s["id"] for s in b.reorder_sources(o["id"], [s2["id"], s1["id"]])["sources"]] == [s2["id"], s1["id"]]
+    assert [s["id"] for s in b.reorder_sources(o["id"], [s2["id"], s1["id"]])["sources"]] == [
+        s2["id"],
+        s1["id"],
+    ]
     assert b.update_overlay(o["id"], name="B", output="ndi")["output_status"] == "nicht verfügbar"
     dup = b.duplicate_overlay(o["id"])
     assert dup["name"] == "B (Kopie)" and dup["token"] != o["token"]
@@ -73,8 +81,13 @@ def test_task_runner_runs_in_order_in_background_and_calls_back_in_qt_thread():
     runner = TaskRunner()
     order, threads, errors = [], [], []
     main = threading.get_ident()
-    runner.submit(lambda: order.append("a") or "A", lambda r: (order.append(r), threads.append(threading.get_ident())))
-    runner.submit(lambda: (_ for _ in ()).throw(BackendError("kaputt")), None, lambda e: errors.append(str(e)))
+    runner.submit(
+        lambda: order.append("a") or "A",
+        lambda r: (order.append(r), threads.append(threading.get_ident())),
+    )
+    runner.submit(
+        lambda: (_ for _ in ()).throw(BackendError("kaputt")), None, lambda e: errors.append(str(e))
+    )
     runner.submit(lambda: order.append("c") or "C", lambda r: order.append(r))
     assert runner.wait_idle(5)
     end = time.time() + 5
@@ -82,5 +95,7 @@ def test_task_runner_runs_in_order_in_background_and_calls_back_in_qt_thread():
         app.processEvents()
         time.sleep(0.01)
     runner.stop()
-    assert order == ["a", "c", "A", "C"] and errors == ["kaputt"]  # Aufträge der Reihe nach im Hintergrund, Rückrufe danach in Reihenfolge
+    assert order == ["a", "c", "A", "C"] and errors == [
+        "kaputt"
+    ]  # Aufträge der Reihe nach im Hintergrund, Rückrufe danach in Reihenfolge
     assert threads == [main]  # Rückruf im Qt-Thread

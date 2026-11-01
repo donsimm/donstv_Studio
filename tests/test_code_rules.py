@@ -20,5 +20,7 @@ def test_rule12_signals_carry_only_simple_types():
     """Regel 12: Signale tragen nur Zahlen, Text und Wahrheitswerte; Wörterbücher und Listen als JSON-Text."""
     found = list(signal_signatures())
     assert len(found) > 20  # die Suche findet die Signale überhaupt
-    bad = [(str(f), line, types) for f, line, types in found if not set(types) <= ALLOWED_SIGNAL_TYPES]
+    bad = [
+        (str(f), line, types) for f, line, types in found if not set(types) <= ALLOWED_SIGNAL_TYPES
+    ]
     assert bad == []

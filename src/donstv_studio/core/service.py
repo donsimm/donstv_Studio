@@ -38,7 +38,9 @@ log = logging.getLogger(__name__)
 BACKUP_CHECK_SECONDS = 3600
 SHUTDOWN_TIMEOUT = 5  # Sekunden
 LOCAL_HOST = "127.0.0.1"  # in diesem Baustein nie im Heimnetz erreichbar
-FAKE_TWITCH_ENV = "DONSTV_TWITCH_FAKE"  # «1»: Testverbindung statt Twitch (ohne Netz, ohne Client-ID)
+FAKE_TWITCH_ENV = (
+    "DONSTV_TWITCH_FAKE"  # «1»: Testverbindung statt Twitch (ohne Netz, ohne Client-ID)
+)
 
 
 def use_fake_twitch() -> bool:
@@ -74,7 +76,11 @@ class Service:
         redact_uvicorn_loggers()  # Token in «WebSocket …?t=…» schwärzen (siehe logging_setup)
         server = uvicorn.Server(
             uvicorn.Config(
-                app, host=host, port=port, log_config=None, access_log=False,
+                app,
+                host=host,
+                port=port,
+                log_config=None,
+                access_log=False,
                 timeout_graceful_shutdown=SHUTDOWN_TIMEOUT,  # offene Verbindungen nicht ewig abwarten
             )
         )
@@ -110,20 +116,34 @@ class Service:
         # Chat-Bot (P07): genau eine Twitch-Verbindung (F-08); Commands, Protokoll und Oberfläche lesen vom Bus.
         fake = use_fake_twitch()
         if fake:
-            log.warning("Twitch: Testverbindung aktiv (%s=1), keine echte Verbindung", FAKE_TWITCH_ENV)
+            log.warning(
+                "Twitch: Testverbindung aktiv (%s=1), keine echte Verbindung", FAKE_TWITCH_ENV
+            )
             self.twitch = FakeTwitch(self.bus)
         else:
-            self.twitch = TwitchConnection(self.bus, config.get, TokenStore(self.secrets), UrllibHttp())
+            self.twitch = TwitchConnection(
+                self.bus, config.get, TokenStore(self.secrets), UrllibHttp()
+            )
         self.manager.register(self.twitch)
         self.bot_log = BotLog(self.store, self.bus)
         self.commands = CommandRepository(self.store)
         self.executor = ActionExecutor(lambda: self.twitch, self.bot_log)
-        self.engine = CommandEngine(self.bus, self.commands, self.executor, self.bot_log, lambda: self.twitch)
-        bot_router = create_bot_router(self.commands, self.engine, self.bot_log, self.twitch, config, fake)
+        self.engine = CommandEngine(
+            self.bus, self.commands, self.executor, self.bot_log, lambda: self.twitch
+        )
+        bot_router = create_bot_router(
+            self.commands, self.engine, self.bot_log, self.twitch, config, fake
+        )
         self.media = MediaLibrary(self.store, self.paths.media_dir)
         self.overlays = OverlayService(OverlayRepository(self.store), self.bus, self.media.exists)
         app = create_app(
-            self.token, self.bus, self.manager, config, self.overlays, self.media, UrlBuilder(config),
+            self.token,
+            self.bus,
+            self.manager,
+            config,
+            self.overlays,
+            self.media,
+            UrlBuilder(config),
             bot_router,
         )
         overlay_app = create_overlay_app(self.overlays, self.media, self.bus)
@@ -143,7 +163,12 @@ class Service:
             await self._wait_started(overlay_server, overlay_task)
             await self.manager.start_all()
             log.info("donstv-core %s: Kern-Schnittstelle %s:%d", __version__, LOCAL_HOST, port)
-            log.info("Overlay-Server %s:%d (nur lokal: %s)", overlay_host, overlay_port, config.overlay_local_only)
+            log.info(
+                "Overlay-Server %s:%d (nur lokal: %s)",
+                overlay_host,
+                overlay_port,
+                config.overlay_local_only,
+            )
             self.started.set()
             stop_task = asyncio.create_task(self.stop_event.wait())
             await asyncio.wait({stop_task, server_task}, return_when=asyncio.FIRST_COMPLETED)

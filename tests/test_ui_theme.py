@@ -52,9 +52,17 @@ def test_font_is_the_system_font_with_fixed_size(name):
 
 def test_dark_theme_uses_the_colors_measured_in_the_obs_screenshot():
     p = theme.PALETTES[theme.DARK]
-    assert (p["bg"], p["surface"], p["title_bg"], p["preview_bg"], p["canvas"], p["selection_bg"]) == (
-        "#1d1f26", "#272a33", "#3c404d", "#13141a", "#000000", "#284cb8")
-    assert theme.contrast_ratio(p["selection_text"], p["selection_bg"]) >= 7  # weisse Schrift auf kräftigem Blau
+    assert (
+        p["bg"],
+        p["surface"],
+        p["title_bg"],
+        p["preview_bg"],
+        p["canvas"],
+        p["selection_bg"],
+    ) == ("#1d1f26", "#272a33", "#3c404d", "#13141a", "#000000", "#284cb8")
+    assert (
+        theme.contrast_ratio(p["selection_text"], p["selection_bg"]) >= 7
+    )  # weisse Schrift auf kräftigem Blau
 
 
 @pytest.mark.parametrize("name", [theme.DARK, theme.LIGHT])

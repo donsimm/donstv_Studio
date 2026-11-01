@@ -68,7 +68,9 @@ class Image:
             (n,) = struct.unpack(">I", data[pos : pos + 4])
             kind, body = data[pos + 4 : pos + 8], data[pos + 8 : pos + 8 + n]
             if kind == b"IHDR":
-                self.width, self.height, depth, ctype, _, _, interlace = struct.unpack(">IIBBBBB", body)
+                self.width, self.height, depth, ctype, _, _, interlace = struct.unpack(
+                    ">IIBBBBB", body
+                )
                 assert (depth, ctype, interlace) == (8, 6, 0), "nur RGBA 8 Bit"
             elif kind == b"IDAT":
                 idat += body
@@ -77,7 +79,10 @@ class Image:
         rows: list[bytearray] = []
         prev = bytearray(stride)
         for y in range(self.height):
-            ft, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)])
+            ft, line = (
+                raw[y * (stride + 1)],
+                bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)]),
+            )
             for i in range(stride):
                 a = line[i - bpp] if i >= bpp else 0
                 b = prev[i]
@@ -184,7 +189,9 @@ def dispose(app, *widgets) -> None:
         QWebEngineView = None
     for w in widgets:
         w.close()
-        if QWebEngineView is not None and (isinstance(w, QWebEngineView) or w.findChildren(QWebEngineView)):
+        if QWebEngineView is not None and (
+            isinstance(w, QWebEngineView) or w.findChildren(QWebEngineView)
+        ):
             KEEP_UNTIL_SESSION_END.append(w)
         else:
             w.deleteLater()

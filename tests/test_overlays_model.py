@@ -25,7 +25,9 @@ def test_f66_token_random_and_at_least_128_bit():
     assert all(len(t) * 6 >= 128 for t in tokens)
 
 
-@pytest.mark.parametrize("kw", [{"width": 0}, {"height": 0}, {"width": -5}, {"width": 1.5}, {"width": True}])
+@pytest.mark.parametrize(
+    "kw", [{"width": 0}, {"height": 0}, {"width": -5}, {"width": 1.5}, {"width": True}]
+)
 def test_f11_overlay_size_validation(kw):
     with pytest.raises(OverlayError, match="Overlays"):
         Overlay(name="A", **kw)
@@ -43,7 +45,9 @@ def test_f66_ndi_stored_but_not_available():
     assert Overlay(name="A").output_status == "verfügbar"
 
 
-@pytest.mark.parametrize("kw", [{"width": 0}, {"height": 0}, {"width": 0.5}, {"x": 1.5}, {"y": "3"}, {"x": None}])
+@pytest.mark.parametrize(
+    "kw", [{"width": 0}, {"height": 0}, {"width": 0.5}, {"x": 1.5}, {"y": "3"}, {"x": None}]
+)
 def test_f65_source_requires_whole_pixels(kw):
     with pytest.raises(OverlayError):
         src(**kw)
@@ -77,13 +81,16 @@ def test_replace_revalidates():
 
 
 def test_f65_no_percent_fields_in_model():
-    names = {f.name for f in dataclasses.fields(Source)} | {f.name for f in dataclasses.fields(Overlay)}
+    names = {f.name for f in dataclasses.fields(Source)} | {
+        f.name for f in dataclasses.fields(Overlay)
+    }
     assert not any("percent" in n or "pct" in n for n in names)
     d = src().to_dict()
     assert all(isinstance(d[k], int) for k in ("x", "y", "width", "height", "z"))
 
 
 # --- P04: Prüfung der props je Quellenart, Obergrenze der Auflösung ------------------------
+
 
 def test_f11_resolution_upper_limit_8192():
     assert Overlay(name="A", width=8192, height=8192).width == 8192
@@ -94,7 +101,15 @@ def test_f11_resolution_upper_limit_8192():
 
 
 def test_f15_text_props_valid():
-    s = src(props={"text": "Grüezi", "color": "#ff8800", "size": 64, "font": "DejaVu Sans", "style": "comic"})
+    s = src(
+        props={
+            "text": "Grüezi",
+            "color": "#ff8800",
+            "size": 64,
+            "font": "DejaVu Sans",
+            "style": "comic",
+        }
+    )
     assert s.props["size"] == 64
     for style in ("comic", "thick", "plain", "none"):
         assert src(props={"style": style}).props["style"] == style

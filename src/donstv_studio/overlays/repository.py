@@ -101,7 +101,9 @@ class OverlayRepository:
 
     def delete_source(self, overlay_id: str, source_id: str) -> None:
         with self._store.transaction() as db:
-            db.execute("DELETE FROM sources WHERE id = ? AND overlay_id = ?", (source_id, overlay_id))
+            db.execute(
+                "DELETE FROM sources WHERE id = ? AND overlay_id = ?", (source_id, overlay_id)
+            )
 
     def set_order(self, overlay_id: str, ordered_ids: list[str]) -> None:
         with self._store.transaction() as db:

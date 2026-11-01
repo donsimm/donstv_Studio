@@ -97,7 +97,7 @@ def _decode(text: str) -> QByteArray | None:
     if not text.startswith(LAYOUT_TAG):
         return None
     try:
-        return QByteArray(base64.b64decode(text[len(LAYOUT_TAG):].encode("ascii"), validate=True))
+        return QByteArray(base64.b64decode(text[len(LAYOUT_TAG) :].encode("ascii"), validate=True))
     except (binascii.Error, ValueError, UnicodeEncodeError):
         return None
 
@@ -146,7 +146,9 @@ class MainWindow(QMainWindow):
 
         # Editor-Modell: Zugriff auf die Overlay-Schnittstelle des Kerns (P03). Ohne Zugang (Tests) bleibt es leer.
         backend = getattr(core, "backend", None)
-        self.runner = getattr(core, "runner", None) or (TaskRunner(self) if backend is not None else DirectRunner(self))
+        self.runner = getattr(core, "runner", None) or (
+            TaskRunner(self) if backend is not None else DirectRunner(self)
+        )
         self.prefs = EditorPrefs(getattr(core, "save_setting", None), self)
         self.model = EditorModel(backend, self.runner, getattr(core, "save_setting", None), self)
         self.bot = BotModel(getattr(core, "bot_backend", None) or backend, self.runner, self)
@@ -175,7 +177,9 @@ class MainWindow(QMainWindow):
         core.status_changed.connect(self._on_status_changed)
         core.statuses_loaded.connect(self._on_statuses_json)
         core.settings_loaded.connect(self._on_settings_json)
-        core.connected.connect(self.model.load)  # nach jedem (Wieder-)Verbinden den Stand der Overlays holen
+        core.connected.connect(
+            self.model.load
+        )  # nach jedem (Wieder-)Verbinden den Stand der Overlays holen
         core.connected.connect(self.bot.load)
         if hasattr(core, "event_received"):
             core.event_received.connect(self.bot.on_event)
@@ -275,10 +279,15 @@ class MainWindow(QMainWindow):
         self.bot_tabs.setObjectName("bot_tabs")
         self.commands_tab = CommandsTab(self.bot)
         self.bot_settings_tab = BotSettingsTab(self.bot)
-        filled = {"Commands": _scroll(self.commands_tab), "Einstellungen": _scroll(self.bot_settings_tab)}
+        filled = {
+            "Commands": _scroll(self.commands_tab),
+            "Einstellungen": _scroll(self.bot_settings_tab),
+        }
         for name in BOT_TABS:
             # Actions, Timer und Queues folgen mit F-46 bis F-51.
-            page = filled.get(name) or placeholder(f"{name}\nFolgt in einem späteren Baustein (F-46 bis F-51).")
+            page = filled.get(name) or placeholder(
+                f"{name}\nFolgt in einem späteren Baustein (F-46 bis F-51)."
+            )
             self.bot_tabs.addTab(page, name)
         self.bot_tabs.setCurrentWidget(filled["Commands"])  # Actions ist im Gerüst leer
         self.stack.addWidget(self.bot_tabs)
@@ -292,8 +301,15 @@ class MainWindow(QMainWindow):
         self.sources_panel = SourcesDock(self.model)
         self.properties_panel = PropertiesDock(self.model)
         self.control_panel = ControlDock(self.model, self.prefs)
-        self.control_panel.copied.connect(lambda: self.statusBar().showMessage("Adresse der Browserquelle kopiert", 4000))
-        self.panels = [self.overlays_panel, self.sources_panel, self.properties_panel, self.control_panel]
+        self.control_panel.copied.connect(
+            lambda: self.statusBar().showMessage("Adresse der Browserquelle kopiert", 4000)
+        )
+        self.panels = [
+            self.overlays_panel,
+            self.sources_panel,
+            self.properties_panel,
+            self.control_panel,
+        ]
         for (name, title), panel in zip(DOCKS, self.panels, strict=True):
             dock = QDockWidget(title, self)
             dock.setObjectName(name)
@@ -318,7 +334,10 @@ class MainWindow(QMainWindow):
         for (name, title), panel in zip(BOT_DOCKS, (self.chat_panel, self.log_panel), strict=True):
             dock = QDockWidget(title, self)
             dock.setObjectName(name)
-            dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+            dock.setFeatures(
+                QDockWidget.DockWidgetFeature.DockWidgetMovable
+                | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+            )
             titlebar = DockTitleBar(dock)
             titlebar.close_button.hide()
             dock.setTitleBarWidget(titlebar)
@@ -398,8 +417,12 @@ class MainWindow(QMainWindow):
         zoom_in = QAction("Vergrössern", self)
         zoom_in.setShortcuts([QKeySequence("Ctrl++"), QKeySequence("Ctrl+=")])
         zoom_out = QAction("Verkleinern", self, shortcut=QKeySequence("Ctrl+-"))
-        zoom_in.triggered.connect(lambda: self.editor.set_zoom(geo.next_zoom(self.editor.zoom(), 1)))
-        zoom_out.triggered.connect(lambda: self.editor.set_zoom(geo.next_zoom(self.editor.zoom(), -1)))
+        zoom_in.triggered.connect(
+            lambda: self.editor.set_zoom(geo.next_zoom(self.editor.zoom(), 1))
+        )
+        zoom_out.triggered.connect(
+            lambda: self.editor.set_zoom(geo.next_zoom(self.editor.zoom(), -1))
+        )
         zoom_menu.addSeparator()
         zoom_menu.addAction(zoom_in)
         zoom_menu.addAction(zoom_out)
@@ -437,14 +460,25 @@ class MainWindow(QMainWindow):
         self.pointer_label = QLabel("X: –   Y: –")
         self.pointer_label.setObjectName("pointer_label")
         self.pointer_label.setAccessibleName("Pixelposition unter dem Zeiger")
-        self.pointer_label.setMinimumWidth(QFontMetrics(self.font()).horizontalAdvance("X: 99999   Y: 99999") + 12)
+        self.pointer_label.setMinimumWidth(
+            QFontMetrics(self.font()).horizontalAdvance("X: 99999   Y: 99999") + 12
+        )
         self.zoom_combo = QComboBox()
         self.zoom_combo.setObjectName("zoom_combo")
         self.zoom_combo.setAccessibleName("Zoom der Vorschau")
         self.zoom_combo.setFixedHeight(theme.STATUS_BAR_HEIGHT - 6)
-        for value, label in ((geo.FIT, "Einpassen"), (0.25, "25 %"), (0.5, "50 %"), (1.0, "100 %"), (2.0, "200 %"), (4.0, "400 %")):
+        for value, label in (
+            (geo.FIT, "Einpassen"),
+            (0.25, "25 %"),
+            (0.5, "50 %"),
+            (1.0, "100 %"),
+            (2.0, "200 %"),
+            (4.0, "400 %"),
+        ):
             self.zoom_combo.addItem(label, value)
-        self.zoom_combo.activated.connect(lambda i: self.editor.set_zoom(self.zoom_combo.itemData(i)))
+        self.zoom_combo.activated.connect(
+            lambda i: self.editor.set_zoom(self.zoom_combo.itemData(i))
+        )
         self.core_status = QLabel()
         self.core_status.setObjectName("core_status")
         self.statusBar().addPermanentWidget(self.pointer_label)
@@ -457,7 +491,10 @@ class MainWindow(QMainWindow):
         self.redo_action.setEnabled(self.model.can_redo())
 
     def _sync_view_actions(self, *_args) -> None:
-        for act, value in ((self.snap_action, self.prefs.snap), (self.grid_action, self.prefs.grid)):
+        for act, value in (
+            (self.snap_action, self.prefs.snap),
+            (self.grid_action, self.prefs.grid),
+        ):
             act.blockSignals(True)
             act.setChecked(value)
             act.blockSignals(False)
@@ -500,7 +537,9 @@ class MainWindow(QMainWindow):
                 dock.hide()
             for dock in self.bot_docks:
                 dock.show()
-            if not self._bot_docks_sized:  # beim ersten Zeigen: Breite des Chats, Höhe wie die Docks unten
+            if (
+                not self._bot_docks_sized
+            ):  # beim ersten Zeigen: Breite des Chats, Höhe wie die Docks unten
                 self._bot_docks_sized = True
                 self._size_bot_docks()
 
@@ -606,7 +645,9 @@ class MainWindow(QMainWindow):
         self._core_state = (status, text)
         symbol, color = STATUS_STYLE[status]
         self.core_status.setText(f"{symbol} {text}")
-        self.core_status.setStyleSheet(f"color: {theme.palette(self.theme)[color]}; font-weight: bold;")
+        self.core_status.setStyleSheet(
+            f"color: {theme.palette(self.theme)[color]}; font-weight: bold;"
+        )
 
     def _on_status_changed(self, name: str, status: str, detail: str = "") -> None:
         self.connections.set_status(name, status, detail)
@@ -623,7 +664,11 @@ class MainWindow(QMainWindow):
 
     # --- Layout merken -------------------------------------------------
     def layout_values(self) -> dict[str, str]:
-        state = self._overlay_dock_state if self._module == MODULE_BOT else self.saveState(STATE_VERSION)
+        state = (
+            self._overlay_dock_state
+            if self._module == MODULE_BOT
+            else self.saveState(STATE_VERSION)
+        )
         return {
             KEY_THEME: self.theme,
             KEY_GEOMETRY: _encode(self.saveGeometry()),

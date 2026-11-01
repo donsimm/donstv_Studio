@@ -3,7 +3,16 @@
 from donstv_studio.ui.backend import CoreBackend
 from helpers import GREEN, GREEN_BOX, RED, RED_BOX, TEXT_BOX, H, RunningService, W, solid_png
 
-__all__ = ["GREEN_BOX", "RED_BOX", "TEXT_BOX", "CoreBackend", "H", "RunningService", "W", "build_scene"]
+__all__ = [
+    "GREEN_BOX",
+    "RED_BOX",
+    "TEXT_BOX",
+    "CoreBackend",
+    "H",
+    "RunningService",
+    "W",
+    "build_scene",
+]
 
 
 def build_scene(backend: CoreBackend, overlay_port: int) -> dict:
@@ -25,7 +34,12 @@ def build_scene(backend: CoreBackend, overlay_port: int) -> dict:
             f.write_bytes(solid_png(w, h, rgba))
             ids[f"{key}_media"] = backend.upload_media(str(f))["id"]
     for key, kind, box, extra in (
-        ("text", "text", TEXT_BOX, {"props": {"text": "Hallo Welt", "size": 48, "color": "#ffffff", "style": "comic"}}),
+        (
+            "text",
+            "text",
+            TEXT_BOX,
+            {"props": {"text": "Hallo Welt", "size": 48, "color": "#ffffff", "style": "comic"}},
+        ),
         ("red", "image", RED_BOX, {"props": {"media_id": ids["red_media"]}}),
         ("green", "image", GREEN_BOX, {"props": {"media_id": ids["green_media"]}, "rotation": 90}),
     ):
@@ -33,4 +47,15 @@ def build_scene(backend: CoreBackend, overlay_port: int) -> dict:
     return ids
 
 
-__all__ = ["GREEN", "GREEN_BOX", "RED", "RED_BOX", "TEXT_BOX", "CoreBackend", "H", "RunningService", "W", "build_scene"]
+__all__ = [
+    "GREEN",
+    "GREEN_BOX",
+    "RED",
+    "RED_BOX",
+    "TEXT_BOX",
+    "CoreBackend",
+    "H",
+    "RunningService",
+    "W",
+    "build_scene",
+]

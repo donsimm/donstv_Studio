@@ -30,7 +30,9 @@ _OVERLAY_FIELDS = {"name", "width", "height", "output"}
 def _unknown(keys: set[str], allowed: set[str], what: str) -> None:
     extra = keys - allowed
     if extra:
-        raise OverlayError(f"{what}: nicht änderbare oder unbekannte Felder: {', '.join(sorted(extra))}")
+        raise OverlayError(
+            f"{what}: nicht änderbare oder unbekannte Felder: {', '.join(sorted(extra))}"
+        )
 
 
 class OverlayService:

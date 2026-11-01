@@ -24,7 +24,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Testnachricht für die Testverbindung «Twitch»")
     parser.add_argument("text")
     parser.add_argument("--user", default="Testnutzer")
-    parser.add_argument("--badge", action="append", default=[], help="z. B. subscriber, moderator, broadcaster")
+    parser.add_argument(
+        "--badge", action="append", default=[], help="z. B. subscriber, moderator, broadcaster"
+    )
     args = parser.parse_args()
     port = os.environ.get("DONSTV_CORE_PORT") or DEFAULT_API_PORT
     body = json.dumps({"user": args.user, "text": args.text, "badges": args.badge}).encode()

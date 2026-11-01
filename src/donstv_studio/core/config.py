@@ -120,7 +120,9 @@ class Config:
 
     def set(self, key: str, value: str) -> None:
         if is_secret_key(key):
-            raise ConfigError(f"Zugangsdaten gehören in den Schlüsselbund, nicht in die Konfiguration: {key}")
+            raise ConfigError(
+                f"Zugangsdaten gehören in den Schlüsselbund, nicht in die Konfiguration: {key}"
+            )
         self._store.set_setting(key, value)
 
     def set_checked(self, key: str, value: str) -> None:

@@ -25,6 +25,7 @@ def netdev(**ifaces):
 
 # --- CPU ----------------------------------------------------------------------------------------
 
+
 def test_f68_cpu_percent_from_two_measurements():
     a, b = perf.parse_cpu(STAT_1), perf.parse_cpu(STAT_2)
     assert a == (10000, 8500)  # Summe der ersten 8 Felder, Leerlauf = idle + iowait
@@ -36,7 +37,9 @@ def test_f68_cpu_percent_from_two_measurements():
 def test_f68_cpu_percent_stays_between_0_and_100():
     assert perf.cpu_percent((100, 100), (200, 200)) == 0.0  # alles Leerlauf
     assert perf.cpu_percent((100, 0), (200, 0)) == 100.0
-    assert perf.cpu_percent((100, 50), (200, 40)) is None  # Leerlauf-Zähler zurück: nicht berechenbar
+    assert (
+        perf.cpu_percent((100, 50), (200, 40)) is None
+    )  # Leerlauf-Zähler zurück: nicht berechenbar
     assert perf.cpu_percent((0, 0), (1000, 1000)) == 0.0
     assert 0.0 <= perf.cpu_percent((0, 0), (10, 1)) <= 100.0
 
@@ -55,6 +58,7 @@ def test_f68_parse_cpu_rejects_unusable_text(text):
 
 # --- RAM ----------------------------------------------------------------------------------------
 
+
 def test_f68_mem_used_is_total_minus_available():
     used, total = perf.parse_mem(MEMINFO)
     assert total == 16252928 * 1024
@@ -64,7 +68,13 @@ def test_f68_mem_used_is_total_minus_available():
 
 @pytest.mark.parametrize(
     "text",
-    ["", "MemTotal: 100 kB\n", "MemAvailable: 100 kB\n", "MemTotal: abc kB\nMemAvailable: 1 kB\n", "MemTotal: 0 kB\nMemAvailable: 0 kB\n"],
+    [
+        "",
+        "MemTotal: 100 kB\n",
+        "MemAvailable: 100 kB\n",
+        "MemTotal: abc kB\nMemAvailable: 1 kB\n",
+        "MemTotal: 0 kB\nMemAvailable: 0 kB\n",
+    ],
 )
 def test_f68_parse_mem_rejects_unusable_text(text):
     assert perf.parse_mem(text) is None
@@ -77,12 +87,19 @@ def test_f68_mem_used_is_clamped_to_total():
 
 # --- LAN ----------------------------------------------------------------------------------------
 
+
 def test_f68_net_sums_physical_interfaces_and_skips_virtual_ones():
     text = netdev(lo=(999, 999), eth0=(1000, 2000), enp3s0=(10, 20), docker0=(5, 5), veth1a2b=(7, 7),
                   br_abc=(9, 9), virbr0=(3, 3), tun0=(4, 4), tap1=(6, 6), wlp2s0=(100, 200))  # fmt: skip
     assert sorted(perf.parse_net(text)) == ["enp3s0", "eth0", "wlp2s0"]
-    assert not perf.counts_interface("lo") and perf.counts_interface("eth0") and perf.counts_interface("wlan0")
-    assert perf.counts_interface("ifb0")  # nicht ausgeschlossen: Nutzer-Auswahl ist festgelegt, ifb* zählt (immer 0)
+    assert (
+        not perf.counts_interface("lo")
+        and perf.counts_interface("eth0")
+        and perf.counts_interface("wlan0")
+    )
+    assert perf.counts_interface(
+        "ifb0"
+    )  # nicht ausgeschlossen: Nutzer-Auswahl ist festgelegt, ifb* zählt (immer 0)
 
 
 def test_f68_net_rates_in_bit_per_second_over_the_interval():
@@ -119,6 +136,7 @@ def test_f68_net_rates_unusable_input():
 
 # --- Formatieren --------------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     ("bits", "text"),
     [
@@ -150,14 +168,20 @@ def test_f68_net_text_shares_unit_or_names_both():
 def test_f68_mem_and_cpu_text():
     assert perf.format_mem((0, 1024**3)) == "0.0 / 1.0 GiB"
     assert perf.format_mem(None) == "–" and perf.format_cpu(None) == "–"
-    assert perf.format_cpu(0) == "0 %" and perf.format_cpu(100) == "100 %" and perf.format_cpu(3.6) == "4 %"
+    assert (
+        perf.format_cpu(0) == "0 %"
+        and perf.format_cpu(100) == "100 %"
+        and perf.format_cpu(3.6) == "4 %"
+    )
 
 
 def test_f68_cpu_and_ram_texts_are_not_longer_than_the_longest_defined_text():
     for p in (0, 9.9, 50, 100):
         assert len(perf.format_cpu(p)) <= len(perf.LONGEST["cpu"])
     for used, total in ((0, 0.5), (999.9, 999.9), (5.3, 15.5)):
-        assert len(perf.format_mem((int(used * perf.GIB), int(total * perf.GIB)))) <= len(perf.LONGEST["ram"])
+        assert len(perf.format_mem((int(used * perf.GIB), int(total * perf.GIB)))) <= len(
+            perf.LONGEST["ram"]
+        )
 
 
 def test_f68_gbit_texts_are_not_wider_than_the_longest_text():
@@ -167,6 +191,7 @@ def test_f68_gbit_texts_are_not_wider_than_the_longest_text():
 
 
 # --- Verlauf und Messer -------------------------------------------------------------------------
+
 
 def test_f68_history_keeps_exactly_60_values_and_drops_the_oldest():
     h = perf.History()
@@ -224,5 +249,7 @@ def test_f68_sampler_on_the_real_proc_of_this_machine():
 def test_f68_graph_scale():
     assert perf.graph_scale("cpu", [3.0], None) == 100.0
     assert perf.graph_scale("ram", [1.0], (5, 20)) == 20.0
-    assert perf.graph_scale("lan", [10.0], None) == 100_000.0  # Mindestmass, damit Rauschen nicht gross aussieht
+    assert (
+        perf.graph_scale("lan", [10.0], None) == 100_000.0
+    )  # Mindestmass, damit Rauschen nicht gross aussieht
     assert perf.graph_scale("lan", [5e6, 1.0], None) == 5e6

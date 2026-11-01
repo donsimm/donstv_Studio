@@ -45,7 +45,12 @@ async def test_f16_allowed_types_detected_by_content(lib, data, ext, mime):
 
 @pytest.mark.parametrize(
     "data",
-    [b"Hallo Welt, das ist Text", b"MZ\x90\x00 programm", b"<html><body>hi</body></html>", b"<svg"[:3]],
+    [
+        b"Hallo Welt, das ist Text",
+        b"MZ\x90\x00 programm",
+        b"<html><body>hi</body></html>",
+        b"<svg"[:3],
+    ],
 )
 async def test_f16_wrong_type_rejected_even_with_image_extension(lib, data):
     with pytest.raises(m.UnsupportedTypeError):
@@ -75,8 +80,12 @@ async def test_f16_exactly_25mb_allowed(lib):
 
 @pytest.mark.parametrize(
     "evil",
-    [b"<svg><script>alert(1)</script></svg>", b'<svg onload="x()"/>', b'<svg><a href="javascript:x()"/></svg>',
-     b"<svg><foreignObject/></svg>"],
+    [
+        b"<svg><script>alert(1)</script></svg>",
+        b'<svg onload="x()"/>',
+        b'<svg><a href="javascript:x()"/></svg>',
+        b"<svg><foreignObject/></svg>",
+    ],
 )
 async def test_f16_svg_with_active_content_rejected(lib, evil):
     with pytest.raises(m.UnsupportedTypeError, match="aktive Inhalte"):
@@ -93,8 +102,12 @@ async def test_f16_reusable_and_delete_refused_while_used(lib, tmp_path):
     item = await lib.save("a.png", chunks(solid_png(1, 1, (0, 0, 0, 255))))
     store = lib._store
     with store.transaction() as db:
-        db.execute("INSERT INTO overlays (id,name,width,height,output,token) VALUES ('o1','A',10,10,'browser','t1')")
-        db.execute("INSERT INTO overlays (id,name,width,height,output,token) VALUES ('o2','B',10,10,'browser','t2')")
+        db.execute(
+            "INSERT INTO overlays (id,name,width,height,output,token) VALUES ('o1','A',10,10,'browser','t1')"
+        )
+        db.execute(
+            "INSERT INTO overlays (id,name,width,height,output,token) VALUES ('o2','B',10,10,'browser','t2')"
+        )
         for sid, oid in (("s1", "o1"), ("s2", "o1"), ("s3", "o2")):  # mehrfach verwendet
             db.execute(
                 "INSERT INTO sources VALUES (?,?,?,0,0,5,5,0,0,1,?)",

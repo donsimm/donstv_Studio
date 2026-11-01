@@ -65,7 +65,14 @@ class FakeBackend:
     def add_source(self, overlay_id, kind, **fields):
         self._log("add_source", overlay_id, kind, fields)
         o = self._overlay(overlay_id)
-        s = {"id": uuid.uuid4().hex, "kind": kind, "rotation": 0.0, "visible": True, "props": {}, "z": len(o["sources"])}
+        s = {
+            "id": uuid.uuid4().hex,
+            "kind": kind,
+            "rotation": 0.0,
+            "visible": True,
+            "props": {},
+            "z": len(o["sources"]),
+        }
         s.update(fields)
         o["sources"].append(s)
         return copy.deepcopy(s)
@@ -94,10 +101,14 @@ class FakeBackend:
 
     def upload_media(self, path):
         self._log("upload_media", path)
-        item = {"id": uuid.uuid4().hex, "name": path.rsplit("/", 1)[-1], "mime": "image/png", "size": 1}
+        item = {
+            "id": uuid.uuid4().hex,
+            "name": path.rsplit("/", 1)[-1],
+            "mime": "image/png",
+            "size": 1,
+        }
         self.media[item["id"]] = item
         return item
 
     def source(self, overlay_id: str, source_id: str) -> dict:
         return next(s for s in self._overlay(overlay_id)["sources"] if s["id"] == source_id)
-

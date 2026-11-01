@@ -40,7 +40,10 @@ except ImportError as e:  # pragma: no cover - hängt von der Installation ab
 LOCAL_HOST = "127.0.0.1"
 DEFAULT_FPS = 30
 MIN_FPS, MAX_FPS = 1, 60
-BROWSER_ZOOM_MIN, BROWSER_ZOOM_MAX = 0.25, 5.0  # Bereich von QWebEngineView.setZoomFactor (Qt-Dokumentation)
+BROWSER_ZOOM_MIN, BROWSER_ZOOM_MAX = (
+    0.25,
+    5.0,
+)  # Bereich von QWebEngineView.setZoomFactor (Qt-Dokumentation)
 
 # Wird beim Laden in die Seite eingefügt (nur Vorschau, nicht die Browserquelle):
 # - Bildrate: `requestAnimationFrame` wird auf höchstens `fps` Aufrufe je Sekunde begrenzt.

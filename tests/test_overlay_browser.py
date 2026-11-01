@@ -17,7 +17,10 @@ from donstv_studio.core.config import Paths
 from donstv_studio.core.service import Service
 from helpers import GREEN, GREEN_BOX, RED, RED_BOX, TEXT_BOX, H, Image, W, free_port, solid_png
 
-sync_api = pytest.importorskip("playwright.sync_api", reason="Playwright (Python) ist nicht installiert")
+sync_api = pytest.importorskip(
+    "playwright.sync_api", reason="Playwright (Python) ist nicht installiert"
+)
+
 
 def _chromium_candidates():
     yield {}  # Standard von Playwright
@@ -65,7 +68,9 @@ def stack(tmp_path_factory):
     t.start()
     assert ready.wait(20), "Dienst startet nicht"
     svc = box["svc"]
-    api = httpx.Client(base_url=f"http://127.0.0.1:{port}", headers={"Authorization": f"Bearer {svc.token}"})
+    api = httpx.Client(
+        base_url=f"http://127.0.0.1:{port}", headers={"Authorization": f"Bearer {svc.token}"}
+    )
     yield api, f"http://127.0.0.1:{oport}"
     api.close()
     box["loop"].call_soon_threadsafe(svc.stop_event.set)
@@ -86,7 +91,12 @@ def scene(stack):
     red, green = upload(RED, 200, 150), upload(GREEN, 200, 100)
     ids = {}
     for key, kind, box, extra in (
-        ("text", "text", TEXT_BOX, {"props": {"text": "Hallo Welt", "size": 48, "color": "#ffffff", "style": "none"}}),
+        (
+            "text",
+            "text",
+            TEXT_BOX,
+            {"props": {"text": "Hallo Welt", "size": 48, "color": "#ffffff", "style": "none"}},
+        ),
         ("red", "image", RED_BOX, {"props": {"media_id": red}}),
         ("green", "image", GREEN_BOX, {"props": {"media_id": green}, "rotation": 90}),
     ):
@@ -121,14 +131,20 @@ def test_f65_sources_at_expected_pixels_deviation_zero(browser, scene):
         # DOM: genau die gespeicherten ganzen Pixel
         for key, box in (("text", TEXT_BOX), ("red", RED_BOX), ("green", GREEN_BOX)):
             r = page.evaluate(
-                "id => { const e = document.querySelector(`[data-source-id=\"${id}\"]`); "
-                "return [e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight]; }", ids[key])
+                'id => { const e = document.querySelector(`[data-source-id="${id}"]`); '
+                "return [e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight]; }",
+                ids[key],
+            )
             assert r == [box["x"], box["y"], box["width"], box["height"]], key
-        st = page.evaluate("(() => { const s = document.getElementById('stage').getBoundingClientRect();"
-                           " return [s.left, s.top, s.width, s.height]; })()")
+        st = page.evaluate(
+            "(() => { const s = document.getElementById('stage').getBoundingClientRect();"
+            " return [s.left, s.top, s.width, s.height]; })()"
+        )
         assert st == [0, 0, W, H]  # keine Skalierung, kein Rand
-        assert page.evaluate("[document.documentElement.scrollWidth, document.documentElement.scrollHeight,"
-                             " innerWidth, innerHeight]") == [W, H, W, H]  # keine Bildlaufleisten
+        assert page.evaluate(
+            "[document.documentElement.scrollWidth, document.documentElement.scrollHeight,"
+            " innerWidth, innerHeight]"
+        ) == [W, H, W, H]  # keine Bildlaufleisten
 
         img = shot(page)
         assert (img.width, img.height) == (W, H)
@@ -153,7 +169,10 @@ def test_f65_sources_at_expected_pixels_deviation_zero(browser, scene):
         bbox = img.opaque_bbox(0, 0, W, 300)
         assert bbox is not None, "Text nicht gezeichnet"
         assert bbox[0] >= TEXT_BOX["x"] and bbox[1] >= TEXT_BOX["y"]
-        assert bbox[2] < TEXT_BOX["x"] + TEXT_BOX["width"] and bbox[3] < TEXT_BOX["y"] + TEXT_BOX["height"]
+        assert (
+            bbox[2] < TEXT_BOX["x"] + TEXT_BOX["width"]
+            and bbox[3] < TEXT_BOX["y"] + TEXT_BOX["height"]
+        )
     finally:
         ctx.close()
 
@@ -167,7 +186,9 @@ def test_f18_change_appears_without_reload(browser, scene):
         r = api.patch(f"/overlays/{o['id']}/sources/{ids['red']}", json={"x": 900, "y": 310})
         assert r.status_code == 200
         page.wait_for_function(
-            "id => document.querySelector(`[data-source-id=\"${id}\"]`).style.left === '900px'", arg=ids["red"])
+            "id => document.querySelector(`[data-source-id=\"${id}\"]`).style.left === '900px'",
+            arg=ids["red"],
+        )
         # Seite wurde nicht neu geladen: Marke da, genau eine Navigation, weitere Zeichnung
         assert page.evaluate("window.__marker") == 12345
         assert page.evaluate("performance.getEntriesByType('navigation').length") == 1
@@ -176,16 +197,23 @@ def test_f18_change_appears_without_reload(browser, scene):
         assert img.pixel(900, 310) == RED and img.pixel(700, 300)[3] == 0
 
         # Text ändern, ausblenden, Quelle löschen
-        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Neu", "size": 48}})
+        api.patch(
+            f"/overlays/{o['id']}/sources/{ids['text']}",
+            json={"props": {"text": "Neu", "size": 48}},
+        )
         page.wait_for_function(
-            "id => document.querySelector(`[data-source-id=\"${id}\"]`).textContent === 'Neu'", arg=ids["text"])
+            "id => document.querySelector(`[data-source-id=\"${id}\"]`).textContent === 'Neu'",
+            arg=ids["text"],
+        )
         api.patch(f"/overlays/{o['id']}/sources/{ids['green']}", json={"visible": False})
         page.wait_for_function(
             "id => getComputedStyle(document.querySelector(`[data-source-id=\"${id}\"]`)).display === 'none'",
-            arg=ids["green"])
+            arg=ids["green"],
+        )
         api.delete(f"/overlays/{o['id']}/sources/{ids['green']}")
         page.wait_for_function(
-            "id => !document.querySelector(`[data-source-id=\"${id}\"]`)", arg=ids["green"])
+            'id => !document.querySelector(`[data-source-id="${id}"]`)', arg=ids["green"]
+        )
         # Auflösung
         api.patch(f"/overlays/{o['id']}", json={"width": 1280, "height": 720})
         page.wait_for_function("document.getElementById('stage').style.width === '1280px'")
@@ -201,11 +229,15 @@ def test_f18_reconnects_quietly_and_keeps_picture(browser, scene):
         page.wait_for_function("window.__overlay.connected")
         page.evaluate("window.__overlay.socket.close()")
         page.wait_for_function("!window.__overlay.connected")
-        assert page.query_selector(f'[data-source-id="{ids["red"]}"]') is not None  # Bild bleibt stehen
+        assert (
+            page.query_selector(f'[data-source-id="{ids["red"]}"]') is not None
+        )  # Bild bleibt stehen
         page.wait_for_function("window.__overlay.connected", timeout=10_000)
         api.patch(f"/overlays/{o['id']}/sources/{ids['red']}", json={"x": 1000})
         page.wait_for_function(
-            "id => document.querySelector(`[data-source-id=\"${id}\"]`).style.left === '1000px'", arg=ids["red"])
+            "id => document.querySelector(`[data-source-id=\"${id}\"]`).style.left === '1000px'",
+            arg=ids["red"],
+        )
     finally:
         ctx.close()
 
@@ -214,20 +246,31 @@ def test_f19_f38_f15_local_font_style_and_no_external_requests(browser, scene):
     api, o, ids, url, base = scene
     ctx, page, requests = open_page(browser, url)
     try:
-        assert page.evaluate("document.fonts.check('800 16px \"Be Vietnam Pro\"')")  # Gewicht der Textquelle
-        loaded = page.evaluate("[...document.fonts].filter(f => f.status === 'loaded').map(f => f.family)")
+        assert page.evaluate(
+            "document.fonts.check('800 16px \"Be Vietnam Pro\"')"
+        )  # Gewicht der Textquelle
+        loaded = page.evaluate(
+            "[...document.fonts].filter(f => f.status === 'loaded').map(f => f.family)"
+        )
         assert any("Be Vietnam Pro" in f for f in loaded)
         css = lambda sid, prop: page.evaluate(
-            "([id, p]) => getComputedStyle(document.querySelector(`[data-source-id=\"${id}\"]`))[p]", [sid, prop])
+            '([id, p]) => getComputedStyle(document.querySelector(`[data-source-id="${id}"]`))[p]',
+            [sid, prop],
+        )
         assert "Be Vietnam Pro" in css(ids["text"], "fontFamily")  # Standard
         assert css(ids["text"], "fontSize") == "48px"
         assert css(ids["text"], "color") == "rgb(255, 255, 255)"
         # Stil und Schriftart pro Quelle (die Stile selbst: test_f15_text_styles_match_reference)
-        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}",
-                  json={"props": {"text": "X", "style": "comic", "font": "DejaVu Sans", "color": "#ff0000"}})
+        api.patch(
+            f"/overlays/{o['id']}/sources/{ids['text']}",
+            json={
+                "props": {"text": "X", "style": "comic", "font": "DejaVu Sans", "color": "#ff0000"}
+            },
+        )
         page.wait_for_function(
             "id => document.querySelector(`[data-source-id=\"${id}\"]`).classList.contains('txt-comic')",
-            arg=ids["text"])
+            arg=ids["text"],
+        )
         assert css(ids["text"], "fontFamily").startswith('"DejaVu Sans"')
         assert css(ids["text"], "color") == "rgb(255, 0, 0)"
         # Kein CDN: alle Anfragen gehen an den Overlay-Server selbst
@@ -249,7 +292,7 @@ def test_f17_wrong_token_shows_nothing(browser, scene):
         ctx.close()
 
 
-REFERENCE = (Path(__file__).parent.parent / "docs" / "referenz" / "textstile-overlay-game-tool.css")
+REFERENCE = Path(__file__).parent.parent / "docs" / "referenz" / "textstile-overlay-game-tool.css"
 
 
 def test_f15_text_styles_match_reference(browser, scene):
@@ -261,25 +304,38 @@ def test_f15_text_styles_match_reference(browser, scene):
         # Overlay-Seite eingefügt, überschrieben sie dort die Regeln aus overlay.css (Scheinvergleich).
         refpage = ctx.new_page()
         refpage.set_content(
-            "<style>" + REFERENCE.read_text(encoding="utf-8") + "</style>"
-            + "".join(f'<div id="ref-{k}" class="txt-{k}" style="font-size:48px">X</div>' for k in ("comic", "thick", "plain"))
+            "<style>"
+            + REFERENCE.read_text(encoding="utf-8")
+            + "</style>"
+            + "".join(
+                f'<div id="ref-{k}" class="txt-{k}" style="font-size:48px">X</div>'
+                for k in ("comic", "thick", "plain")
+            )
         )
         refvals = {
-            k: tuple(refpage.evaluate(
-                f"() => {{ const c = getComputedStyle(document.getElementById('ref-{k}')); return [c.textShadow, c.filter]; }}"))
+            k: tuple(
+                refpage.evaluate(
+                    f"() => {{ const c = getComputedStyle(document.getElementById('ref-{k}')); return [c.textShadow, c.filter]; }}"
+                )
+            )
             for k in ("comic", "thick", "plain")
         }
         refpage.close()
         assert all(v[0] != "none" for v in refvals.values())
         sel = 'document.querySelector(`[data-source-id="${id}"]`)'
         cs = lambda target, prop: page.evaluate(
-            f"([id, p]) => getComputedStyle({target})[p]", [ids["text"], prop])
+            f"([id, p]) => getComputedStyle({target})[p]", [ids["text"], prop]
+        )
         seen = {}
         for style in ("comic", "thick", "plain", "none"):
-            r = api.patch(f"/overlays/{o['id']}/sources/{ids['text']}",
-                          json={"props": {"text": "Aa", "size": 48, "style": style}})
+            r = api.patch(
+                f"/overlays/{o['id']}/sources/{ids['text']}",
+                json={"props": {"text": "Aa", "size": 48, "style": style}},
+            )
             assert r.status_code == 200, r.text
-            page.wait_for_function(f"id => {sel}.classList.contains('txt-{style}')", arg=ids["text"])
+            page.wait_for_function(
+                f"id => {sel}.classList.contains('txt-{style}')", arg=ids["text"]
+            )
             shadow, flt = cs(sel, "textShadow"), cs(sel, "filter")
             if style == "none":
                 assert (shadow, flt) == ("none", "none")
@@ -291,11 +347,16 @@ def test_f15_text_styles_match_reference(browser, scene):
         assert "drop-shadow" in seen["comic"][1] and "drop-shadow" in seen["thick"][1]
         assert len({v for v in seen.values()}) == 3  # drei verschiedene Stile
         # Ränder in em wachsen mit der Schriftgrösse in Pixeln (props.size)
-        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Aa", "size": 100, "style": "comic"}})
+        api.patch(
+            f"/overlays/{o['id']}/sources/{ids['text']}",
+            json={"props": {"text": "Aa", "size": 100, "style": "comic"}},
+        )
         page.wait_for_function(f"id => {sel}.style.fontSize === '100px'", arg=ids["text"])
         assert cs(sel, "textShadow").startswith("rgb(0, 0, 0) 6.7px 0px 0px,")  # 0.067em × 100 px
         # Standardstil ohne Angabe: comic
-        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Aa", "size": 48}})
+        api.patch(
+            f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Aa", "size": 48}}
+        )
         page.wait_for_function(f"id => {sel}.classList.contains('txt-comic')", arg=ids["text"])
     finally:
         ctx.close()
@@ -306,15 +367,28 @@ def test_f15_f19_text_base_rule_and_extrabold_really_loaded(browser, scene):
     api, o, ids, url, base = scene
     ctx, page, requests = open_page(browser, url)
     try:
-        r = api.post(f"/overlays/{o['id']}/sources", json={
-            "kind": "text", "x": 0, "y": 700, "width": 600, "height": 200, "props": {"text": "Hallo"}})
+        r = api.post(
+            f"/overlays/{o['id']}/sources",
+            json={
+                "kind": "text",
+                "x": 0,
+                "y": 700,
+                "width": 600,
+                "height": 200,
+                "props": {"text": "Hallo"},
+            },
+        )
         assert r.status_code == 201
         sid = r.json()["id"]
         page.wait_for_function(
-            "id => document.querySelector(`[data-source-id=\"${id}\"]`)?.textContent === 'Hallo'", arg=sid)
+            "id => document.querySelector(`[data-source-id=\"${id}\"]`)?.textContent === 'Hallo'",
+            arg=sid,
+        )
         page.evaluate("document.fonts.ready.then(() => true)")
         css = lambda prop: page.evaluate(
-            "([id, p]) => getComputedStyle(document.querySelector(`[data-source-id=\"${id}\"]`))[p]", [sid, prop])
+            '([id, p]) => getComputedStyle(document.querySelector(`[data-source-id="${id}"]`))[p]',
+            [sid, prop],
+        )
         assert css("fontWeight") == "800"
         assert css("textAlign") == "center"
         assert css("lineHeight") == "55.2px"  # 1.15 × 48 px (Standardgrösse der Seite)
@@ -323,10 +397,13 @@ def test_f15_f19_text_base_rule_and_extrabold_really_loaded(browser, scene):
         # Echte Datei, kein Ersatz: Das FontFace mit Gewicht 800 ist geladen, die Datei wurde geholt.
         # (document.fonts.check allein genügt nicht: es meldet auch bei fehlender Schriftdefinition «wahr».)
         assert page.evaluate("document.fonts.check('800 48px \"Be Vietnam Pro\"', 'Hallo')")
-        faces = page.evaluate(
-            "[...document.fonts].map(f => [f.family, f.weight, f.status])")
-        assert ["Be Vietnam Pro", "800", "loaded"] in [[a.strip('"'), b, c] for a, b, c in faces], faces
-        assert any(u.endswith("/static/fonts/BeVietnamPro-ExtraBold.ttf") for u in requests), requests
+        faces = page.evaluate("[...document.fonts].map(f => [f.family, f.weight, f.status])")
+        assert ["Be Vietnam Pro", "800", "loaded"] in [[a.strip('"'), b, c] for a, b, c in faces], (
+            faces
+        )
+        assert any(u.endswith("/static/fonts/BeVietnamPro-ExtraBold.ttf") for u in requests), (
+            requests
+        )
         # Sichtbar: Text ist mittig im Rahmen (Rahmen 0..600), nicht linksbündig
         img = shot(page)
         bbox = img.opaque_bbox(0, 700, 600, 900)

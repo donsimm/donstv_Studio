@@ -76,8 +76,12 @@ def validate_props(kind: str, props: dict[str, Any]) -> None:
         if "text" in props and (
             not isinstance(props["text"], str) or len(props["text"]) > MAX_TEXT_LENGTH
         ):
-            raise OverlayError(f"Text muss eine Zeichenkette mit höchstens {MAX_TEXT_LENGTH} Zeichen sein")
-        if "color" in props and not (isinstance(props["color"], str) and _COLOR.match(props["color"])):
+            raise OverlayError(
+                f"Text muss eine Zeichenkette mit höchstens {MAX_TEXT_LENGTH} Zeichen sein"
+            )
+        if "color" in props and not (
+            isinstance(props["color"], str) and _COLOR.match(props["color"])
+        ):
             raise OverlayError(f"Farbe muss die Form #RRGGBB haben, erhalten: {props['color']!r}")
         if "size" in props:
             _int(props["size"], "Schriftgrösse", 1, MAX_FONT_SIZE)
@@ -90,7 +94,8 @@ def validate_props(kind: str, props: dict[str, Any]) -> None:
     elif kind == "image":
         _only_keys(props, {"media_id"}, kind)
         if "media_id" in props and not (
-            props["media_id"] == "" or (isinstance(props["media_id"], str) and _MEDIA_ID.match(props["media_id"]))
+            props["media_id"] == ""
+            or (isinstance(props["media_id"], str) and _MEDIA_ID.match(props["media_id"]))
         ):
             raise OverlayError(f"Ungültige Bild-Kennung: {props['media_id']!r}")
 
@@ -122,7 +127,9 @@ class Source:
 
     def __post_init__(self) -> None:
         if self.kind not in SOURCE_KINDS:
-            raise OverlayError(f"Unbekannte Quellenart {self.kind!r}; erlaubt: {', '.join(SOURCE_KINDS)}")
+            raise OverlayError(
+                f"Unbekannte Quellenart {self.kind!r}; erlaubt: {', '.join(SOURCE_KINDS)}"
+            )
         _int(self.x, "x")
         _int(self.y, "y")  # Lage darf teilweise ausserhalb des Overlays liegen
         _int(self.width, "Breite der Quelle", 1)

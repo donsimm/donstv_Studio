@@ -76,7 +76,9 @@ class Ruler(QWidget):
         super().__init__(view)
         self.view, self.horizontal = view, horizontal
         self.setObjectName("ruler_top" if horizontal else "ruler_left")
-        self.pointer: float | None = None  # Lage des Zeigers entlang des Lineals (Ansichtskoordinate)
+        self.pointer: float | None = (
+            None  # Lage des Zeigers entlang des Lineals (Ansichtskoordinate)
+        )
         self.setCursor(Qt.CursorShape.SplitVCursor if horizontal else Qt.CursorShape.SplitHCursor)
         self.setToolTip("Ziehen erzeugt eine Hilfslinie")
 
@@ -131,11 +133,15 @@ class Ruler(QWidget):
     def mousePressEvent(self, e) -> None:
         if e.button() == Qt.MouseButton.LeftButton and self.view.model.current() is not None:
             self.view.layer.begin_guide("h" if self.horizontal else "v", None)
-            self.view.layer.update_guide(self.view.layer.mapFromGlobal(e.globalPosition().toPoint()))
+            self.view.layer.update_guide(
+                self.view.layer.mapFromGlobal(e.globalPosition().toPoint())
+            )
 
     def mouseMoveEvent(self, e) -> None:
         if e.buttons() & Qt.MouseButton.LeftButton:
-            self.view.layer.update_guide(self.view.layer.mapFromGlobal(e.globalPosition().toPoint()))
+            self.view.layer.update_guide(
+                self.view.layer.mapFromGlobal(e.globalPosition().toPoint())
+            )
 
     def mouseReleaseEvent(self, e) -> None:
         if e.button() == Qt.MouseButton.LeftButton:
@@ -145,7 +151,9 @@ class Ruler(QWidget):
 class InteractionLayer(QWidget):
     """Liegt über der Webansicht: zeichnet Raster, Hilfslinien, Auswahlrahmen und Griffe; nimmt Maus und Tasten an."""
 
-    pointer_pixel = pyqtSignal(bool, int, int)  # Zeiger über der Fläche?, x, y in Overlay-Pixeln (Regel 12)
+    pointer_pixel = pyqtSignal(
+        bool, int, int
+    )  # Zeiger über der Fläche?, x, y in Overlay-Pixeln (Regel 12)
 
     def __init__(self, view: EditorView) -> None:
         super().__init__(view.viewport)
@@ -155,7 +163,9 @@ class InteractionLayer(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._drag: dict | None = None
         self._snap_lines: tuple[list[float], list[float]] = ([], [])
-        self._live_guide: dict | None = None  # {"axis": "h"|"v", "index": int|None, "pos": int|None}
+        self._live_guide: dict | None = (
+            None  # {"axis": "h"|"v", "index": int|None, "pos": int|None}
+        )
 
     # --- Hilfen -------------------------------------------------------------------------------------
     @property
@@ -298,7 +308,9 @@ class InteractionLayer(QWidget):
         p.setBrush(QColor(pal["text"]))
         p.setPen(QPen(QColor(pal["bg"]), 1))
         for pt in pts.values():
-            p.drawRect(QRect(round(pt.x() - HANDLE / 2), round(pt.y() - HANDLE / 2), HANDLE, HANDLE))
+            p.drawRect(
+                QRect(round(pt.x() - HANDLE / 2), round(pt.y() - HANDLE / 2), HANDLE, HANDLE)
+            )
 
     # --- Maus ---------------------------------------------------------------------------------------
     def _overlay_point(self, pos: QPointF) -> tuple[float, float]:
@@ -363,7 +375,9 @@ class InteractionLayer(QWidget):
             box, hit = geo.resize_box(start, d["handle"], dx, dy, d["targets"], thr, grid)
         else:
             now = self._overlay_point(pos)
-            rot = geo.rotation_from_pointer(start, d["press"], now, bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier))
+            rot = geo.rotation_from_pointer(
+                start, d["press"], now, bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            )
             box = Box(start.x, start.y, start.w, start.h, rot)
         d["moved"] = True
         self._snap_lines = (hit.xs, hit.ys)
@@ -396,15 +410,24 @@ class InteractionLayer(QWidget):
         elif handle is not None:
             self.setCursor(self._resize_cursor(handle))
         elif (g := self._hit_guide(pos)) is not None:
-            self.setCursor(Qt.CursorShape.SplitHCursor if g[0] == "v" else Qt.CursorShape.SplitVCursor)
+            self.setCursor(
+                Qt.CursorShape.SplitHCursor if g[0] == "v" else Qt.CursorShape.SplitVCursor
+            )
         else:
             ox, oy = self._overlay_point(pos)
-            self.setCursor(Qt.CursorShape.SizeAllCursor if self._hit_source(ox, oy) else Qt.CursorShape.ArrowCursor)
+            self.setCursor(
+                Qt.CursorShape.SizeAllCursor
+                if self._hit_source(ox, oy)
+                else Qt.CursorShape.ArrowCursor
+            )
 
     def _resize_cursor(self, handle: str) -> Qt.CursorShape:
         sx, sy = geo.HANDLE_DIR[handle]
         box = self._selected_box()
-        ang = math.degrees(math.atan2(*geo.rotate_point(sx, sy, 0, 0, box.rot if box else 0.0)[::-1])) % 180
+        ang = (
+            math.degrees(math.atan2(*geo.rotate_point(sx, sy, 0, 0, box.rot if box else 0.0)[::-1]))
+            % 180
+        )
         if ang < 22.5 or ang >= 157.5:
             return Qt.CursorShape.SizeHorCursor
         if ang < 67.5:
@@ -432,7 +455,9 @@ class InteractionLayer(QWidget):
         v, h = self.model.guides()
         lst = v if g["axis"] == "v" else h
         outside = (
-            not (0 <= pos.x() <= self.width()) if g["axis"] == "v" else not (0 <= pos.y() <= self.height())
+            not (0 <= pos.x() <= self.width())
+            if g["axis"] == "v"
+            else not (0 <= pos.y() <= self.height())
         )  # über dem Lineal losgelassen: Linie entfernen
         if g["index"] is not None and g["index"] < len(lst):
             lst = list(lst)
@@ -472,7 +497,13 @@ class EditorView(QWidget):
     zoom_changed = pyqtSignal(float, bool)  # wirksamer Zoom (1.0 = 100 %), «Einpassen»?
     overlay_available = pyqtSignal(bool)
 
-    def __init__(self, model: EditorModel, prefs: EditorPrefs, use_web: bool = True, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        model: EditorModel,
+        prefs: EditorPrefs,
+        use_web: bool = True,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("editor_view")
         self.model, self.prefs = model, prefs
@@ -487,7 +518,9 @@ class EditorView(QWidget):
         self.viewport.setObjectName("editor_viewport")
         self.stage = Stage(self.viewport)
         self._use_web = use_web and preview_web.HAS_WEBENGINE
-        self.web: preview_web.WebPreview | None = None  # entsteht erst mit dem ersten Overlay (Chromium startet dann)
+        self.web: preview_web.WebPreview | None = (
+            None  # entsteht erst mit dem ersten Overlay (Chromium startet dann)
+        )
         self.layer = InteractionLayer(self)
         self.ruler_top = Ruler(self, True)
         self.ruler_left = Ruler(self, False)
@@ -499,7 +532,12 @@ class EditorView(QWidget):
 
         model.current_changed.connect(self._on_overlay)
         model.meta_changed.connect(self._on_meta)
-        for sig in (model.box_changed, model.sources_changed, model.selection_changed, model.guides_changed):
+        for sig in (
+            model.box_changed,
+            model.sources_changed,
+            model.selection_changed,
+            model.guides_changed,
+        ):
             sig.connect(lambda *_: self.layer.update())
         prefs.changed.connect(self._on_prefs)
         self.layer.pointer_pixel.connect(self.pointer_changed)
@@ -552,7 +590,9 @@ class EditorView(QWidget):
         delta = e.angleDelta().y()
         if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
             if delta:
-                self.set_zoom(geo.next_zoom(self._effective_zoom(), 1 if delta > 0 else -1), e.position())
+                self.set_zoom(
+                    geo.next_zoom(self._effective_zoom(), 1 if delta > 0 else -1), e.position()
+                )
         elif e.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self.hbar.setValue(self.hbar.value() - (PAN_STEP if delta > 0 else -PAN_STEP))
         elif delta:
@@ -587,7 +627,9 @@ class EditorView(QWidget):
         if self.web is not None:
             self.web.set_fps(self.prefs.fps)
         want_fit = self.prefs.zoom == FIT
-        if want_fit != self._fit or (not want_fit and abs(float(self.prefs.zoom) - self._zoom) > 1e-9):
+        if want_fit != self._fit or (
+            not want_fit and abs(float(self.prefs.zoom) - self._zoom) > 1e-9
+        ):
             # gespeicherter Zoom wurde geladen (nicht von dieser Ansicht gesetzt)
             self._fit = want_fit
             if not want_fit:
@@ -648,7 +690,10 @@ class EditorView(QWidget):
         for _ in range(2):
             self.viewport.setGeometry(RULER, RULER, vw, vh)
             cw, ch = self._content()
-            need_h, need_v = cw > full_w - (bar_w if need_v else 0), ch > full_h - (bar_h if need_h else 0)
+            need_h, need_v = (
+                cw > full_w - (bar_w if need_v else 0),
+                ch > full_h - (bar_h if need_h else 0),
+            )
             vw = max(1, full_w - (bar_w if need_v else 0))
             vh = max(1, full_h - (bar_h if need_h else 0))
         self.viewport.setGeometry(RULER, RULER, vw, vh)
@@ -701,5 +746,10 @@ class EditorView(QWidget):
         if i1x <= i0x or i1y <= i0y:
             self.web.setGeometry(0, 0, 1, 1)
             return
-        self.web.setGeometry(round(i0x * k), round(i0y * k), max(1, round((i1x - i0x) * k)), max(1, round((i1y - i0y) * k)))
+        self.web.setGeometry(
+            round(i0x * k),
+            round(i0y * k),
+            max(1, round((i1x - i0x) * k)),
+            max(1, round((i1y - i0y) * k)),
+        )
         self.web.set_view(i0x, i0y, k)

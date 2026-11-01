@@ -71,7 +71,10 @@ def test_core_not_running_reports_unreachable_then_connects_when_it_starts(app, 
             # YouTube ist als Platzhalter-Verbindung immer da: «getrennt, nicht eingerichtet».
             # Twitch (P07) ohne Client-ID ebenfalls «getrennt, nicht eingerichtet».
             assert wait_until(app, lambda: len(rec.statuses) == 1)
-            assert rec.statuses[0]["youtube"] == {"status": "getrennt", "detail": "nicht eingerichtet"}
+            assert rec.statuses[0]["youtube"] == {
+                "status": "getrennt",
+                "detail": "nicht eingerichtet",
+            }
             assert rec.statuses[0]["twitch"]["status"] == "getrennt"
             assert rec.statuses[0]["twitch"]["detail"].startswith("nicht eingerichtet")
             # Statusereignis vom Kern erreicht die Oberfläche
@@ -95,7 +98,9 @@ def test_settings_roundtrip_through_core_interface(app, paths):
         assert link.fetch_settings_blocking() == {}
         assert link.save_settings_blocking({"ui.theme": "light", "ui.dock_state": "QUJD"})
         link.save_setting("ui.geometry", "R0VP")
-        assert wait_until(app, lambda: (link.fetch_settings_blocking() or {}).get("ui.geometry") == "R0VP")
+        assert wait_until(
+            app, lambda: (link.fetch_settings_blocking() or {}).get("ui.geometry") == "R0VP"
+        )
         assert link.fetch_settings_blocking() == {
             "ui.theme": "light", "ui.dock_state": "QUJD", "ui.geometry": "R0VP",
         }  # fmt: skip
@@ -173,7 +178,9 @@ def test_core_stops_promptly_while_the_ui_is_connected(app, paths):
         core.stop()  # die Verbindung der Oberfläche ist noch offen
         assert time.time() - t0 < 3.0
         assert not core.thread.is_alive()
-        assert wait_until(app, lambda: rec.unreachable)  # die Oberfläche bemerkt es und versucht es neu
+        assert wait_until(
+            app, lambda: rec.unreachable
+        )  # die Oberfläche bemerkt es und versucht es neu
     finally:
         link.stop()
 
@@ -201,7 +208,9 @@ def test_f41_f45_bot_events_and_api_through_real_core(app, paths, monkeypatch):
         assert all(isinstance(t, str) for _, t in got)
         assert [m["text"] for m in b.bot_chat_recent()] == ["!test", "Hallo Anna"]
         assert b.bot_settings()["fake"] is True
-        with pytest.raises(Exception, match="gibt es schon"):  # Meldung des Kerns erreicht die Oberfläche
+        with pytest.raises(
+            Exception, match="gibt es schon"
+        ):  # Meldung des Kerns erreicht die Oberfläche
             b.bot_create_command(name="Nochmal", trigger="!test")
         assert rec.statuses[0]["twitch"] == {"status": "verbunden",
                                              "detail": "donstvbot im Kanal donstv2020 (Testverbindung)"}  # fmt: skip

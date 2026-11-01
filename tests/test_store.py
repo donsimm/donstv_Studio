@@ -36,7 +36,10 @@ def test_f03_migration_from_old_version(tmp_path):
 def test_f03_failed_migration_rolls_back(tmp_path):
     path = tmp_path / "a.db"
     Store(path).close()
-    bad = [*MIGRATIONS, (LATEST + 1, "CREATE TABLE t (id INTEGER); INSERT INTO gibtsnicht VALUES (1)")]
+    bad = [
+        *MIGRATIONS,
+        (LATEST + 1, "CREATE TABLE t (id INTEGER); INSERT INTO gibtsnicht VALUES (1)"),
+    ]
     with pytest.raises(sqlite3.OperationalError):
         Store(path, migrations=bad)
     s = Store(path)

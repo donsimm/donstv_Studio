@@ -27,6 +27,7 @@ def env(tmp_path):
     media = MediaLibrary(store, tmp_path / "media")
     svc = OverlayService(OverlayRepository(store), bus, media.exists)
     with TestClient(create_overlay_app(svc, media, bus)) as client:
+
         def call(f, *a, **k):
             return client.portal.call(partial(f, *a, **k))
 
@@ -122,13 +123,20 @@ def test_f19_font_served_locally_from_static(env):
     for weight, name in ((400, "Regular"), (700, "Bold"), (800, "ExtraBold")):
         assert f"BeVietnamPro-{name}.ttf" in css
         r = client.get(f"/static/fonts/BeVietnamPro-{name}.ttf")
-        assert r.status_code == 200 and len(r.content) > 50_000 and r.content[:4] == b"\x00\x01\x00\x00"
+        assert (
+            r.status_code == 200
+            and len(r.content) > 50_000
+            and r.content[:4] == b"\x00\x01\x00\x00"
+        )
         assert f"font-weight: {weight};" in css
     assert client.get("/static/fonts/OFL.txt").status_code == 200
     assert client.get("/static/../server.py").status_code == 404
     import re
 
-    web = "".join((WEB_DIR / n).read_text(encoding="utf-8") for n in ("overlay.css", "overlay.html", "overlay.js"))
+    web = "".join(
+        (WEB_DIR / n).read_text(encoding="utf-8")
+        for n in ("overlay.css", "overlay.html", "overlay.js")
+    )
     # Kommentare (Quellenangaben) ausnehmen; geladen wird nur, was in url(), src oder href steht
     code = re.sub(r"/\*.*?\*/", "", web, flags=re.DOTALL)
     assert not re.search(r"(?:url\(|src=|href=|@import)\s*[\"']?(?:https?:)?//", code)  # kein CDN

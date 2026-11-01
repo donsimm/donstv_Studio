@@ -29,7 +29,9 @@ async def bot(tmp_path):
     log = BotLog(store, bus)
     repo = CommandRepository(store)
     clock = Clock()
-    engine = CommandEngine(bus, repo, ActionExecutor(lambda: twitch, log), log, lambda: twitch, clock)
+    engine = CommandEngine(
+        bus, repo, ActionExecutor(lambda: twitch, log), log, lambda: twitch, clock
+    )
     events = []
 
     async def collect(e):
@@ -53,6 +55,7 @@ def kinds(bot):
 
 
 # --- F-43: Commands verwalten -----------------------------------------------------------------
+
 
 def test_f43_create_update_duplicate_delete(tmp_path):
     repo = CommandRepository(Store(tmp_path / "c.db"))
@@ -93,6 +96,7 @@ def test_f43_trigger_is_unique_ignoring_case(tmp_path):
 
 
 # --- F-44: Ausführung ---------------------------------------------------------------------------
+
 
 async def test_f44_command_replies_with_placeholder(bot):
     bot.repo.create({"name": "Test", "trigger": "!test", "response": "Hallo {user}, alles klar!"})
@@ -199,7 +203,16 @@ async def test_f41_duplicate_message_id_is_dropped(bot):
     await say(bot, "A", "!t", message_id="m-1")
     await say(bot, "A", "!t", message_id="m-1")
     assert bot.twitch.sent == ["x"]
-    assert len([e for e in bot.events if e.type == "twitch.chat.message" and e.payload["message_id"] == "m-1"]) == 1
+    assert (
+        len(
+            [
+                e
+                for e in bot.events
+                if e.type == "twitch.chat.message" and e.payload["message_id"] == "m-1"
+            ]
+        )
+        == 1
+    )
     assert len(bot.engine.history) == 2  # Original und Echo des Bots, das Duplikat nicht
 
 
@@ -211,6 +224,7 @@ async def test_f41_chat_history_is_limited(bot):
 
 
 # --- Ausführungs-Schnittstelle und F-45 -------------------------------------------------------------
+
 
 async def test_f45_send_error_is_logged(bot):
     bot.repo.create({"name": "T", "trigger": "!t", "response": "x"})
@@ -234,13 +248,18 @@ async def test_f45_log_is_stored_and_published(bot):
     assert bot.log.recent()[-1]["message"] == "Twitch: verbunden"
     # Status der Twitch-Verbindung landet im Protokoll
     await bot.twitch.set_status(bot.twitch.status.ERROR, "Netz weg")
-    assert bot.log.recent()[-1]["kind"] == botlog.CONNECTION and "Netz weg" in bot.log.recent()[-1]["message"]
+    assert (
+        bot.log.recent()[-1]["kind"] == botlog.CONNECTION
+        and "Netz weg" in bot.log.recent()[-1]["message"]
+    )
 
 
 async def test_f45_log_redacts_tokens_and_is_bounded(tmp_path):
     bus, store = EventBus(), Store(tmp_path / "l.db")
     log = BotLog(store, bus, keep=3)
-    await log.add(botlog.AUTH, "Fehler: access_token=geheim123", {"x": "Authorization: Bearer geheim456"})
+    await log.add(
+        botlog.AUTH, "Fehler: access_token=geheim123", {"x": "Authorization: Bearer geheim456"}
+    )
     for i in range(5):
         await log.add(botlog.CONNECTION, f"Eintrag {i}")
     rows = store.query("SELECT message, data FROM bot_log")

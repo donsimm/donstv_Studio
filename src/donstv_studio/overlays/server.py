@@ -46,11 +46,7 @@ def _not_found() -> PlainTextResponse:
 
 
 def _media_ids(o: Overlay) -> set[str]:
-    return {
-        s.props["media_id"]
-        for s in o.sources
-        if s.kind == "image" and s.props.get("media_id")
-    }
+    return {s.props["media_id"] for s in o.sources if s.kind == "image" and s.props.get("media_id")}
 
 
 def create_overlay_app(service: OverlayService, media: MediaLibrary, bus: EventBus) -> FastAPI:
@@ -106,17 +102,23 @@ def create_overlay_app(service: OverlayService, media: MediaLibrary, bus: EventB
         sub = bus.subscribe("overlay.changed", on_change)
 
         async def sender() -> None:
-            await ws.send_json({"type": "snapshot", "overlay": payload(service.get_overlay(overlay_id))})
+            await ws.send_json(
+                {"type": "snapshot", "overlay": payload(service.get_overlay(overlay_id))}
+            )
             while True:
                 change = await changes.get()
-                while not changes.empty():  # Änderungen bündeln, die Seite braucht nur den letzten Stand
+                while (
+                    not changes.empty()
+                ):  # Änderungen bündeln, die Seite braucht nur den letzten Stand
                     change = changes.get_nowait()
                 try:
                     current = service.get_overlay(overlay_id)
                 except NotFoundError:
                     await ws.send_json({"type": "deleted"})
                     return
-                await ws.send_json({"type": "update", "change": change, "overlay": payload(current)})
+                await ws.send_json(
+                    {"type": "update", "change": change, "overlay": payload(current)}
+                )
 
         try:
             await run_until_closed(ws, sub, sender)

@@ -48,6 +48,7 @@ async def test_f08_start_stop_all_survive_errors():
 
 # --- P05b: YouTube als Platzhalter-Verbindung (F-04) ----------------------------------------
 
+
 async def test_f04_youtube_placeholder_always_disconnected_and_not_configured():
     from donstv_studio.core.connections.youtube import YouTubeConnection
 
@@ -59,7 +60,9 @@ async def test_f04_youtube_placeholder_always_disconnected_and_not_configured():
     bus.subscribe("connection.status", h)
     m, yt = ConnectionManager(), YouTubeConnection(bus)
     m.register(yt)
-    with pytest.raises(DuplicateConnectionError):  # weiterhin genau eine Verbindung pro Dienst (F-08)
+    with pytest.raises(
+        DuplicateConnectionError
+    ):  # weiterhin genau eine Verbindung pro Dienst (F-08)
         m.register(YouTubeConnection(bus))
     await m.start_all()
     await m.stop_all()

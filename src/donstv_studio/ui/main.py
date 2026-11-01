@@ -30,7 +30,9 @@ def main() -> int:
     # gesetztes QT_QPA_PLATFORM gilt weiter. Fehlt xcb, probiert Qt den nächsten Eintrag.
     if sys.platform.startswith("linux"):
         os.environ.setdefault("QT_QPA_PLATFORM", "xcb;wayland")
-    if os.geteuid() == 0:  # Chromium startet als root nur ohne Sandbox (Entwicklungsumgebung, nicht der Laptop)
+    if (
+        os.geteuid() == 0
+    ):  # Chromium startet als root nur ohne Sandbox (Entwicklungsumgebung, nicht der Laptop)
         os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
     app = QApplication(sys.argv[:1])
     app.setApplicationName("donstv_Studio")

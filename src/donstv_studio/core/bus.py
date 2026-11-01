@@ -83,5 +83,7 @@ class EventBus:
                 await sub.handler(event)
             except Exception:
                 # Ein abgestürzter Abonnent darf Bus und andere nicht stoppen.
-                log.exception("Abonnent für %r ist abgestürzt (Ereignis %s)", sub.pattern, event.type)
+                log.exception(
+                    "Abonnent für %r ist abgestürzt (Ereignis %s)", sub.pattern, event.type
+                )
         return True

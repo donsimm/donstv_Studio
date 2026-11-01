@@ -35,7 +35,9 @@ def _int(raw: str | None, default: int, lo: int, hi: int) -> int:
 class EditorPrefs(QObject):
     changed = pyqtSignal(str)  # Schlüssel der geänderten Einstellung
 
-    def __init__(self, save: Callable[[str, str], None] | None = None, parent: QObject | None = None) -> None:
+    def __init__(
+        self, save: Callable[[str, str], None] | None = None, parent: QObject | None = None
+    ) -> None:
         super().__init__(parent)
         self._save = save
         self.snap = True

@@ -18,9 +18,19 @@ PERMISSION_NAMES = {
 }
 MAX_NAME = 100
 MAX_TRIGGER = 50
-MAX_RESPONSE = 500  # Twitch begrenzt eine Chat-Nachricht auf 500 Zeichen (Quelle: twitch.py, MAX_MESSAGE)
+MAX_RESPONSE = (
+    500  # Twitch begrenzt eine Chat-Nachricht auf 500 Zeichen (Quelle: twitch.py, MAX_MESSAGE)
+)
 MAX_COOLDOWN = 86_400  # Sekunden (ein Tag)
-FIELDS = ("name", "trigger", "permission", "cooldown_global", "cooldown_user", "response", "enabled")
+FIELDS = (
+    "name",
+    "trigger",
+    "permission",
+    "cooldown_global",
+    "cooldown_user",
+    "response",
+    "enabled",
+)
 
 
 class CommandError(ValueError):
@@ -95,11 +105,15 @@ def validate(fields: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-_COLUMNS = "id, name, trigger, permission, cooldown_global, cooldown_user, response, enabled, position"
+_COLUMNS = (
+    "id, name, trigger, permission, cooldown_global, cooldown_user, response, enabled, position"
+)
 
 
 def _row(row: tuple) -> Command:
-    return Command(row[0], row[1], row[2], row[3], int(row[4]), int(row[5]), row[6], bool(row[7]), int(row[8]))
+    return Command(
+        row[0], row[1], row[2], row[3], int(row[4]), int(row[5]), row[6], bool(row[7]), int(row[8])
+    )
 
 
 class CommandRepository:

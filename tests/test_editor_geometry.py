@@ -41,7 +41,9 @@ def test_f65_pointer_pixel_at_100_percent_matches_screen_pixel():
 
 def test_f65_fit_zoom_and_steps():
     assert geo.fit_zoom(960, 540, 1920, 1080, 1.0) == pytest.approx(0.5)
-    assert geo.fit_zoom(960, 540, 1920, 1080, 2.0) == pytest.approx(1.0)  # dpr 2: 960 logisch = 1920 physisch
+    assert geo.fit_zoom(960, 540, 1920, 1080, 2.0) == pytest.approx(
+        1.0
+    )  # dpr 2: 960 logisch = 1920 physisch
     assert geo.fit_zoom(1000, 100, 1920, 1080, 1.0) == pytest.approx(100 / 1080)  # Höhe begrenzt
     assert geo.ZOOM_STEPS == (0.25, 0.5, 1.0, 2.0, 4.0)
     assert geo.next_zoom(1.0, 1) == 2.0 and geo.next_zoom(1.0, -1) == 0.5
@@ -93,7 +95,9 @@ def test_f13_resize_minimum_one_pixel_and_flip_is_prevented():
 
 def test_f13_resize_rotated_keeps_opposite_corner():
     start = Box(100, 100, 200, 100, 90.0)
-    anchor_before = geo.rotate_point(start.cx - 100, start.cy - 50, start.cx, start.cy, 90.0)  # Ecke «nw» ist gegenüber «se»
+    anchor_before = geo.rotate_point(
+        start.cx - 100, start.cy - 50, start.cx, start.cy, 90.0
+    )  # Ecke «nw» ist gegenüber «se»
     # «se» um 30 Pixel in lokaler x-Richtung ziehen: lokale x-Achse zeigt bei 90° nach unten (+y)
     box, _ = geo.resize_box(start, "se", 0, 30)
     assert (box.w, box.h) == (230, 100)
@@ -108,17 +112,29 @@ def test_f13_rotate_follows_pointer_and_shift_steps_15_degrees():
     press = (100.0, -50.0)  # genau über der Mitte (Drehgriff)
     now = (200.0, 50.0)  # rechts von der Mitte: 90° im Uhrzeigersinn
     assert geo.rotation_from_pointer(b, press, now, False) == 90.0
-    odd = (100 + 100 * math.cos(math.radians(-90 + 37)), 50 + 100 * math.sin(math.radians(-90 + 37)))
+    odd = (
+        100 + 100 * math.cos(math.radians(-90 + 37)),
+        50 + 100 * math.sin(math.radians(-90 + 37)),
+    )
     assert geo.rotation_from_pointer(b, press, odd, False) == 37.0  # ganze Grad
     assert geo.rotation_from_pointer(b, press, odd, True) == 30.0  # Umschalttaste: 15°-Schritte
-    third = (100 + 100 * math.cos(math.radians(-90 + 83)), 50 + 100 * math.sin(math.radians(-90 + 83)))
+    third = (
+        100 + 100 * math.cos(math.radians(-90 + 83)),
+        50 + 100 * math.sin(math.radians(-90 + 83)),
+    )
     assert geo.rotation_from_pointer(b, press, third, True) == 90.0
-    assert geo.rotation_from_pointer(Box(0, 0, 200, 100, 170.0), press, now, False) == pytest.approx(-100.0)  # (-180, 180]
+    assert geo.rotation_from_pointer(
+        Box(0, 0, 200, 100, 170.0), press, now, False
+    ) == pytest.approx(-100.0)  # (-180, 180]
 
 
 def test_normalize_angle():
     assert geo.normalize_angle(190) == -170 and geo.normalize_angle(-190) == 170
-    assert geo.normalize_angle(180) == 180 and geo.normalize_angle(-180) == 180 and geo.normalize_angle(360) == 0
+    assert (
+        geo.normalize_angle(180) == 180
+        and geo.normalize_angle(-180) == 180
+        and geo.normalize_angle(360) == 0
+    )
 
 
 # --- Einrasten -----------------------------------------------------------------------------------------
@@ -126,7 +142,9 @@ def test_f65_snap_to_overlay_edges_and_center():
     t = geo.snap_targets(1920, 1080, [], [], [])
     moved, hit = geo.move_box(Box(100, 100, 200, 100), -97, 0, t, 6)  # linke Kante nähert sich 0
     assert moved.x == 0 and hit.xs == [0.0]
-    moved, hit = geo.move_box(Box(100, 100, 200, 100), 757, 0, t, 6)  # Mitte der Quelle (860+100 = 960)
+    moved, hit = geo.move_box(
+        Box(100, 100, 200, 100), 757, 0, t, 6
+    )  # Mitte der Quelle (860+100 = 960)
     assert moved.x + moved.w / 2 == 960 and 960.0 in hit.xs
     moved, _ = geo.move_box(Box(100, 100, 200, 100), 300, 0, t, 6)  # weit weg: kein Einrasten
     assert moved.x == 400
@@ -135,11 +153,17 @@ def test_f65_snap_to_overlay_edges_and_center():
 def test_f65_snap_to_guides_and_other_sources():
     other = Box(1000, 400, 300, 100)
     t = geo.snap_targets(1920, 1080, [500], [250], [other])
-    moved, hit = geo.move_box(Box(0, 0, 100, 100), 404, 0, t, 6)  # rechte Kante 504 -> Hilfslinie 500
+    moved, hit = geo.move_box(
+        Box(0, 0, 100, 100), 404, 0, t, 6
+    )  # rechte Kante 504 -> Hilfslinie 500
     assert moved.x + moved.w == 500 and 500.0 in hit.xs
-    moved, hit = geo.move_box(Box(0, 0, 100, 100), 903, 0, t, 6)  # rechte Kante 1003 -> linke Kante der anderen (1000)
+    moved, hit = geo.move_box(
+        Box(0, 0, 100, 100), 903, 0, t, 6
+    )  # rechte Kante 1003 -> linke Kante der anderen (1000)
     assert moved.x + moved.w == 1000
-    moved, hit = geo.move_box(Box(0, 0, 100, 100), 0, 248, t, 6)  # obere Kante 248 -> Hilfslinie 250
+    moved, hit = geo.move_box(
+        Box(0, 0, 100, 100), 0, 248, t, 6
+    )  # obere Kante 248 -> Hilfslinie 250
     assert moved.y == 250 and 250.0 in hit.ys
 
 
@@ -150,22 +174,30 @@ def test_f65_snap_switched_off_gives_plain_move():
 
 def test_f65_snap_flags_select_targets():
     other = Box(1000, 400, 300, 100)
-    only_edges = geo.snap_targets(1920, 1080, [500], [], [other], edges=True, guides=False, sources=False)
+    only_edges = geo.snap_targets(
+        1920, 1080, [500], [], [other], edges=True, guides=False, sources=False
+    )
     assert 500.0 not in only_edges.xs and 1000.0 not in only_edges.xs and 0.0 in only_edges.xs
-    nothing = geo.snap_targets(1920, 1080, [500], [], [other], edges=False, guides=False, sources=False)
+    nothing = geo.snap_targets(
+        1920, 1080, [500], [], [other], edges=False, guides=False, sources=False
+    )
     assert nothing.xs == [] and nothing.ys == []
 
 
 def test_f65_snap_to_grid():
     moved, hit = geo.move_box(Box(0, 0, 100, 100), 41, 0, geo.SnapTargets(), 6, grid=20)
     assert moved.x == 40 and hit.dx == pytest.approx(-1)
-    moved, _ = geo.move_box(Box(0, 0, 100, 100), 50, 0, geo.SnapTargets(), 4, grid=20)  # zu weit von allen Rasterlinien
+    moved, _ = geo.move_box(
+        Box(0, 0, 100, 100), 50, 0, geo.SnapTargets(), 4, grid=20
+    )  # zu weit von allen Rasterlinien
     assert moved.x == 50
 
 
 def test_f65_snap_during_resize_only_for_unrotated():
     t = geo.snap_targets(1920, 1080, [], [], [])
-    box, hit = geo.resize_box(Box(100, 100, 200, 100), "e", 1617, 0, t, 6)  # rechte Kante 1917 -> 1920
+    box, hit = geo.resize_box(
+        Box(100, 100, 200, 100), "e", 1617, 0, t, 6
+    )  # rechte Kante 1917 -> 1920
     assert box.x + box.w == 1920 and 1920.0 in hit.xs
     box, hit = geo.resize_box(Box(100, 100, 200, 100, 10.0), "e", 1617, 0, t, 6)
     assert hit.xs == []
@@ -185,11 +217,15 @@ def test_f65_align_to_overlay(how, expected):
 
 
 def test_f65_align_odd_size_rounds_up_not_to_even():
-    assert geo.align_box(Box(0, 0, 101, 100), "center", 1920, 1080).x == 910  # (1920-101)/2 = 909.5 -> 910
+    assert (
+        geo.align_box(Box(0, 0, 101, 100), "center", 1920, 1080).x == 910
+    )  # (1920-101)/2 = 909.5 -> 910
 
 
 def test_f65_align_rotated_uses_bounding_box():
-    b = geo.align_box(Box(500, 300, 200, 100, 90.0), "left", 1920, 1080)  # gedreht: 100 breit, 200 hoch
+    b = geo.align_box(
+        Box(500, 300, 200, 100, 90.0), "left", 1920, 1080
+    )  # gedreht: 100 breit, 200 hoch
     assert b.bounds()[0] == pytest.approx(0, abs=0.5)
     with pytest.raises(ValueError):
         geo.align_box(Box(0, 0, 1, 1), "diagonal", 10, 10)

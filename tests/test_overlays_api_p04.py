@@ -63,12 +63,22 @@ def test_f16_library_reusable_in_many_sources_and_checked(env):
     oid = client.post("/overlays", json={"name": "A"}, headers=H).json()["id"]
     box = {"x": 0, "y": 0, "width": 10, "height": 10}
     for _ in range(3):  # mehrfach verwendbar
-        r = client.post(f"/overlays/{oid}/sources", json={"kind": "image", "props": {"media_id": mid}, **box}, headers=H)
+        r = client.post(
+            f"/overlays/{oid}/sources",
+            json={"kind": "image", "props": {"media_id": mid}, **box},
+            headers=H,
+        )
         assert r.status_code == 201
     assert client.delete(f"/media/{mid}", headers=H).status_code == 409
-    ghost = client.post(f"/overlays/{oid}/sources", json={"kind": "image", "props": {"media_id": "a" * 32}, **box}, headers=H)
+    ghost = client.post(
+        f"/overlays/{oid}/sources",
+        json={"kind": "image", "props": {"media_id": "a" * 32}, **box},
+        headers=H,
+    )
     assert ghost.status_code == 400 and "Bibliothek" in ghost.json()["detail"]
-    bad = client.post(f"/overlays/{oid}/sources", json={"kind": "text", "props": {"size": 0}, **box}, headers=H)
+    bad = client.post(
+        f"/overlays/{oid}/sources", json={"kind": "text", "props": {"size": 0}, **box}, headers=H
+    )
     assert bad.status_code == 400 and "Schriftgrösse" in bad.json()["detail"]
     assert client.delete("/media/" + "b" * 32, headers=H).status_code == 404
 
@@ -84,8 +94,14 @@ def test_f17_browser_source_url(env):
     o = client.post("/overlays", json={"name": "A"}, headers=H).json()
     assert o["url"] == f"http://192.168.1.50:8080/o/{o['id']}?t={o['token']}"
     cfg.set("overlay.port", "9090")
-    assert client.get(f"/overlays/{o['id']}", headers=H).json()["url"].startswith("http://192.168.1.50:9090/o/")
-    assert client.get("/overlays", headers=H).json()[0]["url"].startswith("http://192.168.1.50:9090/")
+    assert (
+        client.get(f"/overlays/{o['id']}", headers=H)
+        .json()["url"]
+        .startswith("http://192.168.1.50:9090/o/")
+    )
+    assert (
+        client.get("/overlays", headers=H).json()[0]["url"].startswith("http://192.168.1.50:9090/")
+    )
 
 
 def test_f17_url_host_fallbacks(env, monkeypatch):
@@ -113,7 +129,13 @@ def test_f38_font_list_default_plus_system_fonts(env, monkeypatch):
 
 def test_f38_parse_fc_list():
     out = "Inter Display,Inter Display Thin\nInter\nBad;Name{x}\nNoto Sans CJK JP,Noto Sans CJK JP Bold\n"
-    assert fontmod.parse_fc_list(out) == ["Inter", "Inter Display", "Inter Display Thin", "Noto Sans CJK JP", "Noto Sans CJK JP Bold"]
+    assert fontmod.parse_fc_list(out) == [
+        "Inter",
+        "Inter Display",
+        "Inter Display Thin",
+        "Noto Sans CJK JP",
+        "Noto Sans CJK JP Bold",
+    ]
 
 
 async def test_f38_fc_list_missing_gives_empty(monkeypatch):

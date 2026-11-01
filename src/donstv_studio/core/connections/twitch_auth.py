@@ -72,7 +72,9 @@ class UrllibHttp:
     def __init__(self, timeout: float = HTTP_TIMEOUT) -> None:
         self._timeout = timeout
 
-    def _do(self, method: str, url: str, headers: dict[str, str], data: bytes | None) -> tuple[int, Any]:
+    def _do(
+        self, method: str, url: str, headers: dict[str, str], data: bytes | None
+    ) -> tuple[int, Any]:
         req = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
@@ -154,7 +156,9 @@ class TwitchAuth:
             "POST", DEVICE_URL, form={"client_id": client_id, "scopes": " ".join(scopes)}
         )
         if status != 200 or not isinstance(body, dict) or "device_code" not in body:
-            raise TwitchAuthError(f"Twitch lehnt die Anmeldung ab: {_message(body, f'Fehler {status}')}")
+            raise TwitchAuthError(
+                f"Twitch lehnt die Anmeldung ab: {_message(body, f'Fehler {status}')}"
+            )
         return body
 
     async def poll_device(self, client_id: str, scopes: tuple[str, ...], device_code: str,
@@ -176,17 +180,25 @@ class TwitchAuth:
             raise TwitchAuthError("Der Code ist abgelaufen. Bitte die Anmeldung neu starten.")
         raise TwitchAuthError(f"Anmeldung fehlgeschlagen: {msg}")
 
-    async def refresh(self, client_id: str, refresh_token: str, client_secret: str | None = None) -> Tokens:
+    async def refresh(
+        self, client_id: str, refresh_token: str, client_secret: str | None = None
+    ) -> Tokens:
         """Neues Zugriffstoken. Bei «Public»-Anwendungen ohne Client-Secret."""
         if not refresh_token:
             raise TwitchAuthError("Kein Aktualisierungs-Token vorhanden. Bitte neu anmelden.")
-        form = {"client_id": client_id, "grant_type": "refresh_token", "refresh_token": refresh_token}
+        form = {
+            "client_id": client_id,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }
         if client_secret:
             form["client_secret"] = client_secret
         status, body = await self._http.request("POST", TOKEN_URL, form=form)
         if status == 200 and isinstance(body, dict) and body.get("access_token"):
             return Tokens(body["access_token"], body.get("refresh_token") or refresh_token)
-        raise TwitchAuthError(f"Erneuern fehlgeschlagen ({_message(body, f'Fehler {status}')}). Bitte neu anmelden.")
+        raise TwitchAuthError(
+            f"Erneuern fehlgeschlagen ({_message(body, f'Fehler {status}')}). Bitte neu anmelden."
+        )
 
     async def validate(self, access_token: str) -> dict[str, Any] | None:
         """Prüft das Token. Antwort: client_id, login, user_id, scopes, expires_in. None bei 401 (ungültig)."""
@@ -211,14 +223,21 @@ class DeviceLogin:
         self.expires_at = time.time() + float(start.get("expires_in", 1800))
         self._interval = max(1.0, float(start.get("interval", 5)))
         self._device_code = str(start["device_code"])
-        self._auth, self._client_id, self._secret, self._sleep = auth, client_id, client_secret, sleep
+        self._auth, self._client_id, self._secret, self._sleep = (
+            auth,
+            client_id,
+            client_secret,
+            sleep,
+        )
         self._scopes = SCOPES[role]
 
     async def wait(self) -> Tokens:
         while time.time() < self.expires_at:
             await self._sleep(self._interval)
             try:
-                return await self._auth.poll_device(self._client_id, self._scopes, self._device_code, self._secret)
+                return await self._auth.poll_device(
+                    self._client_id, self._scopes, self._device_code, self._secret
+                )
             except AuthorizationPending:
                 continue
             except SlowDown:

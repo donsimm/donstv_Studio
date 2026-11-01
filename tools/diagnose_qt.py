@@ -140,14 +140,25 @@ print("OK", qVersion(), PYQT_VERSION_STR)
 
 def main() -> int:
     env = {**os.environ}
-    rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False).stdout.strip()
+    rev = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False
+    ).stdout.strip()
     print(f"Stand des Programms: {rev}")
     bad = 0
     for case in CASES:
-        r = subprocess.run([sys.executable, "-c", CHILD, case], capture_output=True, text=True, timeout=120, env=env, check=False)
+        r = subprocess.run(
+            [sys.executable, "-c", CHILD, case],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            check=False,
+        )
         ok = r.returncode == 0 and "OK" in r.stdout
         bad += not ok
-        print(f"{'OK       ' if ok else 'ABSTURZ  '} {case}  {r.stdout.strip() if ok else '(Rückgabecode ' + str(r.returncode) + ')'}")
+        print(
+            f"{'OK       ' if ok else 'ABSTURZ  '} {case}  {r.stdout.strip() if ok else '(Rückgabecode ' + str(r.returncode) + ')'}"
+        )
     return 1 if bad else 0
 
 

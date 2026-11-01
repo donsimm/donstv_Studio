@@ -53,6 +53,7 @@ def create_app(
     bot_router=None,
 ) -> FastAPI:
     app = FastAPI(title="donstv-core", docs_url=None, redoc_url=None, openapi_url=None)
+
     def valid(candidate: str | None) -> bool:
         return candidate is not None and secrets.compare_digest(candidate, token)
 
@@ -63,7 +64,9 @@ def create_app(
             raise HTTPException(status_code=401, detail="Token fehlt oder ist falsch")
 
     if overlays is not None:
-        app.include_router(create_overlay_router(overlays, urls, media), dependencies=[Depends(require_token)])
+        app.include_router(
+            create_overlay_router(overlays, urls, media), dependencies=[Depends(require_token)]
+        )
 
     if bot_router is not None:  # Chat-Bot (P07)
         app.include_router(bot_router, dependencies=[Depends(require_token)])
@@ -114,7 +117,9 @@ def create_app(
     async def ws_events(ws: WebSocket) -> None:
         # Token per Header «Authorization: Bearer …» oder Abfrage-Parameter «token».
         header = ws.headers.get("authorization", "")
-        candidate = header[7:] if header.lower().startswith("bearer ") else ws.query_params.get("token")
+        candidate = (
+            header[7:] if header.lower().startswith("bearer ") else ws.query_params.get("token")
+        )
         if not valid(candidate):
             await ws.close(code=1008)
             return

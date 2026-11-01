@@ -86,15 +86,22 @@ def detect_type(head: bytes) -> str | None:
     return None
 
 
-_ACTIVE_SVG = re.compile(rb"<\s*script|<\s*foreignobject|javascript:|\son[a-z]+\s*=|<!entity", re.IGNORECASE)
+_ACTIVE_SVG = re.compile(
+    rb"<\s*script|<\s*foreignobject|javascript:|\son[a-z]+\s*=|<!entity", re.IGNORECASE
+)
 
 
 def _check_svg(head: bytes, whole: bytes) -> bool:
     text = head.lstrip(b"\xef\xbb\xbf \t\r\n")
-    if not (text.startswith((b"<svg", b"<?xml", b"<!--", b"<!DOCTYPE", b"<!doctype")) and b"<svg" in head.lower()):
+    if not (
+        text.startswith((b"<svg", b"<?xml", b"<!--", b"<!DOCTYPE", b"<!doctype"))
+        and b"<svg" in head.lower()
+    ):
         return False
     if _ACTIVE_SVG.search(whole):
-        raise UnsupportedTypeError("Die SVG-Datei enthält aktive Inhalte (Skripte) und wird abgelehnt")
+        raise UnsupportedTypeError(
+            "Die SVG-Datei enthält aktive Inhalte (Skripte) und wird abgelehnt"
+        )
     return True
 
 

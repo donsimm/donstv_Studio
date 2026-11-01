@@ -42,7 +42,9 @@ def test_f15_migration_comic_thick_to_thick(tmp_path):
     path = tmp_path / "a.db"
     old = Store(path, migrations=MIGRATIONS[:3])  # Stand vor der Migration
     with old.transaction() as db:
-        db.execute("INSERT INTO overlays (id,name,width,height,output,token) VALUES ('o','A',10,10,'browser','t')")
+        db.execute(
+            "INSERT INTO overlays (id,name,width,height,output,token) VALUES ('o','A',10,10,'browser','t')"
+        )
         rows = [
             ("s1", "text", '{"text": "Hallo", "style": "comic_thick", "size": 40}'),
             ("s2", "text", '{"style": "comic"}'),

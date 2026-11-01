@@ -37,7 +37,9 @@ def env(tmp_path):
     log = BotLog(store, bus)
     repo = CommandRepository(store)
     engine = CommandEngine(bus, repo, ActionExecutor(lambda: twitch, log), log, lambda: twitch)
-    app = create_app(TOKEN, bus, mgr, cfg, bot_router=create_router(repo, engine, log, twitch, cfg, fake=True))
+    app = create_app(
+        TOKEN, bus, mgr, cfg, bot_router=create_router(repo, engine, log, twitch, cfg, fake=True)
+    )
     with TestClient(app) as client:
         client.portal.call(twitch.start)
         client.engine = engine
@@ -52,11 +54,25 @@ def test_bot_api_requires_token(env):
 
 def test_f43_commands_crud_over_api(env):
     client = env[0]
-    r = client.post("/bot/commands", json={"name": "Test", "trigger": "!test", "response": "Hi {user}"}, headers=AUTH)
+    r = client.post(
+        "/bot/commands",
+        json={"name": "Test", "trigger": "!test", "response": "Hi {user}"},
+        headers=AUTH,
+    )
     assert r.status_code == 200
     cid = r.json()["id"]
-    assert client.post("/bot/commands", json={"name": "X", "trigger": "!test"}, headers=AUTH).status_code == 400
-    assert client.patch(f"/bot/commands/{cid}", json={"cooldown_user": 30}, headers=AUTH).json()["cooldown_user"] == 30
+    assert (
+        client.post(
+            "/bot/commands", json={"name": "X", "trigger": "!test"}, headers=AUTH
+        ).status_code
+        == 400
+    )
+    assert (
+        client.patch(f"/bot/commands/{cid}", json={"cooldown_user": 30}, headers=AUTH).json()[
+            "cooldown_user"
+        ]
+        == 30
+    )
     dup = client.post(f"/bot/commands/{cid}/duplicate", headers=AUTH).json()
     assert dup["trigger"] == "!test2"
     assert len(client.get("/bot/commands", headers=AUTH).json()) == 2
@@ -67,7 +83,11 @@ def test_f43_commands_crud_over_api(env):
 
 def test_f44_f45_test_chat_triggers_command_and_log(env):
     client, twitch, _ = env
-    client.post("/bot/commands", json={"name": "Test", "trigger": "!test", "response": "Hi {user}"}, headers=AUTH)
+    client.post(
+        "/bot/commands",
+        json={"name": "Test", "trigger": "!test", "response": "Hi {user}"},
+        headers=AUTH,
+    )
     client.post("/bot/test/chat", json={"user": "Anna", "text": "!test"}, headers=AUTH)
     client.portal.call(client.engine.drain)
     assert twitch.sent == ["Hi Anna"]
@@ -88,10 +108,14 @@ def test_f42_send_over_api_and_error(env):
 
 def test_settings_client_id_is_stored_in_core_settings(env):
     client, _, cfg = env
-    r = client.put("/bot/settings", json={"client_id": " abc123 ", "channel": "DonsTV2020"}, headers=AUTH)
+    r = client.put(
+        "/bot/settings", json={"client_id": " abc123 ", "channel": "DonsTV2020"}, headers=AUTH
+    )
     assert r.status_code == 200 and r.json()["client_id"] == "abc123"
     assert cfg.get("twitch.client_id") == "abc123" and cfg.get("twitch.channel") == "donstv2020"
-    assert client.put("/bot/settings", json={"client_id": "mit leer"}, headers=AUTH).status_code == 400
+    assert (
+        client.put("/bot/settings", json={"client_id": "mit leer"}, headers=AUTH).status_code == 400
+    )
     assert client.get("/bot/settings", headers=AUTH).json()["fake"] is True
 
 
@@ -106,6 +130,7 @@ def test_events_reach_websocket(env):
 
 
 # --- Abnahme: kein Token im Protokoll oder in der Konfiguration ------------------------------------
+
 
 class TokenHttp:
     """Wie Twitch; Antworten und Fehler enthalten die Tokens absichtlich, damit ein Leck sichtbar würde."""
@@ -126,7 +151,9 @@ class TokenHttp:
             return 200, {"access_token": "GEHEIM-access-2", "refresh_token": "GEHEIM-refresh-2"}
         if "/users" in url:
             return 200, {"data": [{"id": "1000", "login": "donstv2020"}]}
-        return 403, {"message": f"Forbidden Bearer {token}"}  # Abo abgelehnt: Fehlerweg wird protokolliert
+        return 403, {
+            "message": f"Forbidden Bearer {token}"
+        }  # Abo abgelehnt: Fehlerweg wird protokolliert
 
 
 async def test_no_token_in_log_or_config(tmp_path):
@@ -153,13 +180,19 @@ async def test_no_token_in_log_or_config(tmp_path):
                 break
         await conn.stop()
         engine.close()
-        await bot_log.add("auth", "Antwort: access_token=GEHEIM-access-9", {"raw": "refresh_token: GEHEIM-x"})
-        assert tokens.load("bot").access_token == "GEHEIM-access-2"  # wurde erneuert und gespeichert
+        await bot_log.add(
+            "auth", "Antwort: access_token=GEHEIM-access-9", {"raw": "refresh_token: GEHEIM-x"}
+        )
+        assert (
+            tokens.load("bot").access_token == "GEHEIM-access-2"
+        )  # wurde erneuert und gespeichert
         for handler in logging.getLogger().handlers:
             handler.flush()
         log_text = paths.log_file.read_text(encoding="utf-8")
         export = cfg.export_json()
-        db_text = json.dumps(store.query("SELECT * FROM settings") + store.query("SELECT * FROM bot_log"))
+        db_text = json.dumps(
+            store.query("SELECT * FROM settings") + store.query("SELECT * FROM bot_log")
+        )
         assert "Fehler 403" in db_text  # das Protokoll enthält den Fehlerweg
         for text in (log_text, export, db_text):
             assert "GEHEIM" not in text

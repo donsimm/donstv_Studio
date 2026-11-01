@@ -21,8 +21,12 @@ from donstv_studio.ui.geometry import Box, nudge_box
 log = logging.getLogger(__name__)
 
 HISTORY_LIMIT = 200
-MERGE_WINDOW_S = 0.8  # Pfeiltasten und Zahlenfelder innerhalb dieser Zeit ergeben einen Rückgängig-Schritt
-GUIDE_KEY = "ui.guides."  # Einstellungsschlüssel: ui.guides.<Overlay-Kennung> -> {"v": [...], "h": [...]}
+MERGE_WINDOW_S = (
+    0.8  # Pfeiltasten und Zahlenfelder innerhalb dieser Zeit ergeben einen Rückgängig-Schritt
+)
+GUIDE_KEY = (
+    "ui.guides."  # Einstellungsschlüssel: ui.guides.<Overlay-Kennung> -> {"v": [...], "h": [...]}
+)
 DEFAULT_TEXT = "Text"
 DEFAULT_TEXT_SIZE = (600, 120)
 DEFAULT_IMAGE_SIZE = (400, 300)
@@ -30,7 +34,13 @@ MAX_GUIDES = 200
 
 
 def box_of(source: dict) -> Box:
-    return Box(source["x"], source["y"], source["width"], source["height"], float(source.get("rotation", 0.0)))
+    return Box(
+        source["x"],
+        source["y"],
+        source["width"],
+        source["height"],
+        float(source.get("rotation", 0.0)),
+    )
 
 
 def source_label(source: dict, media_names: dict[str, str] | None = None) -> str:
@@ -62,7 +72,9 @@ class _History:
 
 class EditorModel(QObject):
     overlays_changed = pyqtSignal()  # Liste oder Namen der Overlays
-    current_changed = pyqtSignal(str)  # Kennung des gewählten Overlays oder "" (Regel 12: kein object)
+    current_changed = pyqtSignal(
+        str
+    )  # Kennung des gewählten Overlays oder "" (Regel 12: kein object)
     meta_changed = pyqtSignal()  # Name, Auflösung, Ausgabeart des gewählten Overlays
     sources_changed = pyqtSignal()  # Liste, Reihenfolge, Sichtbarkeit der Quellen
     box_changed = pyqtSignal(str)  # Lage, Grösse oder Drehung einer Quelle
@@ -71,7 +83,9 @@ class EditorModel(QObject):
     history_changed = pyqtSignal()
     error = pyqtSignal(str)
 
-    def __init__(self, backend, runner, save_setting: Callable[[str, str], None] | None = None, parent=None) -> None:
+    def __init__(
+        self, backend, runner, save_setting: Callable[[str, str], None] | None = None, parent=None
+    ) -> None:
         super().__init__(parent)
         self._backend = backend
         self._runner = runner
@@ -117,7 +131,11 @@ class EditorModel(QObject):
 
     def others(self) -> list[Box]:
         """Lage der übrigen sichtbaren Quellen (Ziele zum Einrasten)."""
-        return [box_of(s) for s in self.sources() if s["id"] != self.selected_id and s.get("visible", True)]
+        return [
+            box_of(s)
+            for s in self.sources()
+            if s["id"] != self.selected_id and s.get("visible", True)
+        ]
 
     # --- Laden ------------------------------------------------------------------------------------
     def load(self) -> None:
@@ -179,10 +197,14 @@ class EditorModel(QObject):
         o["name"] = name
         self.overlays_changed.emit()
         self.meta_changed.emit()
-        self._runner.submit(lambda: self._backend.update_overlay(overlay_id, name=name), None, self._resync)
+        self._runner.submit(
+            lambda: self._backend.update_overlay(overlay_id, name=name), None, self._resync
+        )
 
     def duplicate_overlay(self, overlay_id: str) -> None:
-        self._runner.submit(lambda: self._backend.duplicate_overlay(overlay_id), self._created, self._failed)
+        self._runner.submit(
+            lambda: self._backend.duplicate_overlay(overlay_id), self._created, self._failed
+        )
 
     def delete_overlay(self, overlay_id: str) -> None:
         o = self.overlay(overlay_id)
@@ -192,7 +214,9 @@ class EditorModel(QObject):
         self.overlays.remove(o)
         self._history.pop(overlay_id, None)
         if self._guides.pop(overlay_id, None) is not None or self._save_setting:
-            self._persist_guides_value(overlay_id, "")  # Hilfslinien des gelöschten Overlays entfernen
+            self._persist_guides_value(
+                overlay_id, ""
+            )  # Hilfslinien des gelöschten Overlays entfernen
         self._runner.submit(lambda: self._backend.delete_overlay(overlay_id), None, self._resync)
         self.overlays_changed.emit()
         if self.current_id == overlay_id:
@@ -207,7 +231,9 @@ class EditorModel(QObject):
         o["output"] = output
         o["output_status"] = "verfügbar" if output == "browser" else "nicht verfügbar"
         self.meta_changed.emit()
-        self._runner.submit(lambda: self._backend.update_overlay(overlay_id, output=output), None, self._resync)
+        self._runner.submit(
+            lambda: self._backend.update_overlay(overlay_id, output=output), None, self._resync
+        )
 
     # --- Quellen (F-12) ---------------------------------------------------------------------------
     def select_source(self, source_id: str | None) -> None:
@@ -221,7 +247,9 @@ class EditorModel(QObject):
         if o is None:
             return
         w, h = DEFAULT_TEXT_SIZE
-        self._add_source(o, "text", min(w, o["width"]), min(h, o["height"]), {"text": text or DEFAULT_TEXT})
+        self._add_source(
+            o, "text", min(w, o["width"]), min(h, o["height"]), {"text": text or DEFAULT_TEXT}
+        )
 
     def add_image_source(self, path: str, natural: tuple[int, int] | None = None) -> None:
         """Lädt die Datei in die Bibliothek und legt eine Bildquelle an (F-16). `natural`: Bildgrösse in Pixeln."""
@@ -259,7 +287,9 @@ class EditorModel(QObject):
                 self.sources_changed.emit()
                 self.select_source(source["id"])
 
-        self._runner.submit(lambda: self._backend.add_source(overlay_id, kind, **fields), added, self._failed)
+        self._runner.submit(
+            lambda: self._backend.add_source(overlay_id, kind, **fields), added, self._failed
+        )
 
     def delete_source(self, source_id: str) -> None:
         o = self.current()
@@ -276,7 +306,9 @@ class EditorModel(QObject):
             self.select_source(None)
         self.sources_changed.emit()
         self.history_changed.emit()
-        self._runner.submit(lambda: self._backend.delete_source(overlay_id, source_id), None, self._resync)
+        self._runner.submit(
+            lambda: self._backend.delete_source(overlay_id, source_id), None, self._resync
+        )
 
     def set_visible(self, source_id: str, visible: bool) -> None:
         o, s = self.current(), self.source(source_id)
@@ -312,7 +344,9 @@ class EditorModel(QObject):
             s["z"] = z
         self.sources_changed.emit()
         overlay_id = o["id"]
-        self._runner.submit(lambda: self._backend.reorder_sources(overlay_id, list(ids)), None, self._resync)
+        self._runner.submit(
+            lambda: self._backend.reorder_sources(overlay_id, list(ids)), None, self._resync
+        )
 
     # --- Lage und Grösse (F-13, F-14, F-65) -------------------------------------------------------
     def _send_source(self, overlay_id: str, source_id: str, fields: dict[str, Any]) -> None:
@@ -331,14 +365,24 @@ class EditorModel(QObject):
         before = box_of(s)
         if before == box:
             return before
-        s["x"], s["y"], s["width"], s["height"], s["rotation"] = box.x, box.y, box.w, box.h, float(box.rot)
+        s["x"], s["y"], s["width"], s["height"], s["rotation"] = (
+            box.x,
+            box.y,
+            box.w,
+            box.h,
+            float(box.rot),
+        )
         self.box_changed.emit(source_id)
         self._send_source(
-            o["id"], source_id, {"x": box.x, "y": box.y, "width": box.w, "height": box.h, "rotation": float(box.rot)}
+            o["id"],
+            source_id,
+            {"x": box.x, "y": box.y, "width": box.w, "height": box.h, "rotation": float(box.rot)},
         )
         return before
 
-    def push_history(self, source_id: str, before: Box, after: Box, merge_key: str | None = None) -> None:
+    def push_history(
+        self, source_id: str, before: Box, after: Box, merge_key: str | None = None
+    ) -> None:
         o = self.current()
         if o is None or before == after:
             return
@@ -429,7 +473,7 @@ class EditorModel(QObject):
             except (ValueError, TypeError, AttributeError):
                 log.warning("Hilfslinien in %s ungültig und ignoriert", key)
                 continue
-            found[key[len(GUIDE_KEY):]] = {"v": v[:MAX_GUIDES], "h": h[:MAX_GUIDES]}
+            found[key[len(GUIDE_KEY) :]] = {"v": v[:MAX_GUIDES], "h": h[:MAX_GUIDES]}
         self._guides = found
         self.guides_changed.emit()
 

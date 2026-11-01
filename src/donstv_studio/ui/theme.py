@@ -45,29 +45,29 @@ PERF_GRAPH_HEIGHT = 28
 # Hell: keine Vorlage; sachliche Werte.
 PALETTES: dict[str, dict[str, str]] = {
     DARK: {
-        "bg": "#1d1f26",           # Fensterhintergrund, Lücken zwischen den Docks
-        "surface": "#272a33",      # Dockkörper, Menüs, Eingabefelder, Statuszeile
-        "title_bg": "#3c404d",     # Titelzeile der Docks, Schaltflächen
+        "bg": "#1d1f26",  # Fensterhintergrund, Lücken zwischen den Docks
+        "surface": "#272a33",  # Dockkörper, Menüs, Eingabefelder, Statuszeile
+        "title_bg": "#3c404d",  # Titelzeile der Docks, Schaltflächen
         "text": "#e6e6e6",
-        "text_muted": "#b4b8c0",   # Nebentext
+        "text_muted": "#b4b8c0",  # Nebentext
         "border": "#3c404d",
-        "accent": "#4c8dff",       # aktiver Modul-Reiter, Fokus
+        "accent": "#4c8dff",  # aktiver Modul-Reiter, Fokus
         "accent_text": "#0b0b0c",  # Text auf accent
-        "selection_bg": "#284cb8", # gewählte Listenzeile
+        "selection_bg": "#284cb8",  # gewählte Listenzeile
         "selection_text": "#ffffff",
-        "ok": "#5fd38d",           # Statusfarben, nur zusammen mit Text und Symbol (U-04)
+        "ok": "#5fd38d",  # Statusfarben, nur zusammen mit Text und Symbol (U-04)
         "warn": "#f0b74a",
         "error": "#ff7b72",
-        "preview_bg": "#13141a",   # Fläche um die Leinwand
-        "canvas": "#000000",       # Leinwand der Vorschau
+        "preview_bg": "#13141a",  # Fläche um die Leinwand
+        "canvas": "#000000",  # Leinwand der Vorschau
         "canvas_text": "#b4b8c0",  # Text auf der Leinwand (auch im hellen Design schwarzer Grund)
-        "perf_cpu": "#5b9dff",     # Linien der Verläufe in der Leistungsanzeige (blau, violett, grün)
+        "perf_cpu": "#5b9dff",  # Linien der Verläufe in der Leistungsanzeige (blau, violett, grün)
         "perf_ram": "#c58af9",
         "perf_lan": "#4fcf8a",
-        "checker_a": "#2b2e38",    # Karo-Hintergrund hinter dem durchsichtigen Overlay (Editor)
+        "checker_a": "#2b2e38",  # Karo-Hintergrund hinter dem durchsichtigen Overlay (Editor)
         "checker_b": "#383c48",
-        "guide": "#2dd4ff",        # Hilfslinien
-        "snap": "#ff5ccf",         # Linie, an der gerade eingerastet wird
+        "guide": "#2dd4ff",  # Hilfslinien
+        "snap": "#ff5ccf",  # Linie, an der gerade eingerastet wird
     },
     LIGHT: {
         "bg": "#f4f5f7",

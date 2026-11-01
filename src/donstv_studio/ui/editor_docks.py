@@ -60,7 +60,9 @@ def ask_text(parent: QWidget, title: str, label: str, text: str = "", ok: str = 
 
 
 def confirm(parent: QWidget, title: str, text: str, ok: str) -> bool:
-    box = QMessageBox(QMessageBox.Icon.Question, title, text, QMessageBox.StandardButton.NoButton, parent)
+    box = QMessageBox(
+        QMessageBox.Icon.Question, title, text, QMessageBox.StandardButton.NoButton, parent
+    )
     yes = box.addButton(ok, QMessageBox.ButtonRole.AcceptRole)
     box.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
     box.exec()
@@ -173,7 +175,9 @@ class OverlaysDock(QWidget):
         )
         self.list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list.setAccessibleName("Overlays")
-        self.stack = _ListWithHint(self.list, "Noch kein Overlay.\nKlicke auf +, um eines anzulegen.")
+        self.stack = _ListWithHint(
+            self.list, "Noch kein Overlay.\nKlicke auf +, um eines anzulegen."
+        )
         self.bar = ButtonBar()
         self.add_button = self.bar.add("plus", "Overlay anlegen", self.add)
         self.delete_button = self.bar.add("trash", "Overlay löschen", self.remove)
@@ -239,7 +243,9 @@ class OverlaysDock(QWidget):
         oid = item.data(Qt.ItemDataRole.UserRole)
         self.model.rename_overlay(oid, item.text())
         o = self.model.overlay(oid)
-        if o is not None and item.text().strip() != o["name"]:  # leerer Name: alten wiederherstellen
+        if (
+            o is not None and item.text().strip() != o["name"]
+        ):  # leerer Name: alten wiederherstellen
             self._updating = True
             item.setText(o["name"])
             self._updating = False
@@ -267,7 +273,9 @@ class OverlaysDock(QWidget):
 
     def remove(self) -> None:
         o = self.model.current()
-        if o is not None and self.confirm("Overlay löschen", f"Overlay «{o['name']}» mit allen Quellen löschen?", "Löschen"):
+        if o is not None and self.confirm(
+            "Overlay löschen", f"Overlay «{o['name']}» mit allen Quellen löschen?", "Löschen"
+        ):
             self.model.delete_overlay(o["id"])
 
     def _menu(self, pos) -> None:
@@ -303,7 +311,11 @@ class SourceList(QListWidget):
 
     def mousePressEvent(self, e) -> None:
         item = self.itemAt(e.position().toPoint())
-        if item is not None and e.button() == Qt.MouseButton.LeftButton and e.position().x() < EYE_ZONE:
+        if (
+            item is not None
+            and e.button() == Qt.MouseButton.LeftButton
+            and e.position().x() < EYE_ZONE
+        ):
             self.visibility_clicked.emit(item.data(Qt.ItemDataRole.UserRole))
             return
         super().mousePressEvent(e)
@@ -314,7 +326,10 @@ class SourcesDock(QWidget):
         super().__init__(parent)
         self.model = model
         self.pick_image = lambda: QFileDialog.getOpenFileName(
-            self, "Bild wählen", "", "Bilder und Video (*.png *.jpg *.jpeg *.gif *.webp *.svg *.webm)"
+            self,
+            "Bild wählen",
+            "",
+            "Bilder und Video (*.png *.jpg *.jpeg *.gif *.webp *.svg *.webm)",
         )[0]
         self.ask_text = lambda *a, **k: ask_text(self, *a, **k)
         self.confirm = lambda *a, **k: confirm(self, *a, **k)
@@ -322,7 +337,8 @@ class SourcesDock(QWidget):
         self._theme = theme.DEFAULT_THEME
         self.list = SourceList()
         self.stack = _ListWithHint(
-            self.list, "Du hast noch keine Quellen.\nKlicke auf +, um eine\nText- oder Bildquelle hinzuzufügen."
+            self.list,
+            "Du hast noch keine Quellen.\nKlicke auf +, um eine\nText- oder Bildquelle hinzuzufügen.",
         )
         self.bar = ButtonBar()
         self.add_button = self.bar.add("plus", "Quelle hinzufügen")
@@ -336,8 +352,12 @@ class SourcesDock(QWidget):
         self.text_action.triggered.connect(self.add_text)
         self.image_action.triggered.connect(self.add_image)
         self.delete_button = self.bar.add("trash", "Quelle entfernen", self.remove)
-        self.up_button = self.bar.add("up", "Nach vorn (in der Liste nach oben)", lambda: self._move(+1))
-        self.down_button = self.bar.add("down", "Nach hinten (in der Liste nach unten)", lambda: self._move(-1))
+        self.up_button = self.bar.add(
+            "up", "Nach vorn (in der Liste nach oben)", lambda: self._move(+1)
+        )
+        self.down_button = self.bar.add(
+            "down", "Nach hinten (in der Liste nach unten)", lambda: self._move(-1)
+        )
         self.bar.finish()
         self.body, lay = _body()
         lay.addWidget(self.stack, 1)
@@ -356,8 +376,12 @@ class SourcesDock(QWidget):
         for s in reversed(self.model.sources()):  # vorderste Quelle oben, wie bei OBS
             item = QListWidgetItem(source_label(s, self.model.media_names))
             item.setData(Qt.ItemDataRole.UserRole, s["id"])
-            item.setIcon(icons.make_icon("eye" if s.get("visible", True) else "eye_off", self._icon_color()))
-            item.setToolTip(f"{'Sichtbar' if s.get('visible', True) else 'Ausgeblendet'} (Klick auf das Auge schaltet um)")
+            item.setIcon(
+                icons.make_icon("eye" if s.get("visible", True) else "eye_off", self._icon_color())
+            )
+            item.setToolTip(
+                f"{'Sichtbar' if s.get('visible', True) else 'Ausgeblendet'} (Klick auf das Auge schaltet um)"
+            )
             self.list.addItem(item)
         self._updating = False
         self._sync_selection(self.model.selected_id)
@@ -390,7 +414,9 @@ class SourcesDock(QWidget):
 
     def _current_changed(self, item, _prev) -> None:
         if not self._updating:
-            self.model.select_source(item.data(Qt.ItemDataRole.UserRole) if item is not None else None)
+            self.model.select_source(
+                item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+            )
 
     def _toggle(self, source_id: str) -> None:
         s = self.model.source(source_id)
@@ -398,7 +424,9 @@ class SourcesDock(QWidget):
             self.model.set_visible(source_id, not s.get("visible", True))
 
     def _reordered(self) -> None:
-        top_first = [self.list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.list.count())]
+        top_first = [
+            self.list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.list.count())
+        ]
         self.model.set_order(list(reversed(top_first)))
         self.refresh()
 
@@ -480,7 +508,9 @@ class PropertiesDock(QWidget):
         self.bar = ButtonBar()
         self.align_buttons: dict[str, IconButton] = {}
         for how in geo.ALIGNMENTS:
-            self.align_buttons[how] = self.bar.add(f"align_{how}", geo.ALIGN_LABELS[how], lambda h=how: self.align(h))
+            self.align_buttons[how] = self.bar.add(
+                f"align_{how}", geo.ALIGN_LABELS[how], lambda h=how: self.align(h)
+            )
         self.bar.finish()
         self.body, lay = _body()
         lay.addWidget(fields)
@@ -512,7 +542,13 @@ class PropertiesDock(QWidget):
         for f in self.fields.values():
             f.setEnabled(box is not None)
         if box is not None:
-            for key, value in (("x", box.x), ("y", box.y), ("w", box.w), ("h", box.h), ("rot", box.rot)):
+            for key, value in (
+                ("x", box.x),
+                ("y", box.y),
+                ("w", box.w),
+                ("h", box.h),
+                ("rot", box.rot),
+            ):
                 f = self.fields[key]
                 if f.value() != value:
                     f.setValue(value)
@@ -528,7 +564,9 @@ class PropertiesDock(QWidget):
         if box is None or s is None:
             return
         f = self.fields
-        new = Box(f["x"].value(), f["y"].value(), f["w"].value(), f["h"].value(), float(f["rot"].value()))
+        new = Box(
+            f["x"].value(), f["y"].value(), f["w"].value(), f["h"].value(), float(f["rot"].value())
+        )
         self.model.change_box(s["id"], new, merge_key=f"field:{key}")
 
     def align(self, how: str) -> None:
@@ -548,7 +586,9 @@ class PropertiesDock(QWidget):
 class ControlDock(QWidget):
     copied = pyqtSignal()
 
-    def __init__(self, model: EditorModel, prefs: EditorPrefs, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, model: EditorModel, prefs: EditorPrefs, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.model, self.prefs = model, prefs
         self._updating = False
@@ -632,8 +672,12 @@ class ControlDock(QWidget):
     def refresh(self) -> None:
         o = self.model.current()
         self._updating = True
-        self.url.setText(self.model.preview_url() or "")  # Anzeige für den Nutzer; nie ins Protokoll
-        self.url.setCursorPosition(0)  # den Anfang der Adresse zeigen (Rechner und Port), nicht das Ende
+        self.url.setText(
+            self.model.preview_url() or ""
+        )  # Anzeige für den Nutzer; nie ins Protokoll
+        self.url.setCursorPosition(
+            0
+        )  # den Anfang der Adresse zeigen (Rechner und Port), nicht das Ende
         self.output.setCurrentIndex(max(0, self.output.findData(o["output"] if o else "browser")))
         self.output_status.setText(("Ausgabe: " + o["output_status"]) if o else "")
         has = o is not None

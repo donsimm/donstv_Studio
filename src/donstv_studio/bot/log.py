@@ -43,12 +43,24 @@ class BotLog:
         self._bus = bus
         self._keep = keep
 
-    async def add(self, kind: str, message: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
-        entry = {"ts": time.time(), "kind": kind, "message": redact(message), "data": _clean(data or {})}
+    async def add(
+        self, kind: str, message: str, data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        entry = {
+            "ts": time.time(),
+            "kind": kind,
+            "message": redact(message),
+            "data": _clean(data or {}),
+        }
         with self._store.transaction() as db:
             cur = db.execute(
                 "INSERT INTO bot_log(ts, kind, message, data) VALUES(?, ?, ?, ?)",
-                (entry["ts"], kind, entry["message"], json.dumps(entry["data"], ensure_ascii=False)),
+                (
+                    entry["ts"],
+                    kind,
+                    entry["message"],
+                    json.dumps(entry["data"], ensure_ascii=False),
+                ),
             )
             entry["seq"] = cur.lastrowid
             db.execute("DELETE FROM bot_log WHERE seq <= ?", (entry["seq"] - self._keep,))
@@ -58,7 +70,8 @@ class BotLog:
     def recent(self, limit: int = 200) -> list[dict[str, Any]]:
         """Die letzten Einträge, ältester zuerst."""
         rows = self._store.query(
-            "SELECT seq, ts, kind, message, data FROM bot_log ORDER BY seq DESC LIMIT ?", (int(limit),)
+            "SELECT seq, ts, kind, message, data FROM bot_log ORDER BY seq DESC LIMIT ?",
+            (int(limit),),
         )
         return [
             {"seq": r[0], "ts": r[1], "kind": r[2], "message": r[3], "data": json.loads(r[4])}

@@ -44,7 +44,14 @@ def test_f01_window_structure(make):
     ]  # fmt: skip
     titles = [d.windowTitle() for d in w.findChildren(QDockWidget)]
     # vier Docks des Moduls «Overlays», dazu «Chat» und «Protokoll» des Moduls «Chat-Bot» (P07, nur dort sichtbar)
-    assert sorted(titles) == ["Chat", "Eigenschaften", "Overlays", "Protokoll", "Quellen", "Steuerung"]
+    assert sorted(titles) == [
+        "Chat",
+        "Eigenschaften",
+        "Overlays",
+        "Protokoll",
+        "Quellen",
+        "Steuerung",
+    ]
     assert all(d.isHidden() for d in w.bot_docks)
     assert w.statusBar() is not None and w.preview.isVisible()
     assert w.menuWidget().isAncestorOf(w.menu_bar)
@@ -80,7 +87,13 @@ def test_f02_module_switch(make, app):
     assert [w.tabbar.tabText(i) for i in range(2)] == ["Overlays", "Chat-Bot"]
     w.tabbar.setCurrentIndex(1)
     assert w.module == 1 and w.stack.currentWidget() is w.bot_tabs
-    assert [w.bot_tabs.tabText(i) for i in range(5)] == ["Actions", "Commands", "Timer", "Queues", "Einstellungen"]
+    assert [w.bot_tabs.tabText(i) for i in range(5)] == [
+        "Actions",
+        "Commands",
+        "Timer",
+        "Queues",
+        "Einstellungen",
+    ]
     assert isinstance(w.bot_tabs, QTabWidget)
     assert not any(d.isVisible() for d in w.docks)  # Docks gehören zu «Overlays»
     assert not w.docks_menu.isEnabled()
@@ -108,7 +121,9 @@ def test_f04_status_never_only_by_color(make):
 def test_f04_status_events_update_labels(make, app):
     w, core = make()
     core.connected.emit()
-    core.statuses_loaded.emit(json.dumps({"twitch": {"status": "verbunden", "detail": ""}}))  # übrige: im Kern unbekannt
+    core.statuses_loaded.emit(
+        json.dumps({"twitch": {"status": "verbunden", "detail": ""}})
+    )  # übrige: im Kern unbekannt
     assert "verbunden" in w.connections.text_of("twitch")
     for key in ("youtube", "obs", "ndi"):
         assert "getrennt" in w.connections.text_of(key)
@@ -124,7 +139,9 @@ def test_core_unreachable_shows_message_without_crash(make, app):
     text = w.banner_label.text()
     assert "nicht erreichbar" in text and "donstv-core" in text and "3 s" in text
     assert "nicht erreichbar" in w.core_status.text()
-    assert all(w.connections.status_of(k) == "unbekannt" for k in ("twitch", "youtube", "obs", "ndi"))
+    assert all(
+        w.connections.status_of(k) == "unbekannt" for k in ("twitch", "youtube", "obs", "ndi")
+    )
     # Wiederholversuch zählt herunter, dann wieder erreichbar
     w._tick()
     assert "2 s" in w.banner_label.text()
@@ -145,7 +162,10 @@ def test_f06_theme_switch_dark_default_and_light(make, app):
     w.open_settings()
     d = w.settings_dialog
     assert d.windowTitle() == "Einstellungen"
-    assert d.radios["dark"].isChecked() and [r.text() for r in d.radios.values()] == ["Dunkel", "Hell"]
+    assert d.radios["dark"].isChecked() and [r.text() for r in d.radios.values()] == [
+        "Dunkel",
+        "Hell",
+    ]
     d.radios["light"].setChecked(True)  # Auswahl im Dialog
     assert w.theme == theme.LIGHT
     assert theme.palette("light")["bg"] in app.styleSheet()
@@ -211,12 +231,16 @@ def test_layout_saved_while_in_chatbot_module_keeps_overlay_docks(make, app):
     vals = w.layout_values()
     w2, core2 = make()
     core2.settings_loaded.emit(json.dumps(vals))
-    assert w2.docks[3].isHidden() and not w2.docks[0].isHidden()  # nicht alle als «versteckt» gespeichert
+    assert (
+        w2.docks[3].isHidden() and not w2.docks[0].isHidden()
+    )  # nicht alle als «versteckt» gespeichert
 
 
 def test_invalid_saved_values_do_not_crash(make):
     w, core = make()
-    core.settings_loaded.emit(json.dumps({"ui.theme": "dark", "ui.geometry": "###", "ui.dock_state": "AAAA"}))
+    core.settings_loaded.emit(
+        json.dumps({"ui.theme": "dark", "ui.geometry": "###", "ui.dock_state": "AAAA"})
+    )
     core.settings_loaded.emit(json.dumps({"ui.geometry": "", "ui.dock_state": "!"}))
     assert w.theme == "dark"
     assert all(not d.isHidden() for d in w.docks)
@@ -247,7 +271,9 @@ def test_f01_layout_values_without_version_tag_are_not_restored(make, app):
     app.processEvents()
     old = {
         "ui.geometry": base64.b64encode(bytes(a.saveGeometry())).decode(),
-        "ui.dock_state": base64.b64encode(bytes(a.saveState(2))).decode(),  # Format von vor der Marke
+        "ui.dock_state": base64.b64encode(
+            bytes(a.saveState(2))
+        ).decode(),  # Format von vor der Marke
     }
     b, _ = make()
     before = bytes(b.saveState(2))

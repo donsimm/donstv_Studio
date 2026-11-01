@@ -26,7 +26,12 @@ def env(tmp_path):
 
 @pytest.mark.parametrize(
     ("method", "path"),
-    [("get", "/health"), ("get", "/connections"), ("get", "/config/export"), ("post", "/config/import")],
+    [
+        ("get", "/health"),
+        ("get", "/connections"),
+        ("get", "/config/export"),
+        ("post", "/config/import"),
+    ],
 )
 def test_refuses_without_or_with_wrong_token(env, method, path):
     client = env[0]
@@ -81,6 +86,7 @@ def test_token_file_mode(tmp_path):
 
 # --- P05: Einstellungen für die Oberfläche (Layout merken) ---------------------------------
 
+
 def test_settings_need_token(env):
     client = env[0]
     assert client.get("/settings").status_code == 401
@@ -90,9 +96,17 @@ def test_settings_need_token(env):
 def test_settings_put_get_roundtrip(env):
     client, _, cfg = env
     assert client.get("/settings", headers=AUTH).json() == {}
-    assert client.put("/settings/ui.theme", json={"value": "light"}, headers=AUTH).status_code == 200
-    assert client.put("/settings/ui.dock_state", json={"value": "QUJD"}, headers=AUTH).status_code == 200
-    assert client.get("/settings", headers=AUTH).json() == {"ui.theme": "light", "ui.dock_state": "QUJD"}
+    assert (
+        client.put("/settings/ui.theme", json={"value": "light"}, headers=AUTH).status_code == 200
+    )
+    assert (
+        client.put("/settings/ui.dock_state", json={"value": "QUJD"}, headers=AUTH).status_code
+        == 200
+    )
+    assert client.get("/settings", headers=AUTH).json() == {
+        "ui.theme": "light",
+        "ui.dock_state": "QUJD",
+    }
     assert cfg.get("ui.theme") == "light"
     # erscheint auch im Export (F-03)
     assert client.get("/config/export", headers=AUTH).json()["settings"]["ui.theme"] == "light"
@@ -101,11 +115,11 @@ def test_settings_put_get_roundtrip(env):
 @pytest.mark.parametrize(
     ("key", "body"),
     [
-        ("secret.twitch", {"value": "x"}),   # Zugangsdaten gehören nicht in die Konfiguration
+        ("secret.twitch", {"value": "x"}),  # Zugangsdaten gehören nicht in die Konfiguration
         ("token.x", {"value": "x"}),
-        ("UI.Theme", {"value": "x"}),         # Schlüsselform
+        ("UI.Theme", {"value": "x"}),  # Schlüsselform
         ("a..b", {"value": "x"}),
-        ("ui.theme", {"value": 5}),           # Wert muss Text sein
+        ("ui.theme", {"value": 5}),  # Wert muss Text sein
         ("ui.theme", {}),
         ("ui.theme", [1]),
         ("ui.theme", {"value": "x" * 200_001}),
@@ -119,4 +133,6 @@ def test_settings_put_rejects_bad_input(env, key, body):
 def test_f04_connections_info_with_detail(env):
     client = env[0]
     assert client.get("/connections/info").status_code == 401
-    assert client.get("/connections/info", headers=AUTH).json() == {"obs": {"status": "getrennt", "detail": ""}}
+    assert client.get("/connections/info", headers=AUTH).json() == {
+        "obs": {"status": "getrennt", "detail": ""}
+    }

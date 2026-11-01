@@ -41,7 +41,9 @@ class CoreBackend:
 
     def _call(self, method: str, path: str, body: dict | None = None):
         try:
-            return http_request(self.base_url, read_token(self._token_file), method, path, body, HTTP_TIMEOUT)
+            return http_request(
+                self.base_url, read_token(self._token_file), method, path, body, HTTP_TIMEOUT
+            )
         except CoreUnavailableError as e:
             raise BackendError(str(e)) from e
 
@@ -199,7 +201,9 @@ class TaskRunner(QObject):
                         t.fields.update(fields)
                         t.callbacks.append((on_done, on_error))
                         return
-            self._pending.append(_Task(fn, dict(fields) if fields is not None else None, key, on_done, on_error))
+            self._pending.append(
+                _Task(fn, dict(fields) if fields is not None else None, key, on_done, on_error)
+            )
             self._cond.notify()
 
     def wait_idle(self, timeout: float = 5.0) -> bool:

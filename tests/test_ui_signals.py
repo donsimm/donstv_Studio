@@ -10,7 +10,9 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 
 import httpx
 from PyQt6.QtWidgets import QApplication
@@ -65,7 +67,13 @@ def test_ui_process_saves_layout_on_signal_and_exits_cleanly(tmp_path, signum):
     core = RunningService(paths, port, free_port()).start()
     code = "import logging, sys; logging.basicConfig(level=logging.INFO, stream=sys.stderr); " \
            "from donstv_studio.ui.main import main; sys.exit(main())"  # fmt: skip
-    proc = subprocess.Popen([sys.executable, "-c", code], env=env, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(
+        [sys.executable, "-c", code],
+        env=env,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
     try:
         ready = False
         end = time.time() + 60
@@ -88,7 +96,9 @@ def test_ui_process_saves_layout_on_signal_and_exits_cleanly(tmp_path, signum):
             assert saved[key], key
             import base64
 
-            assert saved[key].startswith("v3:") and base64.b64decode(saved[key][3:])  # Marke und gültiges Base64
+            assert saved[key].startswith("v3:") and base64.b64decode(
+                saved[key][3:]
+            )  # Marke und gültiges Base64
         json.dumps(saved)
     finally:
         if proc.poll() is None:

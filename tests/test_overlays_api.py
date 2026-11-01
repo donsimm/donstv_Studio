@@ -45,7 +45,11 @@ def test_f10_f11_f66_full_cycle(env):
     o = r.json()
     assert (o["width"], o["height"], o["output"]) == (1920, 1080, "browser")
     oid = o["id"]
-    r = c.patch(f"/overlays/{oid}", json={"name": "B", "width": 1280, "height": 720, "output": "ndi"}, headers=H)
+    r = c.patch(
+        f"/overlays/{oid}",
+        json={"name": "B", "width": 1280, "height": 720, "output": "ndi"},
+        headers=H,
+    )
     assert r.json()["output_status"] == "nicht verfügbar"
     assert c.get(f"/overlays/{oid}", headers=H).json()["name"] == "B"
     dup = c.post(f"/overlays/{oid}/duplicate", headers=H).json()
@@ -53,7 +57,14 @@ def test_f10_f11_f66_full_cycle(env):
     assert len(c.get("/overlays", headers=H).json()) == 2
     assert c.delete(f"/overlays/{oid}", headers=H).status_code == 204
     assert c.get(f"/overlays/{oid}", headers=H).status_code == 404
-    assert {e["change"] for e in events} >= {"created", "renamed", "resolution", "output", "duplicated", "deleted"}
+    assert {e["change"] for e in events} >= {
+        "created",
+        "renamed",
+        "resolution",
+        "output",
+        "duplicated",
+        "deleted",
+    }
 
 
 def test_f12_source_cycle_and_errors(env):
@@ -68,7 +79,12 @@ def test_f12_source_cycle_and_errors(env):
     assert c.delete(f"/overlays/{oid}/sources/{a['id']}", headers=H).status_code == 204
     assert [e["change"] for e in events][-1] == "source_removed"
     # Fehler mit klarer Meldung
-    assert c.post(f"/overlays/{oid}/sources", json={"kind": "text", **BOX, "width": 0}, headers=H).status_code == 400
+    assert (
+        c.post(
+            f"/overlays/{oid}/sources", json={"kind": "text", **BOX, "width": 0}, headers=H
+        ).status_code
+        == 400
+    )
     r = c.post(f"/overlays/{oid}/sources", json={"kind": "text", **BOX, "x": 1.5}, headers=H)
     assert r.status_code == 400 and "ganze Zahl" in r.json()["detail"]
     assert c.post(f"/overlays/{oid}/sources", json=BOX, headers=H).status_code == 400
@@ -76,4 +92,6 @@ def test_f12_source_cycle_and_errors(env):
     assert c.post("/overlays", json={"name": "A", "unbekannt": 1}, headers=H).status_code == 400
     assert c.patch(f"/overlays/{oid}", json={"id": "x"}, headers=H).status_code == 400
     assert c.patch("/overlays/nope", json={"name": "x"}, headers=H).status_code == 404
-    assert c.put(f"/overlays/{oid}/sources/order", json={"order": "x"}, headers=H).status_code == 400
+    assert (
+        c.put(f"/overlays/{oid}/sources/order", json={"order": "x"}, headers=H).status_code == 400
+    )

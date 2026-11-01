@@ -82,7 +82,9 @@ def _parse_ts(text: str | None) -> float:
         return time.time()
     tz = "+00:00" if m["tz"] == "Z" else m["tz"]
     try:
-        return datetime.fromisoformat(f"{m['head']}.{(m['frac'] or '0')[:6].ljust(6, '0')}{tz}").timestamp()
+        return datetime.fromisoformat(
+            f"{m['head']}.{(m['frac'] or '0')[:6].ljust(6, '0')}{tz}"
+        ).timestamp()
     except ValueError:
         return time.time()
 
@@ -98,7 +100,9 @@ def roles_from_badges(badges: list[str]) -> dict[str, bool]:
     }
 
 
-def normalize_chat(event: dict[str, Any], ts: str | None, bot_user_id: str | None) -> dict[str, Any]:
+def normalize_chat(
+    event: dict[str, Any], ts: str | None, bot_user_id: str | None
+) -> dict[str, Any]:
     """Übersetzt ein EventSub-Ereignis `channel.chat.message` in die Nutzlast von `twitch.chat.message`."""
     badges = [str(b.get("set_id", "")) for b in event.get("badges") or [] if isinstance(b, dict)]
     message = event.get("message") or {}
@@ -217,7 +221,9 @@ class TwitchConnection(Connection):
                 await self._wait_wake(None)
                 continue
             if self.tokens.load("bot") is None:
-                await self.set_status(Status.DISCONNECTED, f"{NOT_CONFIGURED}: Bot-Konto nicht angemeldet")
+                await self.set_status(
+                    Status.DISCONNECTED, f"{NOT_CONFIGURED}: Bot-Konto nicht angemeldet"
+                )
                 await self._wait_wake(None)
                 continue
             await self.set_status(Status.CONNECTING, f"Kanal {self.channel}")
@@ -248,7 +254,9 @@ class TwitchConnection(Connection):
             raise TwitchAuthError("Bot-Konto nicht angemeldet")
         info = None if force_refresh else await self.auth.validate(tokens.access_token)
         if info is None or int(info.get("expires_in", 0) or 0) < REFRESH_MARGIN:
-            tokens = await self.auth.refresh(self.client_id, tokens.refresh_token, self.tokens.client_secret())
+            tokens = await self.auth.refresh(
+                self.client_id, tokens.refresh_token, self.tokens.client_secret()
+            )
             self.tokens.save("bot", tokens)
             info = await self.auth.validate(tokens.access_token)
             if info is None:
@@ -256,18 +264,24 @@ class TwitchConnection(Connection):
             log.info("Twitch: Zugang des Bot-Kontos erneuert")
         missing = [s for s in SCOPES["bot"] if s not in (info.get("scopes") or [])]
         if missing:
-            raise TwitchAuthError(f"Dem Bot-Konto fehlen Rechte ({', '.join(missing)}). Bitte neu anmelden.")
+            raise TwitchAuthError(
+                f"Dem Bot-Konto fehlen Rechte ({', '.join(missing)}). Bitte neu anmelden."
+            )
         self.bot_login = str(info.get("login", "")) or None
         self.bot_user_id = str(info.get("user_id", "")) or None
         self._validated_at = time.monotonic()
         return tokens
 
-    async def _helix(self, method: str, path: str, *, json_body: Any = None, retry: bool = True) -> tuple[int, Any]:
+    async def _helix(
+        self, method: str, path: str, *, json_body: Any = None, retry: bool = True
+    ) -> tuple[int, Any]:
         tokens = self.tokens.load("bot")
         if tokens is None:
             raise TwitchAuthError("Bot-Konto nicht angemeldet")
         headers = {"Authorization": f"Bearer {tokens.access_token}", "Client-Id": self.client_id}
-        status, body = await self._http.request(method, self._helix_url + path, headers=headers, json_body=json_body)
+        status, body = await self._http.request(
+            method, self._helix_url + path, headers=headers, json_body=json_body
+        )
         if status == 401 and retry:  # abgelaufen: einmal erneuern und wiederholen
             await self._ensure_token(force_refresh=True)
             return await self._helix(method, path, json_body=json_body, retry=False)
@@ -277,7 +291,9 @@ class TwitchConnection(Connection):
         status, body = await self._helix("GET", f"/users?login={self.channel}")
         data = body.get("data") if isinstance(body, dict) else None
         if status != 200 or not data:
-            raise TwitchAuthError(f"Den Kanal «{self.channel}» gibt es bei Twitch nicht (Fehler {status})")
+            raise TwitchAuthError(
+                f"Den Kanal «{self.channel}» gibt es bei Twitch nicht (Fehler {status})"
+            )
         self.channel_id = str(data[0]["id"])
         self.channel_login = str(data[0].get("login", self.channel))
 
@@ -291,7 +307,9 @@ class TwitchConnection(Connection):
         status, resp = await self._helix("POST", "/eventsub/subscriptions", json_body=body)
         if status not in (200, 202):
             msg = resp.get("message", "") if isinstance(resp, dict) else ""
-            raise TwitchAuthError(f"Chat-Abo abgelehnt (Fehler {status}{': ' + msg if msg else ''})")
+            raise TwitchAuthError(
+                f"Chat-Abo abgelehnt (Fehler {status}{': ' + msg if msg else ''})"
+            )
 
     # --- Sitzung ------------------------------------------------------
     async def _session(self) -> None:
@@ -310,7 +328,9 @@ class TwitchConnection(Connection):
         recv = asyncio.ensure_future(ws.recv())
         wake = asyncio.ensure_future(self._wake.wait())
         try:
-            done, _ = await asyncio.wait({recv, wake}, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait(
+                {recv, wake}, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+            )
         finally:
             for t in (recv, wake):
                 if not t.done():
@@ -356,7 +376,9 @@ class TwitchConnection(Connection):
         if kind == "notification":
             sub = payload.get("subscription") or {}
             if sub.get("type") == "channel.chat.message":
-                data = normalize_chat(payload.get("event") or {}, meta.get("message_timestamp"), self.bot_user_id)
+                data = normalize_chat(
+                    payload.get("event") or {}, meta.get("message_timestamp"), self.bot_user_id
+                )
                 if data["message_id"]:
                     await self._bus.publish(chat_event(data))
         elif kind == "session_reconnect":
@@ -388,7 +410,9 @@ class TwitchConnection(Connection):
             reason = (data.get("drop_reason") or {}).get("message") or (
                 resp.get("message") if isinstance(resp, dict) else ""
             )
-            raise SendError(f"Twitch hat die Nachricht nicht angenommen ({reason or f'Fehler {status}'})")
+            raise SendError(
+                f"Twitch hat die Nachricht nicht angenommen ({reason or f'Fehler {status}'})"
+            )
         message_id = str(data.get("message_id", ""))
         if message_id:
             self.sent_ids.append(message_id)
@@ -397,7 +421,9 @@ class TwitchConnection(Connection):
     # --- Anmeldung (F-40) -----------------------------------------------
     async def _auth_event(self, state: str, **extra: Any) -> None:
         self.login_state = {"role": "bot", "state": state, **extra}
-        await self._bus.publish(Event(source="twitch", type=AUTH_EVENT, payload=dict(self.login_state)))
+        await self._bus.publish(
+            Event(source="twitch", type=AUTH_EVENT, payload=dict(self.login_state))
+        )
 
     async def begin_login(self, role: str = "bot") -> dict[str, Any]:
         """Startet den Device Code Grant Flow. Gibt Code und Adresse zurück; die Abfrage läuft im Hintergrund."""
@@ -408,7 +434,9 @@ class TwitchConnection(Connection):
         start = await self.auth.start_device(self.client_id, SCOPES[role])
         if self._login_task is not None:
             self._login_task.cancel()
-        self.login = DeviceLogin(self.auth, self.client_id, role, start, self.tokens.client_secret())
+        self.login = DeviceLogin(
+            self.auth, self.client_id, role, start, self.tokens.client_secret()
+        )
         info = {"user_code": self.login.user_code, "verification_uri": self.login.verification_uri,
                 "expires_at": self.login.expires_at}  # fmt: skip
         await self._auth_event("pending", **info)

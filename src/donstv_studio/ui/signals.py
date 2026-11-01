@@ -17,7 +17,11 @@ from PyQt6.QtCore import QObject, QSocketNotifier, pyqtSignal
 class SignalBridge(QObject):
     received = pyqtSignal(int)  # Signalnummer
 
-    def __init__(self, signums: tuple[int, ...] = (signal.SIGTERM, signal.SIGINT), parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        signums: tuple[int, ...] = (signal.SIGTERM, signal.SIGINT),
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self._signums = signums
         self._rsock, self._wsock = socket.socketpair()

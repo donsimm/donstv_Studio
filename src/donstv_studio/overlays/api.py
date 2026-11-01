@@ -89,7 +89,9 @@ def create_router(
     async def update_source(overlay_id: str, source_id: str, body: Body_ = Body(...)) -> Body_:  # noqa: B008
         return (await run(service.update_source, overlay_id, source_id, **body)).to_dict()
 
-    @router.delete("/overlays/{overlay_id}/sources/{source_id}", status_code=204, response_model=None)
+    @router.delete(
+        "/overlays/{overlay_id}/sources/{source_id}", status_code=204, response_model=None
+    )
     async def delete_source(overlay_id: str, source_id: str) -> None:
         await run(service.delete_source, overlay_id, source_id)
 

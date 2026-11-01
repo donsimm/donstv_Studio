@@ -6,7 +6,9 @@ Einrasten, Hilfslinien und Rückgängig auf der Bedienebene.
 
 import pytest
 
-pytest.importorskip("PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht")
+pytest.importorskip(
+    "PyQt6.QtWidgets", exc_type=ImportError, reason="PyQt6 ist nicht installierbar oder lädt nicht"
+)
 
 from PyQt6.QtCore import QEvent, QPointF, Qt
 from PyQt6.QtGui import QMouseEvent, QWheelEvent
@@ -56,16 +58,40 @@ def ev(kind, layer, x, y, button, buttons, mods=NO):
 
 
 def press(layer, x, y, mods=NO):
-    QApplication.sendEvent(layer, ev(QEvent.Type.MouseButtonPress, layer, x, y, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, mods))
+    QApplication.sendEvent(
+        layer,
+        ev(
+            QEvent.Type.MouseButtonPress,
+            layer,
+            x,
+            y,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            mods,
+        ),
+    )
 
 
 def move(layer, x, y, mods=NO, held=True):
     b = Qt.MouseButton.LeftButton if held else Qt.MouseButton.NoButton
-    QApplication.sendEvent(layer, ev(QEvent.Type.MouseMove, layer, x, y, Qt.MouseButton.NoButton, b, mods))
+    QApplication.sendEvent(
+        layer, ev(QEvent.Type.MouseMove, layer, x, y, Qt.MouseButton.NoButton, b, mods)
+    )
 
 
 def release(layer, x, y, mods=NO):
-    QApplication.sendEvent(layer, ev(QEvent.Type.MouseButtonRelease, layer, x, y, Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, mods))
+    QApplication.sendEvent(
+        layer,
+        ev(
+            QEvent.Type.MouseButtonRelease,
+            layer,
+            x,
+            y,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            mods,
+        ),
+    )
 
 
 def drag(layer, p0, p1, mods=NO, steps=5):
@@ -190,7 +216,9 @@ def test_f13_resize_at_zoom_200_uses_overlay_pixels(env):
     sid = add(model, 100, 100, 100, 100)
     view.set_zoom(2.0)
     pt = view.layer.handle_points()["se"]
-    drag(view.layer, (pt.x(), pt.y()), (pt.x() + 20, pt.y() + 10))  # 20 × 10 Bildschirmpixel = 10 × 5 Overlay-Pixel
+    drag(
+        view.layer, (pt.x(), pt.y()), (pt.x() + 20, pt.y() + 10)
+    )  # 20 × 10 Bildschirmpixel = 10 × 5 Overlay-Pixel
     s = model.source(sid)
     assert (s["width"], s["height"]) == (110, 105)
 
@@ -202,7 +230,9 @@ def test_f13_rotate_handle_turns_source_and_shift_snaps_to_15_degrees(env):
     sid = add(model, 300, 150, 200, 100)  # Mitte (400, 200)
     rot = view.layer.handle_points()[geo.ROTATE]
     cx, cy = view.transform().to_view(400, 200)
-    drag(view.layer, (rot.x(), rot.y()), (cx + 100, cy))  # Zeiger rechts der Mitte: 90° im Uhrzeigersinn
+    drag(
+        view.layer, (rot.x(), rot.y()), (cx + 100, cy)
+    )  # Zeiger rechts der Mitte: 90° im Uhrzeigersinn
     assert model.source(sid)["rotation"] == 90.0
     model.undo()
     assert model.source(sid)["rotation"] == 0.0
@@ -222,7 +252,9 @@ def test_f13_rotate_handle_turns_source_and_shift_snaps_to_15_degrees(env):
 def test_f13_rotated_source_is_hit_by_its_rotated_outline(env):
     view, model, *_ = env
     sid = add(model, 300, 150, 200, 100)
-    model.change_box(sid, geo.Box(300, 150, 200, 100, 90.0))  # Mitte (400, 200); gedreht 100 breit, 200 hoch
+    model.change_box(
+        sid, geo.Box(300, 150, 200, 100, 90.0)
+    )  # Mitte (400, 200); gedreht 100 breit, 200 hoch
     model.select_source(None)
     press(view.layer, *at(view, 400, 290))  # unterhalb der Mitte: nur im gedrehten Rechteck
     release(view.layer, *at(view, 400, 290))
@@ -270,7 +302,9 @@ def test_f65_zoom_steps_and_fit(env):
     sw, sh = view.stage.width(), view.stage.height()
     assert sw <= view.viewport.width() and sh <= view.viewport.height()
     assert abs(sw / sh - w / h) < 0.02
-    assert view.zoom() == pytest.approx(geo.fit_zoom(view.viewport.width() - 16, view.viewport.height() - 16, w, h, 1.0))
+    assert view.zoom() == pytest.approx(
+        geo.fit_zoom(view.viewport.width() - 16, view.viewport.height() - 16, w, h, 1.0)
+    )
 
 
 def test_f65_ctrl_wheel_zooms_in_steps_and_keeps_point_under_pointer(env):
@@ -327,7 +361,14 @@ def test_f65_zoom_is_remembered(env):
     view.set_zoom(FIT)
     assert saved["ui.editor.zoom"] == "fit"
     p2 = EditorPrefs()
-    p2.load({"ui.editor.zoom": "0.5", "ui.editor.snap": "0", "ui.editor.grid_size": "30", "ui.editor.preview_fps": "999"})
+    p2.load(
+        {
+            "ui.editor.zoom": "0.5",
+            "ui.editor.snap": "0",
+            "ui.editor.grid_size": "30",
+            "ui.editor.preview_fps": "999",
+        }
+    )
     assert (p2.zoom, p2.snap, p2.grid_size, p2.fps) == (0.5, False, 30, 60)
     p2.load({"ui.editor.zoom": "3.7", "ui.editor.grid_size": "abc"})  # ungültig: Standardwerte
     assert p2.zoom == FIT and p2.grid_size == 20
@@ -343,10 +384,14 @@ def test_f65_snap_to_overlay_edge_and_center_and_other_source(env):
     drag(view.layer, p0, (p0[0] - 97, p0[1]))  # linke Kante 100 -> 3: rastet am Rand (0) ein
     assert model.source(sid)["x"] == 0
     model.undo()
-    drag(view.layer, p0, (p0[0] + 402, p0[1] + 1))  # linke Kante 502 -> 500: linke Kante der anderen Quelle
+    drag(
+        view.layer, p0, (p0[0] + 402, p0[1] + 1)
+    )  # linke Kante 502 -> 500: linke Kante der anderen Quelle
     assert model.source(sid)["x"] == 500
     model.undo()
-    drag(view.layer, p0, (p0[0] + 355, p0[1] + 1))  # rechte Kante 555 -> 550: Mitte der anderen Quelle
+    drag(
+        view.layer, p0, (p0[0] + 355, p0[1] + 1)
+    )  # rechte Kante 555 -> 550: Mitte der anderen Quelle
     assert model.source(sid)["x"] + 100 == 550
     assert model.selected_id == sid and other != sid
 
@@ -366,12 +411,16 @@ def test_f65_snap_can_be_switched_off(env):
 
 def test_f65_snap_to_grid(env):
     view, model, prefs, *_ = env
-    sid = add(model, 101, 103, 40, 40)  # Kanten, Mitte und Gegenkante liegen gleich weit von einer Rasterlinie
+    sid = add(
+        model, 101, 103, 40, 40
+    )  # Kanten, Mitte und Gegenkante liegen gleich weit von einer Rasterlinie
     model.select_source(sid)
     prefs.set_grid_size(20)
     prefs.set_grid(True)
     p0 = view.transform().to_view(110, 110)
-    drag(view.layer, p0, (p0[0] + 1, p0[1] - 2))  # linke Kante 102, obere 101: je 2 bzw. 1 Pixel neben 100
+    drag(
+        view.layer, p0, (p0[0] + 1, p0[1] - 2)
+    )  # linke Kante 102, obere 101: je 2 bzw. 1 Pixel neben 100
     s = model.source(sid)
     assert (s["x"], s["y"]) == (100, 100)
 
@@ -393,7 +442,9 @@ def test_f65_drag_from_ruler_creates_guide_and_move_snaps_to_it(env):
     assert saved[f"ui.guides.{model.current_id}"]  # pro Overlay gespeichert
     sid = add(model, 100, 100, 100, 100)
     p0 = view.transform().to_view(150, 150)
-    drag(view.layer, p0, (p0[0], p0[1] + 147))  # untere Kante 200 -> 347 liegt nahe 350? Nein: obere Kante 247 -> 250
+    drag(
+        view.layer, p0, (p0[0], p0[1] + 147)
+    )  # untere Kante 200 -> 347 liegt nahe 350? Nein: obere Kante 247 -> 250
     assert model.source(sid)["y"] == 250
 
 
@@ -429,13 +480,19 @@ def test_f13_selection_frame_and_handles_drawn_by_qt_in_accent_color(env):
     t = view.transform()
     left, top = t.to_view(100, 100)
     accent = theme.palette(theme.DARK)["accent"]
-    on_edge = img.pixelColor(round(left), round(top + 25))  # linke Kante, zwischen zwei Griffen (Rahmen 2 Pixel breit)
+    on_edge = img.pixelColor(
+        round(left), round(top + 25)
+    )  # linke Kante, zwischen zwei Griffen (Rahmen 2 Pixel breit)
     assert on_edge.name() == accent
-    handle = img.pixelColor(round(left), round(top + 50))  # Mitte der linken Kante: Griff in der Textfarbe
+    handle = img.pixelColor(
+        round(left), round(top + 50)
+    )  # Mitte der linken Kante: Griff in der Textfarbe
     assert handle.name() == theme.palette(theme.DARK)["text"]
     model.select_source(None)
     app.processEvents()
-    assert layer_image(view).pixelColor(round(left), round(top + 25)).alpha() == 0  # ohne Auswahl: durchsichtig
+    assert (
+        layer_image(view).pixelColor(round(left), round(top + 25)).alpha() == 0
+    )  # ohne Auswahl: durchsichtig
 
 
 def test_f65_layer_is_transparent_everywhere_else(env):
@@ -444,7 +501,10 @@ def test_f65_layer_is_transparent_everywhere_else(env):
     model.select_source(None)
     QApplication.instance().processEvents()
     img = layer_image(view)
-    assert img.pixelColor(5, 5).alpha() == 0 and img.pixelColor(img.width() // 2, img.height() - 3).alpha() == 0
+    assert (
+        img.pixelColor(5, 5).alpha() == 0
+        and img.pixelColor(img.width() // 2, img.height() - 3).alpha() == 0
+    )
 
 
 def test_f13_rulers_follow_zoom(env):

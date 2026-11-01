@@ -69,7 +69,9 @@ async def test_uvicorn_websocket_lines_do_not_contain_token(tmp_path, caplog):
         svc.stop_event.set()
         await asyncio.wait_for(task, 10)
     uv = [r for r in caplog.records if r.name.startswith("uvicorn")]
-    assert any("WebSocket" in r.getMessage() for r in uv), "Test prüft nichts: keine WebSocket-Zeile gesehen"
+    assert any("WebSocket" in r.getMessage() for r in uv), (
+        "Test prüft nichts: keine WebSocket-Zeile gesehen"
+    )
     for r in uv:
         assert o["token"] not in r.getMessage(), r.getMessage()
 

@@ -40,7 +40,9 @@ STATUS_STYLE = {
 # Reihenfolge der Anzeigen: Twitch, YouTube, OBS, NDI
 SERVICES = (("twitch", "Twitch"), ("youtube", "YouTube"), ("obs", "OBS"), ("ndi", "NDI"))
 SERVICE_ICON_SIZE = 20  # Pixel (Kopf ist höher, Platz der Buttons ist fest)
-ICON_SCALE = 2  # Symbole werden doppelt gross vorbereitet, damit sie auch bei hoher Auflösung scharf sind
+ICON_SCALE = (
+    2  # Symbole werden doppelt gross vorbereitet, damit sie auch bei hoher Auflösung scharf sind
+)
 
 
 def connection_icon_dir() -> Path:
@@ -61,7 +63,12 @@ def load_service_pixmap(key: str, directory: Path | None = None) -> QPixmap | No
     if png.is_file():
         pm = QPixmap(str(png))
         if not pm.isNull():
-            return pm.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            return pm.scaled(
+                size,
+                size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
     svg = folder / f"{key}.svg"
     if svg.is_file():
         if not HAS_SVG:
@@ -97,7 +104,10 @@ def find_service_icon(key: str, directory: Path | None = None) -> QIcon | None:
 NOT_CONFIGURED = "nicht eingerichtet"  # Anfang des Hinweises: YouTube im Gerüst (F-55), Twitch ohne Client-ID oder Anmeldung
 BUTTON_GAP = 6
 PROBLEM_SIGN = "?"
-PROBLEM_SIGN_STATES = ("Fehler", "unbekannt")  # nur hier wird ein Zeichen am Button gezeigt (Entscheid des Nutzers)
+PROBLEM_SIGN_STATES = (
+    "Fehler",
+    "unbekannt",
+)  # nur hier wird ein Zeichen am Button gezeigt (Entscheid des Nutzers)
 
 
 class ConnectionIndicator(QWidget):
@@ -108,7 +118,9 @@ class ConnectionIndicator(QWidget):
     steht ausserdem als Text im Tipp und im barrierefreien Namen (Entscheid des Nutzers zu U-04).
     """
 
-    def __init__(self, key: str, title: str, icon: QPixmap | None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, key: str, title: str, icon: QPixmap | None, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.key, self.title = key, title
         self.status = "unbekannt"
@@ -131,7 +143,9 @@ class ConnectionIndicator(QWidget):
             return "ok"
         if self.status == "verbindet":
             return "warn"
-        if self.status == "Fehler" or (self.status == "getrennt" and not self.detail.startswith(NOT_CONFIGURED)):
+        if self.status == "Fehler" or (
+            self.status == "getrennt" and not self.detail.startswith(NOT_CONFIGURED)
+        ):
             return "error"
         return "text_muted"  # nicht eingerichtet oder unbekannt: ausgegraut
 
@@ -150,7 +164,9 @@ class ConnectionIndicator(QWidget):
         self.setAccessibleName(tip)
         if self._icon_source is not None:  # Symbol in der Textfarbe (ausgegraut: Nebentext)
             muted = self.color_name() == "text_muted"
-            self._icon = tint_pixmap(self._icon_source, self._palette["text_muted" if muted else "text"])
+            self._icon = tint_pixmap(
+                self._icon_source, self._palette["text_muted" if muted else "text"]
+            )
         self.update()
 
     def icon_pixmap(self) -> QPixmap | None:
@@ -174,7 +190,9 @@ class ConnectionIndicator(QWidget):
         p.drawRoundedRect(box, 5, 5)
         if self._icon is not None:
             size = SERVICE_ICON_SIZE
-            p.drawPixmap(round((self.width() - size) / 2) - 2, round((self.height() - size) / 2), self._icon)
+            p.drawPixmap(
+                round((self.width() - size) / 2) - 2, round((self.height() - size) / 2), self._icon
+            )
         # Fehler und unbekannter Zustand: kleines Fragezeichen auf einem Punkt oben rechts. Sonst zeigt nur die Farbe.
         if self.status in PROBLEM_SIGN_STATES:
             d = 13
@@ -271,7 +289,8 @@ class PerfField(QWidget):
         """Feste Breite für den längsten möglichen Text (z. B. «↓ 999.9 Mbit/s  ↑ 999.9 Mbit/s»)."""
         title_w = QFontMetrics(self.font()).horizontalAdvance(self.title)
         longest = max(
-            QFontMetrics(self._value_font()).horizontalAdvance(t) for t in (perf.LONGEST[self.key], perf.NO_VALUE)
+            QFontMetrics(self._value_font()).horizontalAdvance(t)
+            for t in (perf.LONGEST[self.key], perf.NO_VALUE)
         )
         self.setFixedWidth(max(self.MIN_WIDTH, 2 * self.PAD + title_w + 2 * self.PAD + longest))
 
@@ -306,7 +325,9 @@ class PerfField(QWidget):
         p.drawText(row, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), self.title)
         p.setFont(self._value_font())
         p.setPen(QColor(pal["text"]))
-        p.drawText(row, int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter), self.value_text)
+        p.drawText(
+            row, int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter), self.value_text
+        )
         # Verlauf: Fläche mit Linie
         g = self.graph_rect()
         p.fillRect(g, QColor(pal["surface"]))
@@ -323,7 +344,13 @@ class PerfField(QWidget):
             ]
             fill = QColor(line)
             fill.setAlpha(70)
-            area = QPolygonF([QPointF(inner.left(), inner.bottom()), *pts, QPointF(inner.right(), inner.bottom())])
+            area = QPolygonF(
+                [
+                    QPointF(inner.left(), inner.bottom()),
+                    *pts,
+                    QPointF(inner.right(), inner.bottom()),
+                ]
+            )
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(fill)
             p.drawPolygon(area)
@@ -408,6 +435,7 @@ def placeholder(text: str, *, muted: bool = True) -> QLabel:
 
 # --- Dock-Titelzeile (wie OBS: fetter Titel, kleine Symbole rechts) --------------------------
 
+
 def make_dock_icon(kind: str, color: str, size: int = 16) -> QIcon:
     """Zeichnet das Symbol «Lösen» oder «Schliessen» in der Textfarbe des Themes."""
     ratio = 2  # scharf auch bei hoher Auflösung
@@ -440,7 +468,9 @@ class DockTitleBar(QWidget):
         super().__init__(dock)
         self._dock = dock
         self.setObjectName("dockTitle")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)  # Hintergrund aus dem Stylesheet
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_StyledBackground, True
+        )  # Hintergrund aus dem Stylesheet
         self.setFixedHeight(theme.DOCK_TITLE_HEIGHT)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 0, 4, 0)
@@ -484,6 +514,7 @@ class DockTitleBar(QWidget):
 
 # --- Vorschaufläche und Leiste darunter (wie OBS) ---------------------------------------------
 
+
 class PreviewArea(QFrame):
     """Dunkle Fläche mit schwarzer Leinwand in der Mitte. Seitenverhältnis wie das Overlay."""
 
@@ -496,8 +527,12 @@ class PreviewArea(QFrame):
         self.canvas = QFrame(self)
         self.canvas.setObjectName("canvas")
         lay = QHBoxLayout(self.canvas)
-        self.editor: QWidget | None = None  # Editor mit Webansicht (P06); ohne Overlay bleibt die leere Leinwand
-        self.canvas_label = placeholder("Vorschaufläche\nLege ein Overlay an, um es hier zu bearbeiten.")
+        self.editor: QWidget | None = (
+            None  # Editor mit Webansicht (P06); ohne Overlay bleibt die leere Leinwand
+        )
+        self.canvas_label = placeholder(
+            "Vorschaufläche\nLege ein Overlay an, um es hier zu bearbeiten."
+        )
         self.canvas_label.setObjectName("canvas_label")
         lay.addWidget(self.canvas_label)
 
@@ -522,5 +557,7 @@ class PreviewArea(QFrame):
 
     def layout_canvas(self) -> None:
         aw, ah = max(1, self.width() - 2 * self.MARGIN), max(1, self.height() - 2 * self.MARGIN)
-        w, h = (aw, round(aw / self.ratio)) if aw / ah < self.ratio else (round(ah * self.ratio), ah)
+        w, h = (
+            (aw, round(aw / self.ratio)) if aw / ah < self.ratio else (round(ah * self.ratio), ah)
+        )
         self.canvas.setGeometry((self.width() - w) // 2, (self.height() - h) // 2, w, h)
