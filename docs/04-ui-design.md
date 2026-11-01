@@ -1,0 +1,80 @@
+# 04 – UI und Design
+
+Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des Hauptfensters.** Farben und Schrift der Programmoberfläche sind Platzhalter, bis ein Theme festgelegt ist.
+
+## 1. Grundsätze
+
+| ID | Regel |
+|---|---|
+| U-01 | Hauptschrift (Standard) aller sichtbaren Overlay-Elemente: Be Vietnam Pro, lokal eingebunden, kein CDN. Andere Schriften sind wählbar (F-38, F-39). |
+| U-02 | Das Programm sieht grundsätzlich aus wie OBS Studio: Menüleiste, andockbare Bereiche (Docks), Vorschaufläche, Statuszeile. Standard-Theme dunkel. [ANNAHME dunkel] |
+| U-06 | In den Einstellungen kann zwischen dunklem und hellem Design gewählt werden (F-06). Beide Themes erfüllen den Kontrast von mindestens 4,5:1. |
+| U-03 | Modulumschalter oben: «Overlays» und «Chat-Bot». |
+| U-04 | Verbindungszustände (Twitch, OBS, NDI) sind immer sichtbar und nie nur durch Farbe unterscheidbar. |
+| U-05 | Begriffe: Overlay = Szene, Quelle = Source. Beschriftungen auf Deutsch (Schweizer Rechtschreibung, kein «ß»). |
+| U-07 | Lage und Grösse von Quellen werden in ganzen Pixeln der Overlay-Auflösung angezeigt und gespeichert (F-65), nicht in Prozent. Die Prozentwerte in den Mockups sind überholt. |
+| U-08 | Das Steuerung-Dock enthält pro Overlay die Wahl der Ausgabeart «Browserquelle» oder «NDI» (F-66). |
+
+## 2. Modul «Overlays» (nach OBS-Vorbild)
+
+| Bereich | Inhalt |
+|---|---|
+| Overlays | Liste der Overlays (wie Szenen): anlegen, kopieren, löschen |
+| Quellen | Liste der Quellen des gewählten Overlays: hinzufügen, Reihenfolge, Sichtbarkeit |
+| Vorschaufläche | Overlay in gewählter Auflösung, Quellen verschieben, skalieren, drehen |
+| Eigenschaften | Werte der gewählten Quelle (Lage, Inhalt, Animation) |
+| Steuerung | URL der Browserquelle kopieren, später NDI starten, Speichern |
+
+## 3. Hauptfenster: Variante A gewählt
+
+Gewählt: **Variante A**. Aufbau: Menüleiste, Modul-Reiter oben (Overlays, Chat-Bot) mit Verbindungsstatus rechts, Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
+
+| Variante | Idee | Stärke | Schwäche |
+|---|---|---|---|
+| A – OBS klassisch | Vorschaufläche oben, vier Docks unten (Overlays, Quellen, Eigenschaften, Steuerung); Modul-Reiter oben | Am nächsten an OBS, vertraut | Docks unten sind schmal, wenig Platz für Eigenschaften |
+| B – Seitenleiste mit Baum | Linke Leiste mit Modulwahl, Baum Overlay → Quellen, Werkzeugleiste über der Fläche, Eigenschaften rechts | Alles sichtbar, viel Platz für Eigenschaften | Weicht stärker von OBS ab |
+| C – Filmstreifen | Overlays als Vorschaukarten oben, Fläche in der Mitte, Quelle-hinzufügen-Leiste, rechts Reiter Quellen/Eigenschaften/Vorlagen | Overlays schnell erkennbar, gut für Vorlagen | Kein Quellenbaum, Platz für viele Overlays begrenzt |
+
+## 4. Modul «Chat-Bot» (nach Streamer.bot-Vorbild)
+
+Gezeigt in Vorschlag D (Gerüst von Variante A, auf B oder C übertragbar).
+
+| Bereich | Inhalt |
+|---|---|
+| Reiter | Actions, Commands, Timer, Queues, Einstellungen |
+| Chat-Dock | Live-Chat mit Eingabefeld und «Senden» |
+| Commands | Tabelle: Name, Befehl, Berechtigung, Cooldown, Aktiv; Knöpfe Neu, Duplizieren, Löschen, Importieren |
+| Command bearbeiten | Name, Befehl, Berechtigung, Cooldown (global, pro Nutzer), Antworttext |
+| Protokoll | Liste der letzten Bot-Ereignisse |
+
+Im Gerüst sind nur die Bereiche Chat und Commands gefüllt. Die übrigen Reiter folgen mit F-46 bis F-51.
+
+## 5. Overlay-Gestaltung
+
+| Element | Vorschlag |
+|---|---|
+| Hintergrund | transparent (Browserquelle) |
+| Textfarbe | hell mit ausreichendem Kontrast auf Videohintergrund |
+| Textstile | Comic, Comic dick, Schlicht, Ohne (aus overlay-game-tool) |
+| Animationen | ruhige CSS-Animationen: Schweben, Atmen, Wiegen, Schreibmaschine, Schreibmaschine mit Löschen, Herzschlag |
+| Schrift | Standard Be Vietnam Pro; pro Textquelle eine andere Schrift wählbar (installierte Schriften und eigene Schriftdateien) |
+| Akzentfarbe, Schriftgrössen | [OFFEN] |
+
+## 6. Barrierefreiheit
+
+- Kontrast der Programmoberfläche mindestens 4,5:1 für normalen Text. [ANNAHME]
+
+## 7. Offene Punkte
+
+1. [OFFEN] Übernahmen aus B oder C in A (z. B. Vorlagen-Reiter aus C, Werkzeugleiste aus B)?
+2. [OFFEN] Farbpalette und Logo («DonsTV»), jeweils für das dunkle und das helle Theme.
+3. [OFFEN] Schriftwahl: Soll es zusätzlich eine globale Standardschrift für alle Overlays geben, die du ändern kannst, oder nur die Wahl pro Textquelle?
+4. [OFFEN] Tastenkürzel.
+5. [OFFEN] Die Docks unten in A sind schmal: Sollen sie in der Grösse veränderbar und verschiebbar sein (wie in OBS)?
+
+## Quellen
+
+- Schriftvorgabe: eigene Angabe des Nutzers.
+- Textstile und Animationen: Repo https://github.com/donsimm/overlay-game-tool (`app/modules.py`).
+- Aufbau Chat-Bot: https://docs.streamer.bot/guide/actions und https://streamer.bot/features
+- Kontrastwert 4,5:1: WCAG 2.x, Erfolgskriterium 1.4.3 (https://www.w3.org/TR/WCAG21/#contrast-minimum).
