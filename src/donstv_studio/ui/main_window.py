@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QTabBar,
@@ -37,6 +38,7 @@ from donstv_studio import __version__
 from donstv_studio.ui import geometry as geo
 from donstv_studio.ui import theme
 from donstv_studio.ui.backend import DirectRunner, TaskRunner
+from donstv_studio.ui.bot_page import BotModel, BotSettingsTab, ChatPanel, CommandsTab, LogPanel
 from donstv_studio.ui.editor_docks import ControlDock, OverlaysDock, PropertiesDock, SourcesDock
 from donstv_studio.ui.editor_model import EditorModel
 from donstv_studio.ui.editor_prefs import EditorPrefs
@@ -54,7 +56,8 @@ from donstv_studio.ui.widgets import (
 log = logging.getLogger(__name__)
 
 # Version 2: Die Anordnung aus P05 (Dock «Overlays» links) wird beim Laden verworfen.
-STATE_VERSION = 2
+# Version 3 (P07): Docks «Chat» und «Protokoll» des Chat-Bots; ältere Anordnungen kennen sie nicht und werden verworfen.
+STATE_VERSION = 3
 MODULE_OVERLAYS, MODULE_BOT = 0, 1
 MODULES = ("Overlays", "Chat-Bot")
 BOT_TABS = ("Actions", "Commands", "Timer", "Queues", "Einstellungen")
@@ -67,6 +70,9 @@ DOCKS = (
     ("dock_properties", "Eigenschaften"),
     ("dock_control", "Steuerung"),
 )
+# Docks des Moduls «Chat-Bot» (P07): (Objektname, Titel)
+BOT_DOCKS = (("dock_chat", "Chat"), ("dock_bot_log", "Protokoll"))
+BOT_CHAT_WIDTH = 360
 KEY_THEME, KEY_GEOMETRY, KEY_STATE = "ui.theme", "ui.geometry", "ui.dock_state"
 
 
@@ -93,6 +99,15 @@ def _decode(text: str) -> QByteArray | None:
         return QByteArray(base64.b64decode(text[len(LAYOUT_TAG):].encode("ascii"), validate=True))
     except (binascii.Error, ValueError, UnicodeEncodeError):
         return None
+
+
+def _scroll(widget: QWidget) -> QScrollArea:
+    """Inhalt mit Bildlauf: Die Reiter des Chat-Bots dürfen die Mindesthöhe des Fensters nicht vergrössern."""
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
+    area.setWidget(widget)
+    return area
 
 
 class SettingsDialog(QDialog):
@@ -133,6 +148,7 @@ class MainWindow(QMainWindow):
         self.runner = getattr(core, "runner", None) or (TaskRunner(self) if backend is not None else DirectRunner(self))
         self.prefs = EditorPrefs(getattr(core, "save_setting", None), self)
         self.model = EditorModel(backend, self.runner, getattr(core, "save_setting", None), self)
+        self.bot = BotModel(getattr(core, "bot_backend", None) or backend, self.runner, self)
         self._layout_saved_at_exit = False
 
         self.setWindowTitle("donstv_Studio")
@@ -160,7 +176,11 @@ class MainWindow(QMainWindow):
         core.statuses_loaded.connect(self._on_statuses)
         core.settings_loaded.connect(self.apply_settings)
         core.connected.connect(self.model.load)  # nach jedem (Wieder-)Verbinden den Stand der Overlays holen
+        core.connected.connect(self.bot.load)
+        if hasattr(core, "event_received"):
+            core.event_received.connect(self.bot.on_event)
         self.model.error.connect(lambda msg: self.statusBar().showMessage(msg, 8000))
+        self.bot.error.connect(lambda msg: self.statusBar().showMessage(msg, 8000))
         self.banner.hide()
         self._set_core_status("verbindet", "Kern-Dienst: verbindet …")
 
@@ -253,8 +273,14 @@ class MainWindow(QMainWindow):
 
         self.bot_tabs = QTabWidget()
         self.bot_tabs.setObjectName("bot_tabs")
+        self.commands_tab = CommandsTab(self.bot)
+        self.bot_settings_tab = BotSettingsTab(self.bot)
+        filled = {"Commands": _scroll(self.commands_tab), "Einstellungen": _scroll(self.bot_settings_tab)}
         for name in BOT_TABS:
-            self.bot_tabs.addTab(placeholder(f"{name}\nInhalt folgt mit dem Chat-Bot-Baustein."), name)
+            # Actions, Timer und Queues folgen mit F-46 bis F-51.
+            page = filled.get(name) or placeholder(f"{name}\nFolgt in einem späteren Baustein (F-46 bis F-51).")
+            self.bot_tabs.addTab(page, name)
+        self.bot_tabs.setCurrentWidget(filled["Commands"])  # Actions ist im Gerüst leer
         self.stack.addWidget(self.bot_tabs)
         outer.addWidget(self.stack, 1)
         self.setCentralWidget(central)
@@ -282,6 +308,41 @@ class MainWindow(QMainWindow):
             dock.setMinimumHeight(theme.DOCK_TITLE_HEIGHT + 60)
             self.docks.append(dock)
             self.dock_titles.append(titlebar)
+
+        # Docks des Chat-Bots: nur im Modul «Chat-Bot» sichtbar; nicht schliessbar, damit sie nicht verloren gehen
+        self.chat_panel = ChatPanel(self.bot)
+        self.log_panel = LogPanel(self.bot)
+        self.bot_docks: list[QDockWidget] = []
+        self._bot_docks_sized = False
+        self.bot_dock_titles: list[DockTitleBar] = []
+        for (name, title), panel in zip(BOT_DOCKS, (self.chat_panel, self.log_panel), strict=True):
+            dock = QDockWidget(title, self)
+            dock.setObjectName(name)
+            dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+            titlebar = DockTitleBar(dock)
+            titlebar.close_button.hide()
+            dock.setTitleBarWidget(titlebar)
+            dock.setWidget(panel)
+            self.bot_docks.append(dock)
+            self.bot_dock_titles.append(titlebar)
+        self.arrange_bot_docks()
+
+    def arrange_bot_docks(self) -> None:
+        """Chat rechts, Protokoll unten (wie Streamer.bot); ausserhalb des Moduls «Chat-Bot» ausgeblendet."""
+        chat, log_dock = self.bot_docks
+        for dock in self.bot_docks:
+            dock.setFloating(False)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, chat)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, log_dock)
+        visible = self._module == MODULE_BOT
+        for dock in self.bot_docks:
+            dock.setVisible(visible)
+        if visible:
+            self._size_bot_docks()
+
+    def _size_bot_docks(self) -> None:
+        self.resizeDocks([self.bot_docks[0]], [BOT_CHAT_WIDTH], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.bot_docks[1]], [DOCK_HEIGHT], Qt.Orientation.Vertical)
 
     def arrange_docks(self) -> None:
         """Standardanordnung (Variante A): vier Docks nebeneinander unten, wie bei OBS."""
@@ -427,14 +488,21 @@ class MainWindow(QMainWindow):
         if self.tabbar.currentIndex() != index:
             self.tabbar.setCurrentIndex(index)
         in_overlays = index == MODULE_OVERLAYS
-        # Die Docks gehören zum Modul «Overlays».
+        # Die vier Docks gehören zum Modul «Overlays», «Chat» und «Protokoll» zum Modul «Chat-Bot».
         self.docks_menu.setEnabled(in_overlays)
         if in_overlays:
+            for dock in self.bot_docks:
+                dock.hide()
             if self._overlay_dock_state is not None:
                 self.restoreState(self._overlay_dock_state, STATE_VERSION)
         else:
             for dock in self.docks:
                 dock.hide()
+            for dock in self.bot_docks:
+                dock.show()
+            if not self._bot_docks_sized:  # beim ersten Zeigen: Breite des Chats, Höhe wie die Docks unten
+                self._bot_docks_sized = True
+                self._size_bot_docks()
 
     @property
     def module(self) -> int:
@@ -445,6 +513,7 @@ class MainWindow(QMainWindow):
             self.arrange_docks()
         else:
             self._overlay_dock_state = self._default_state
+            self.arrange_bot_docks()
 
     # --- Theme ---------------------------------------------------------
     def set_theme(self, name: str, save: bool = True) -> None:
@@ -463,7 +532,7 @@ class MainWindow(QMainWindow):
         self.connections.apply_theme(self.theme)
         self.perf.apply_theme(self.theme)
         self._update_minimum_width()
-        for bar in self.dock_titles:
+        for bar in self.dock_titles + self.bot_dock_titles:
             bar.apply_theme(self.theme)
         for panel in self.panels:
             panel.apply_theme(self.theme)

@@ -78,7 +78,9 @@ def test_f01_window_structure(make):
         "Datei", "Bearbeiten", "Ansicht", "Docks", "Werkzeuge", "Hilfe",
     ]  # fmt: skip
     titles = [d.windowTitle() for d in w.findChildren(QDockWidget)]
-    assert sorted(titles) == ["Eigenschaften", "Overlays", "Quellen", "Steuerung"]
+    # vier Docks des Moduls «Overlays», dazu «Chat» und «Protokoll» des Moduls «Chat-Bot» (P07, nur dort sichtbar)
+    assert sorted(titles) == ["Chat", "Eigenschaften", "Overlays", "Protokoll", "Quellen", "Steuerung"]
+    assert all(d.isHidden() for d in w.bot_docks)
     assert w.statusBar() is not None and w.preview.isVisible()
     assert w.menuWidget().isAncestorOf(w.menu_bar)
     assert w.centralWidget() is not None

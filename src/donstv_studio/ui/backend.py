@@ -72,6 +72,43 @@ class CoreBackend:
     def reorder_sources(self, overlay_id: str, order: list[str]) -> dict:
         return self._call("PUT", f"/overlays/{overlay_id}/sources/order", {"order": order})
 
+    # --- Chat-Bot (P07) -------------------------------------------------
+    def bot_commands(self) -> list[dict]:
+        return self._call("GET", "/bot/commands") or []
+
+    def bot_create_command(self, **fields: Any) -> dict:
+        return self._call("POST", "/bot/commands", fields)
+
+    def bot_update_command(self, command_id: str, **fields: Any) -> dict:
+        return self._call("PATCH", f"/bot/commands/{command_id}", fields)
+
+    def bot_duplicate_command(self, command_id: str) -> dict:
+        return self._call("POST", f"/bot/commands/{command_id}/duplicate", {})
+
+    def bot_delete_command(self, command_id: str) -> None:
+        self._call("DELETE", f"/bot/commands/{command_id}")
+
+    def bot_log(self) -> list[dict]:
+        return self._call("GET", "/bot/log") or []
+
+    def bot_chat_recent(self) -> list[dict]:
+        return self._call("GET", "/bot/chat/recent") or []
+
+    def bot_send(self, text: str) -> dict:
+        return self._call("POST", "/bot/chat/send", {"text": text})
+
+    def bot_settings(self) -> dict:
+        return self._call("GET", "/bot/settings") or {}
+
+    def bot_save_settings(self, **fields: str) -> dict:
+        return self._call("PUT", "/bot/settings", fields)
+
+    def bot_login(self) -> dict:
+        return self._call("POST", "/bot/auth/bot/start", {})
+
+    def bot_logout(self) -> dict:
+        return self._call("DELETE", "/bot/auth/bot")
+
     def upload_media(self, path: str) -> dict:
         """Lädt eine Bilddatei in die Bibliothek des Kerns (F-16). Der Kern prüft Art und Grösse."""
         file = Path(path)

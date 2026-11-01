@@ -53,7 +53,8 @@ def test_f10_backend_errors_are_user_messages_without_token(core, tmp_path):
     svc, b, paths = core
     with pytest.raises(BackendError) as e:
         b.update_overlay("gibtsnicht", name="x")
-    assert "404" in str(e.value) and svc.svc.token not in str(e.value)
+    # Seit P07 kommt die Meldung des Kerns («… gibt es nicht») statt nur «Fehler 404» bei der Oberfläche an.
+    assert "gibt es nicht" in str(e.value) and svc.svc.token not in str(e.value)
     bad = tmp_path / "x.txt"
     bad.write_text("kein Bild")
     with pytest.raises(BackendError) as e2:

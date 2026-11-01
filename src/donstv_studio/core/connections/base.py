@@ -28,8 +28,8 @@ class Connection:
         return self._status
 
     async def set_status(self, status: Status, detail: str | None = None) -> None:
-        """Setzt den Status und veröffentlicht `connection.status` (nur bei Änderung)."""
-        if status == self._status:
+        """Setzt den Status und veröffentlicht `connection.status` (nur bei Änderung von Status oder Hinweis)."""
+        if status == self._status and detail == self.detail:
             return
         self._status = status
         self.detail = detail

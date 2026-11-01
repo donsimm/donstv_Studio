@@ -9,8 +9,8 @@ from pathlib import Path
 
 # Schwärzt «token=…», «password: …», «Bearer …» usw.
 _REDACT = re.compile(
-    r"(?i)((?:access_|refresh_|api_)?token|passwort|password|secret|authorization|bearer)"
-    r"(\s*[=:]\s*|\s+)([^\s&'\",;]+)"
+    r"(?i)((?:access_|refresh_|api_|device_)?token|device_code|passwort|password|secret|authorization|bearer|oauth)"
+    r"(\"?\s*[=:]\s*\"?|\s+)((?:(?:bearer|oauth)\s+)?[^\s&'\",;]+)"
 )
 
 
@@ -18,9 +18,14 @@ _REDACT = re.compile(
 _REDACT_QUERY_T = re.compile(r"([?&]t=)[^\s&'\"]+")
 
 
+def redact(text: str) -> str:
+    """Schwärzt Tokens und Passwörter in einem Text (gleiche Regeln wie im Protokoll)."""
+    return _REDACT_QUERY_T.sub(r"\1***", _REDACT.sub(r"\1\2***", text))
+
+
 class RedactFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = _REDACT_QUERY_T.sub(r"\1***", _REDACT.sub(r"\1\2***", record.getMessage()))
+        record.msg = redact(record.getMessage())
         record.args = None
         return True
 

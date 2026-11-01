@@ -60,6 +60,20 @@ Status: Entwurf 2. Entschieden vom Nutzer: Oberfläche mit Qt 6 und QtWebEngine;
 - Beim Verbinden und nach jedem Wiederverbinden die aktive Szene abfragen. Wiederverbinden mit wachsender Wartezeit.
 - Das Ereignis `obs.scene.changed` geht auf den Ereignis-Bus; Overlays und Bot lesen es dort.
 
+## 5a. Twitch-Anbindung und Chat-Bot (P07, F-40 bis F-45)
+
+| Teil | Umsetzung | Datei |
+|---|---|---|
+| Anmeldung | Device Code Grant Flow, Anwendung vom Typ «Public» (kein Client-Secret). Tokens je Rolle über `secrets.py` (`twitch.bot.access_token`, `twitch.bot.refresh_token`). Erneuerung automatisch bei 401 und kurz vor Ablauf; Prüfung (`/oauth2/validate`) beim Verbinden und stündlich. | `core/connections/twitch_auth.py` |
+| Chat empfangen | EventSub über WebSocket (`wss://eventsub.wss.twitch.tv/ws`), Abo `channel.chat.message` v1 mit dem Benutzer-Token des Bot-Kontos (Scope `user:read:chat`). Keepalive-Überwachung, `session_reconnect`, Wiederverbinden mit wachsender Wartezeit (1 s bis 60 s). | `core/connections/twitch.py` |
+| Chat senden | Helix `POST /helix/chat/messages` (Scope `user:write:chat`). | `core/connections/twitch.py` |
+| Ereignis | `twitch.chat.message`: `message_id`, `user_id`, `user_login`, `display_name`, `text`, `badges`, `roles`, `ts`, `channel`, `color`, `from_bot`. Bus-Kennung `twitch.chat:<message_id>`: doppelte Nachrichten verwirft der Bus. | `core/connections/twitch.py` |
+| Commands | Tabelle `bot_commands` (Migration 5), Ausführung über `ActionExecutor.run(action, context)` (Vorbereitung F-47/F-57). Schleifenschutz: Nachrichten des Bot-Kontos lösen nichts aus. | `bot/commands.py`, `bot/engine.py`, `bot/executor.py` |
+| Protokoll | Tabelle `bot_log` (Migration 5, letzte 5000 Einträge), Ereignis `bot.log` über `/ws/events`. Texte geschwärzt. | `bot/log.py` |
+| Testverbindung | `FakeTwitch`, im Kern mit `DONSTV_TWITCH_FAKE=1`. | `core/connections/fake_twitch.py` |
+
+Quellen und Prüfstand: `docs/berichte/P07.md`, Abschnitt «Quellen». Die Seiten von dev.twitch.tv waren in der Sitzung von P07 nicht abrufbar; die Angaben sind dort als «nicht geprüft» gekennzeichnet.
+
 ## 6. Ausgabe pro Overlay (F-66, F-36)
 
 | Ausgabeart | Wer zeichnet | Wo | Stand |
@@ -106,4 +120,5 @@ Warum Qt beim Wiederherstellen abstürzt, ist nicht geklärt; der Zusammenhang m
 - NDI-Dokumentation: https://docs.ndi.video/all/developing-with-ndi/sdk/performance-and-implementation und https://docs.ndi.video/docs/white-paper/bandwidth/ndi-high-bandwidth-based-on-speedhq7-8bit-4-2-2-4
 - Python-Version auf dem Laptop (3.13.5): Datei `hardware-report.txt`.
 - Twitch EventSub per WebSocket: https://dev.twitch.tv/docs/eventsub/handling-websocket-events/
+- Twitch Chat und Anmeldung (P07): https://dev.twitch.tv/docs/chat/, https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#device-code-grant-flow, https://dev.twitch.tv/docs/api/reference/#send-chat-message (nicht geprüft, siehe `docs/berichte/P07.md`)
 - Entscheide: Nachrichten des Nutzers in dieser Sitzung.

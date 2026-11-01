@@ -5,15 +5,24 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import signal
 
 import uvicorn
 
 from donstv_studio import __version__
+from donstv_studio.bot.api import create_router as create_bot_router
+from donstv_studio.bot.commands import CommandRepository
+from donstv_studio.bot.engine import CommandEngine
+from donstv_studio.bot.executor import ActionExecutor
+from donstv_studio.bot.log import BotLog
 from donstv_studio.core.api import create_app, create_token_file
 from donstv_studio.core.bus import EventBus
 from donstv_studio.core.config import Config, Paths
+from donstv_studio.core.connections.fake_twitch import FakeTwitch
 from donstv_studio.core.connections.manager import ConnectionManager
+from donstv_studio.core.connections.twitch import TwitchConnection
+from donstv_studio.core.connections.twitch_auth import TokenStore, UrllibHttp
 from donstv_studio.core.connections.youtube import YouTubeConnection
 from donstv_studio.core.logging_setup import redact_uvicorn_loggers
 from donstv_studio.core.secrets import SecretStore, open_secret_store
@@ -29,6 +38,11 @@ log = logging.getLogger(__name__)
 BACKUP_CHECK_SECONDS = 3600
 SHUTDOWN_TIMEOUT = 5  # Sekunden
 LOCAL_HOST = "127.0.0.1"  # in diesem Baustein nie im Heimnetz erreichbar
+FAKE_TWITCH_ENV = "DONSTV_TWITCH_FAKE"  # «1»: Testverbindung statt Twitch (ohne Netz, ohne Client-ID)
+
+
+def use_fake_twitch() -> bool:
+    return os.environ.get(FAKE_TWITCH_ENV, "").strip() in ("1", "true", "ja")
 
 
 class Service:
@@ -93,10 +107,24 @@ class Service:
         )
         overlay_host = config.overlay_host
         self.manager.register(YouTubeConnection(self.bus))  # Platzhalter, immer «getrennt»
+        # Chat-Bot (P07): genau eine Twitch-Verbindung (F-08); Commands, Protokoll und Oberfläche lesen vom Bus.
+        fake = use_fake_twitch()
+        if fake:
+            log.warning("Twitch: Testverbindung aktiv (%s=1), keine echte Verbindung", FAKE_TWITCH_ENV)
+            self.twitch = FakeTwitch(self.bus)
+        else:
+            self.twitch = TwitchConnection(self.bus, config.get, TokenStore(self.secrets), UrllibHttp())
+        self.manager.register(self.twitch)
+        self.bot_log = BotLog(self.store, self.bus)
+        self.commands = CommandRepository(self.store)
+        self.executor = ActionExecutor(lambda: self.twitch, self.bot_log)
+        self.engine = CommandEngine(self.bus, self.commands, self.executor, self.bot_log, lambda: self.twitch)
+        bot_router = create_bot_router(self.commands, self.engine, self.bot_log, self.twitch, config, fake)
         self.media = MediaLibrary(self.store, self.paths.media_dir)
         self.overlays = OverlayService(OverlayRepository(self.store), self.bus, self.media.exists)
         app = create_app(
-            self.token, self.bus, self.manager, config, self.overlays, self.media, UrlBuilder(config)
+            self.token, self.bus, self.manager, config, self.overlays, self.media, UrlBuilder(config),
+            bot_router,
         )
         overlay_app = create_overlay_app(self.overlays, self.media, self.bus)
         server = self._make_server(app, LOCAL_HOST, port)  # Kern-Schnittstelle: nur lokal

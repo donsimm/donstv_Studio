@@ -80,8 +80,12 @@ def test_core_not_running_reports_unreachable_then_connects_when_it_starts(app, 
         try:
             assert wait_until(app, lambda: rec.connected == 1)
             assert rec.settings == [{}]
-            # YouTube ist als Platzhalter-Verbindung immer da: «getrennt, nicht eingerichtet»
-            assert rec.statuses == [{"youtube": {"status": "getrennt", "detail": "nicht eingerichtet"}}]
+            # YouTube ist als Platzhalter-Verbindung immer da: «getrennt, nicht eingerichtet».
+            # Twitch (P07) ohne Client-ID ebenfalls «getrennt, nicht eingerichtet».
+            assert wait_until(app, lambda: len(rec.statuses) == 1)
+            assert rec.statuses[0]["youtube"] == {"status": "getrennt", "detail": "nicht eingerichtet"}
+            assert rec.statuses[0]["twitch"]["status"] == "getrennt"
+            assert rec.statuses[0]["twitch"]["detail"].startswith("nicht eingerichtet")
             # Statusereignis vom Kern erreicht die Oberfläche
             conn = Connection("obs", core.svc.bus)
             core.svc.manager.register(conn)
@@ -135,15 +139,15 @@ def test_window_with_real_core_shows_status_and_saves_layout(app, paths):
     link = make_link(paths, core.port)
     w = MainWindow(link)
     try:
-        conn = Connection("twitch", core.svc.bus)
+        conn = Connection("obs", core.svc.bus)
         core.svc.manager.register(conn)
         core.run(conn.set_status, Status.CONNECTING)
         link.start()
         w.show()
         assert wait_until(app, lambda: "verbunden" in w.core_status.text())
-        assert wait_until(app, lambda: "verbindet" in w.connections.text_of("twitch"))
+        assert wait_until(app, lambda: "verbindet" in w.connections.text_of("obs"))
         core.run(conn.set_status, Status.CONNECTED)
-        assert wait_until(app, lambda: "verbunden" in w.connections.text_of("twitch"))
+        assert wait_until(app, lambda: "verbunden" in w.connections.text_of("obs"))
         assert wait_until(app, lambda: w._settings_loaded)
         w.set_theme("light")
         w.docks[0].hide()
@@ -184,3 +188,35 @@ def test_core_stops_promptly_while_the_ui_is_connected(app, paths):
         assert wait_until(app, lambda: rec.unreachable)  # die Oberfläche bemerkt es und versucht es neu
     finally:
         link.stop()
+
+
+def test_f41_f45_bot_events_and_api_through_real_core(app, paths, monkeypatch):
+    """Kern mit Testverbindung (DONSTV_TWITCH_FAKE=1): Ereignisse kommen als JSON-Text an (Regel 12)."""
+    import json
+
+    monkeypatch.setenv("DONSTV_TWITCH_FAKE", "1")
+    core = RunningService(paths, free_port(), free_port()).start()
+    link = make_link(paths, core.port)
+    got: list[tuple[str, str]] = []
+    link.event_received.connect(lambda kind, text: got.append((kind, text)))
+    rec = Recorder(link)
+    try:
+        link.start()
+        assert wait_until(app, lambda: rec.connected == 1)
+        b = link.backend
+        b.bot_create_command(name="Test", trigger="!test", response="Hallo {user}")
+        core.run(core.svc.twitch.inject, "Anna", "!test")
+        assert wait_until(app, lambda: any(k == "bot.log" for k, _ in got))
+        # Reihenfolge wie im Chat: erst die auslösende Nachricht, dann die Antwort
+        assert wait_until(app, lambda: [json.loads(t)["text"] for k, t in got if k == "twitch.chat.message"]
+                          == ["!test", "Hallo Anna"])  # fmt: skip
+        assert all(isinstance(t, str) for _, t in got)
+        assert [m["text"] for m in b.bot_chat_recent()] == ["!test", "Hallo Anna"]
+        assert b.bot_settings()["fake"] is True
+        with pytest.raises(Exception, match="gibt es schon"):  # Meldung des Kerns erreicht die Oberfläche
+            b.bot_create_command(name="Nochmal", trigger="!test")
+        assert rec.statuses[0]["twitch"] == {"status": "verbunden",
+                                             "detail": "donstvbot im Kanal donstv2020 (Testverbindung)"}  # fmt: skip
+    finally:
+        link.stop()
+        core.stop()
