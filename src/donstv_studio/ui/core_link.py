@@ -24,6 +24,7 @@ from donstv_studio.core.config import DEFAULT_API_PORT, Paths
 log = logging.getLogger(__name__)
 
 HTTP_TIMEOUT = 3.0
+FORWARDED_EVENTS = ("twitch.chat.message", "bot.log", "twitch.auth")  # an die Oberfläche (Chat-Bot)
 
 
 class CoreUnavailableError(Exception):
@@ -63,10 +64,19 @@ def http_request(
     except urllib.error.HTTPError as e:
         if e.code == 401:
             raise CoreUnavailableError("Der Kern-Dienst lehnt das Token ab (401)") from e
-        raise CoreUnavailableError(f"Der Kern-Dienst antwortet mit Fehler {e.code}") from e
+        detail = _detail(e) if e.code in (400, 404, 409) else None  # Meldung des Kerns für Nutzer (z. B. P07)
+        raise CoreUnavailableError(detail or f"Der Kern-Dienst antwortet mit Fehler {e.code}") from e
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         raise CoreUnavailableError("Der Kern-Dienst antwortet nicht") from e
     return json.loads(raw) if raw else None
+
+
+def _detail(e: urllib.error.HTTPError) -> str | None:
+    try:
+        detail = json.loads(e.read()).get("detail")
+    except (ValueError, OSError, AttributeError):
+        return None
+    return detail if isinstance(detail, str) and detail else None
 
 
 def describe(error: BaseException) -> str:
@@ -81,6 +91,8 @@ class CoreLink(QObject):
     status_changed = pyqtSignal(str, str, str)  # Dienst, Status, Hinweis
     statuses_loaded = pyqtSignal(dict)
     settings_loaded = pyqtSignal(dict)
+    # Chat-Bot (P07): Art und Nutzlast als JSON-Text (Regel 12: nur einfache Typen in Signalen über Threads)
+    event_received = pyqtSignal(str, str)
 
     def __init__(
         self,
@@ -200,7 +212,10 @@ class CoreLink(QObject):
                     event = json.loads(raw)
                 except ValueError:
                     continue
-                if event.get("type") == "connection.status":
+                kind = event.get("type")
+                if kind in FORWARDED_EVENTS:
+                    self.event_received.emit(str(kind), json.dumps(event.get("payload", {}), ensure_ascii=False))
+                if kind == "connection.status":
                     p = event.get("payload", {})
                     if "name" in p and "status" in p:
                         self.status_changed.emit(str(p["name"]), str(p["status"]), str(p.get("detail", "")))

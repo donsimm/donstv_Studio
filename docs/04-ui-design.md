@@ -73,6 +73,18 @@ Gezeigt in Vorschlag D (Gerüst von Variante A, auf B oder C übertragbar).
 
 Im Gerüst sind nur die Bereiche Chat und Commands gefüllt. Die übrigen Reiter folgen mit F-46 bis F-51.
 
+Umsetzung P07:
+
+| Bereich | Inhalt |
+|---|---|
+| Reiter «Commands» | Links Tabelle (Name, Befehl, Berechtigung, Cooldown «global / pro Nutzer», Aktiv mit Haken), darunter «Neu», «Duplizieren», «Löschen» und «Importieren» (gesperrt, Hinweis «Importieren folgt»). Rechts «Command bearbeiten»: Name, Befehl, Berechtigung (Alle, Abonnenten, Moderatoren, Streamer), Cooldown global und pro Nutzer in Sekunden, Antworttext mit Zeichenzähler (höchstens 500, `{user}` = Anzeigename), «Aktiv», «Speichern». Ein neuer oder duplizierter Command ist inaktiv. |
+| Reiter «Einstellungen» | «Twitch-Anwendung»: Client-ID, Kanal, «Speichern». «Bot-Konto»: Zustand, «Anmelden» (zeigt Adresse und Code, «Adresse öffnen», «Code kopieren»), «Abmelden». |
+| Dock «Chat» | Rechts, nur im Modul «Chat-Bot». Zeit, Zeichen für Streamer (★) und Moderator (⚔), Name, Text; letzte 500 Nachrichten. Eingabefeld «Nachricht an den Chat» und «Senden» (auch Eingabetaste). |
+| Dock «Protokoll» | Unten, nur im Modul «Chat-Bot». Zeit, Art (Command, Cooldown, Berechtigung, Verbindung, Sendefehler, Anmeldung), Meldung; letzte 500 Einträge. |
+| Verbindung «Twitch» | Tipp mit Konto und Kanal, z. B. «Twitch: verbunden (donstvbot im Kanal donstv2020)». Grau bei «nicht eingerichtet: Client-ID fehlt» oder «… Bot-Konto nicht angemeldet». |
+
+Die Docks «Chat» und «Protokoll» lassen sich verschieben und lösen, aber nicht schliessen. Die Layout-Version (`STATE_VERSION`) ist dafür auf 3 gestiegen; eine gespeicherte Dock-Anordnung aus P06 wird einmal verworfen.
+
 ## 5. Overlay-Gestaltung
 
 | Element | Vorschlag |

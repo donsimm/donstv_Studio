@@ -49,6 +49,7 @@ def create_app(
     overlays: OverlayService | None = None,
     media: MediaLibrary | None = None,
     urls: UrlBuilder | None = None,
+    bot_router=None,
 ) -> FastAPI:
     app = FastAPI(title="donstv-core", docs_url=None, redoc_url=None, openapi_url=None)
     def valid(candidate: str | None) -> bool:
@@ -62,6 +63,9 @@ def create_app(
 
     if overlays is not None:
         app.include_router(create_overlay_router(overlays, urls, media), dependencies=[Depends(require_token)])
+
+    if bot_router is not None:  # Chat-Bot (P07)
+        app.include_router(bot_router, dependencies=[Depends(require_token)])
 
     @app.get("/health", dependencies=[Depends(require_token)])
     async def health() -> dict[str, str]:

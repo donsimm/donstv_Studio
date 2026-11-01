@@ -69,6 +69,32 @@ MIGRATIONS: list[tuple[int, str]] = [
         WHERE kind = 'text' AND json_extract(props, '$.style') = 'comic_thick'
         """,
     ),
+    (
+        # F-43, F-44: Commands des Chat-Bots. Cooldowns in ganzen Sekunden.
+        # F-45: Protokoll der Bot-Aktivität (die ältesten Einträge werden gelöscht, siehe bot/log.py).
+        5,
+        """
+        CREATE TABLE bot_commands (
+            id TEXT PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            trigger TEXT NOT NULL,
+            permission TEXT NOT NULL
+                CHECK (permission IN ('everyone', 'subscriber', 'moderator', 'broadcaster')),
+            cooldown_global INTEGER NOT NULL CHECK (cooldown_global >= 0),
+            cooldown_user INTEGER NOT NULL CHECK (cooldown_user >= 0),
+            response TEXT NOT NULL,
+            enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+            position INTEGER NOT NULL
+        );
+        CREATE TABLE bot_log (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts REAL NOT NULL,
+            kind TEXT NOT NULL,
+            message TEXT NOT NULL,
+            data TEXT NOT NULL
+        )
+        """,
+    ),
 ]
 
 BACKUP_PREFIX = "donstv-"

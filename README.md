@@ -119,6 +119,33 @@ Das Skript meldet zuerst den Programmstand (Commit) und startet dann jede Widget
 
 Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.
 
+## Chat-Bot (P07)
+
+Modul «Chat-Bot»: Reiter «Commands» und «Einstellungen», Docks «Chat» und «Protokoll». Der Kern hält genau eine Twitch-Verbindung (EventSub über WebSocket zum Lesen, Helix-API zum Senden) mit dem Bot-Konto `donstvbot` im Kanal `donstv2020`. Einrichtung bei Twitch und Anmeldung: `docs/berichte/P07.md`, Abschnitt «Anleitung: Twitch einrichten».
+
+| Einstellung | Standard | Bedeutung |
+|---|---|---|
+| `twitch.client_id` | leer | Client-ID der Twitch-Anwendung (kein Geheimnis), eingetragen unter «Chat-Bot → Einstellungen» |
+| `twitch.channel` | `donstv2020` | Kanal, in dem der Bot liest und schreibt |
+
+Die Tokens liegen nur im Schlüsselbund (oder in der Ersatzdatei `secrets.json`, Rechte 600), nie in Einstellungen, Export oder Protokoll.
+
+### Testverbindung ohne Twitch
+
+```bash
+DONSTV_TWITCH_FAKE=1 donstv-core
+```
+
+Dann zeigt «Twitch» grün «Testverbindung». Testnachrichten wie aus dem Chat (in einem weiteren Terminal):
+
+```bash
+python tools/fake_chat.py "!test"
+```
+
+```bash
+python tools/fake_chat.py --user Anna --badge moderator "!regeln"
+```
+
 ## Arbeitsweise mit Claude Code
 
 Der Nutzer startet jeden Auftrag in Claude Code mit demselben Satz (Repository `donsimm/donstv_Studio` als Quelle wählen):

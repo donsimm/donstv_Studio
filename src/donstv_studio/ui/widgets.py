@@ -94,7 +94,7 @@ def find_service_icon(key: str, directory: Path | None = None) -> QIcon | None:
     return QIcon(pm) if pm is not None else None
 
 
-NOT_CONFIGURED = "nicht eingerichtet"  # Hinweis des Kern-Dienstes (YouTube im Gerüst, F-55)
+NOT_CONFIGURED = "nicht eingerichtet"  # Anfang des Hinweises: YouTube im Gerüst (F-55), Twitch ohne Client-ID oder Anmeldung
 BUTTON_GAP = 6
 PROBLEM_SIGN = "?"
 PROBLEM_SIGN_STATES = ("Fehler", "unbekannt")  # nur hier wird ein Zeichen am Button gezeigt (Entscheid des Nutzers)
@@ -131,7 +131,7 @@ class ConnectionIndicator(QWidget):
             return "ok"
         if self.status == "verbindet":
             return "warn"
-        if self.status == "Fehler" or (self.status == "getrennt" and self.detail != NOT_CONFIGURED):
+        if self.status == "Fehler" or (self.status == "getrennt" and not self.detail.startswith(NOT_CONFIGURED)):
             return "error"
         return "text_muted"  # nicht eingerichtet oder unbekannt: ausgegraut
 
