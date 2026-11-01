@@ -24,6 +24,12 @@ Sieh dir beide Bilder an (Datei lesen, sie sind Bilder):
 - YouTube hat im Gerüst keine echte Verbindung (F-55 ist KANN). Es soll eine Verbindung mit dem Namen `youtube` im Verbindungs-Verwalter von P02 vorhanden sein, die immer «getrennt» meldet und im Tipp-Text «nicht eingerichtet» sagt. Das sorgt dafür, dass später dieselbe Anzeige echte Zustände zeigt. Nicht mehr bauen.
 - `docs/01-funktionen.md` (F-04) und `docs/04-ui-design.md` (U-04, Hauptfenster) auf «Twitch, YouTube, OBS, NDI» ändern.
 
+- **Dienst-Symbole:** Vor jeder Verbindungsanzeige steht das Symbol des Dienstes (Twitch, YouTube, OBS, NDI). Die Dateien legt der Nutzer ab (offizielle Logos der Anbieter, nicht von dir gezeichnet) unter `assets/icons/connections/` als `twitch.svg`, `youtube.svg`, `obs.svg`, `ndi.svg` (SVG bevorzugt, sonst PNG mit Transparenz, mindestens 64 px). Du zeichnest, erfindest oder lädst **keine** Logos selbst.
+  - Ist eine Datei vorhanden, zeigt die Anzeige das Symbol in einer festen Grösse (z. B. 16 px) vor dem Text. Der Zustand bleibt als eigenes Zeichen (✔ ○ ↻ ✖) **und** als Text sichtbar, nie nur über das Dienst-Symbol oder Farbe (U-04).
+  - Fehlt eine Datei, zeigt die Anzeige nur Text und Zustandszeichen, ohne Fehler. Die Breite der Anzeige darf sich dadurch nicht ändern, wenn Symbole später dazukommen (feste Mindestbreite, siehe oben).
+  - Test: mit und ohne Symboldatei (selbst erzeugte Test-SVG im Testordner, kein Logo) bleiben Lage und Breite der Anzeigen gleich, und es gibt keinen Fehler.
+  - Lege `assets/icons/connections/README.md` an: nennt die vier Dateinamen, die erwarteten Formate und den Hinweis, dass die Nutzungsregeln der Anbieter gelten. Zu NDI gehört der Hinweis «NDI® is a registered trademark of Vizrt NDI AB» in der Hilfe (Menü «Hilfe → Über»), sobald das NDI-Symbol verwendet wird.
+
 ### 3. Standardanordnung der Docks
 Im Bild steht «Overlays» links über die volle Höhe. Variante A verlangt etwas anderes: **unten vier Docks nebeneinander** (Overlays, Quellen, Eigenschaften, Steuerung), darüber die Vorschaufläche, wie bei OBS. Die Standardanordnung («Docks → Standardanordnung») und der erste Start ohne gespeicherte Werte müssen das zeigen. Der Nutzer darf die Docks weiterhin verschieben.
 
