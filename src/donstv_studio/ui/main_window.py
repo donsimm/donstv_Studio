@@ -40,7 +40,6 @@ from donstv_studio.ui.widgets import (
     DockTitleBar,
     PerfBar,
     PreviewArea,
-    PreviewBar,
     find_service_icon,
     placeholder,
 )
@@ -220,9 +219,7 @@ class MainWindow(QMainWindow):
         page.setContentsMargins(0, 0, 0, 0)
         page.setSpacing(theme.DOCK_GAP)
         self.preview = PreviewArea()
-        self.preview_bar = PreviewBar()
         page.addWidget(self.preview, 1)
-        page.addWidget(self.preview_bar)
         self.stack.addWidget(overlays_page)
 
         self.bot_tabs = QTabWidget()

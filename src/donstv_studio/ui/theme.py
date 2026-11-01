@@ -24,11 +24,10 @@ MIN_GRAPH_CONTRAST = 3.0  # Grafik (Linie der Verläufe) gegen die Fläche: WCAG
 FONT_PT = 10
 
 # Masse in Pixeln, gemessen im OBS-Bild (1920×1080): Dock-Titel 26, Listenzeile 26, Lücke zwischen
-# den Docks 4, Leiste unter der Vorschau 44, Statuszeile 29.
+# den Docks 4, Statuszeile 29.
 DOCK_TITLE_HEIGHT = 26
 LIST_ROW_HEIGHT = 26
 DOCK_GAP = 4
-PREVIEW_BAR_HEIGHT = 44
 STATUS_BAR_HEIGHT = 29
 
 # Fensterkopf (F-68): kräftiger als in P05b (dort etwa 30 px). Höhe des Kopfes inklusive unterer Linie;
@@ -185,8 +184,6 @@ QTabWidget::pane {{ border: 1px solid {c["border"]}; background-color: {c["surfa
 QFrame#preview {{ background-color: {c["preview_bg"]}; border: none; }}
 QFrame#canvas {{ background-color: {c["canvas"]}; border: none; }}
 QFrame#canvas QLabel {{ background-color: {c["canvas"]}; color: {c["canvas_text"]}; }}
-QFrame#previewbar {{ background-color: {c["surface"]}; border: none; }}
-QFrame#previewbar QLabel {{ background-color: {c["surface"]}; }}
 QFrame#banner {{ background-color: {c["surface"]}; border: 2px solid {c["warn"]}; }}
 QFrame#banner QLabel {{ background-color: {c["surface"]}; color: {c["text"]}; }}
 

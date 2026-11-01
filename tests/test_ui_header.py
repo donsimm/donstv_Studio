@@ -12,7 +12,7 @@ pytest.importorskip(
 
 from PyQt6.QtCore import QObject, QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFontMetrics
-from PyQt6.QtWidgets import QApplication, QDockWidget, QListWidget, QMessageBox
+from PyQt6.QtWidgets import QApplication, QDockWidget, QLabel, QListWidget, QMessageBox, QPushButton
 
 from donstv_studio.ui import perf, theme, widgets
 from donstv_studio.ui.main_window import STATE_VERSION, MainWindow
@@ -345,15 +345,23 @@ def test_f04_button_color_follows_the_state_and_state_is_also_a_sign_and_text(ma
     assert ind.grab().toImage().pixelColor(ind.width() // 2, 1).name() == pal["text_muted"]
 
 
-def test_f04_dot_sign_is_drawn_on_the_button(make):
+def test_f04_question_mark_only_for_error_and_unknown_at_the_top_right(make):
     w = make()
     ind = w.connections.indicators["obs"]
-    ind.set_state("verbunden")
-    a = ind.grab().toImage()
+    shown = {}
+    for status in STATES:
+        ind.set_state(status)
+        img = ind.grab().toImage()
+        # Punkt oben rechts in der Farbe des Zustands, im Mittelpunkt des Punktes ist ein Zeichen (anders als der Punkt)
+        dot_edge = img.pixelColor(ind.width() - 8, 4).name()
+        shown[status] = dot_edge == theme.palette(theme.DARK)[ind.color_name()]
+    assert shown["Fehler"] and shown["unbekannt"]
+    for status in ("verbunden", "verbindet", "getrennt"):
+        assert not shown[status], status
+    # unten rechts erscheint nichts mehr
     ind.set_state("Fehler")
-    b = ind.grab().toImage()
-    dot = (ind.width() - 9, ind.height() - 9)
-    assert a.pixelColor(*dot) != b.pixelColor(*dot)
+    img = ind.grab().toImage()
+    assert img.pixelColor(ind.width() - 8, ind.height() - 8).name() != theme.palette(theme.DARK)["error"]
 
 
 def test_f04_header_has_a_subtle_frame_all_around(make, app):
@@ -652,15 +660,15 @@ def test_obs_style_preview_has_black_canvas_with_border(make, app):
     assert abs(cv.width() / cv.height() - 16 / 9) < 0.02 and cv.width() <= pv.width() - 2 * pv.MARGIN
 
 
-def test_obs_style_preview_bar_placeholder_with_disabled_buttons(make):
+def test_no_bar_below_the_preview(make):
     w = make()
-    bar = w.preview_bar
-    assert bar.label.text() == "Keine Quelle ausgewählt"
-    assert [bar.properties.text(), bar.filters.text()] == ["Eigenschaften", "Filter"]
-    assert not bar.properties.isEnabled() and not bar.filters.isEnabled()
-    assert bar.height() == theme.PREVIEW_BAR_HEIGHT
-    # Leiste liegt direkt unter der Vorschau, vor den Docks
-    assert w.preview.geometry().bottom() < bar.mapTo(w, QPoint(0, 0)).y() < w.docks[0].mapTo(w, QPoint(0, 0)).y()
+    assert not hasattr(w, "preview_bar")
+    texts = [b.text() for b in w.findChildren(QPushButton)]
+    assert "Eigenschaften" not in texts and "Filter" not in texts
+    assert all(lbl.text() != "Keine Quelle ausgewählt" for lbl in w.findChildren(QLabel))
+    # die Vorschau grenzt (bis auf die Lücke) direkt an die Docks
+    gap = w.docks[0].mapTo(w, QPoint(0, 0)).y() - (w.preview.mapTo(w, QPoint(0, 0)).y() + w.preview.height())
+    assert 0 <= gap <= 2 * theme.DOCK_GAP
 
 
 def test_obs_style_status_bar_has_core_status_on_the_right(make):

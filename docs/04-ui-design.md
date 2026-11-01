@@ -10,7 +10,7 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 | U-02 | Das Programm sieht grundsätzlich aus wie OBS Studio: Menüleiste, andockbare Bereiche (Docks), Vorschaufläche, Statuszeile. Standard-Theme dunkel. [ANNAHME dunkel] |
 | U-06 | In den Einstellungen kann zwischen dunklem und hellem Design gewählt werden (F-06). Beide Themes erfüllen den Kontrast von mindestens 4,5:1. |
 | U-03 | Modulumschalter oben: «Overlays» und «Chat-Bot». |
-| U-04 | Verbindungszustände (Twitch, YouTube, OBS, NDI) sind immer sichtbar und nie nur durch Farbe unterscheidbar. Sie stehen mit den Modul-Reitern in einem festen Fensterkopf über der ganzen Fensterbreite und über allen Docks; kein Dock und keine Fenstergrösse verschiebt ihn. Jede Anzeige hat eine feste Breite. |
+| U-04 | Verbindungszustände (Twitch, YouTube, OBS, NDI) sind immer sichtbar. Zustand durch Farbe des Buttons; Ausnahme von «nie nur durch Farbe» auf Wunsch des Nutzers (siehe Leistungsanzeige-Abschnitt): Zeichen «?» nur bei Fehler und unbekannt. Sie stehen mit den Modul-Reitern in einem festen Fensterkopf über der ganzen Fensterbreite und über allen Docks; kein Dock und keine Fenstergrösse verschiebt ihn. Jede Anzeige hat eine feste Breite. |
 | U-05 | Begriffe: Overlay = Szene, Quelle = Source. Beschriftungen auf Deutsch (Schweizer Rechtschreibung, kein «ß»). |
 | U-07 | Lage und Grösse von Quellen werden in ganzen Pixeln der Overlay-Auflösung angezeigt und gespeichert (F-65), nicht in Prozent. Die Prozentwerte in den Mockups sind überholt. |
 | U-08 | Das Steuerung-Dock enthält pro Overlay die Wahl der Ausgabeart «Browserquelle» oder «NDI» (F-66). |
@@ -27,7 +27,7 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 
 ## 3. Hauptfenster: Variante A gewählt
 
-Gewählt: **Variante A**. Aufbau: Menüleiste, fester, dezent umrahmter Fensterkopf (56 px hoch) mit Modul-Reitern (Overlays, Chat-Bot) links, rechts den Verbindungs-Buttons (Twitch, YouTube, OBS, NDI) und ganz rechts der Leistungsanzeige (CPU, RAM, LAN, siehe unten), Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
+Gewählt: **Variante A**. Aufbau: Menüleiste, fester, dezent umrahmter Fensterkopf (56 px hoch) mit Modul-Reitern (Overlays, Chat-Bot) links, rechts den Verbindungs-Buttons (Twitch, YouTube, OBS, NDI) und ganz rechts der Leistungsanzeige (CPU, RAM, LAN, siehe unten), Vorschaufläche in der Mitte (ohne Leiste darunter, auf Wunsch des Nutzers entfallen), unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
 
 | Variante | Idee | Stärke | Schwäche |
 |---|---|---|---|
@@ -37,7 +37,7 @@ Gewählt: **Variante A**. Aufbau: Menüleiste, fester, dezent umrahmter Fensterk
 
 ### Leistungsanzeige im Fensterkopf (F-68)
 
-Drei Felder zwischen Reitern und Verbindungsanzeigen, jedes mit Beschriftung links, Wert rechts (immer als Text, U-04) und einem Verlauf der letzten 60 Sekunden (28 px hoch, Fläche mit Linie). Quelle des Aufbaus: `docs/referenz/vorbild-leistungsanzeige.png` (übernommen sind Aufbau und Inhalt, nicht Farben und Schrift).
+Drei Felder ganz rechts im Kopf, rechts der Verbindungs-Buttons, jedes mit Beschriftung links, Wert rechts (immer als Text, U-04) und einem Verlauf der letzten 60 Sekunden (28 px hoch, Fläche mit Linie). Quelle des Aufbaus: `docs/referenz/vorbild-leistungsanzeige.png` (übernommen sind Aufbau und Inhalt, nicht Farben und Schrift).
 
 | Feld | Wert | Quelle |
 |---|---|---|
@@ -47,7 +47,7 @@ Drei Felder zwischen Reitern und Verbindungsanzeigen, jedes mit Beschriftung lin
 
 Jedes Feld hat eine feste Breite für den längsten Text; der Kopf hat eine Mindestbreite, bei der alles nebeneinander Platz hat. Linienfarben je Feld im Theme (`perf_cpu`, `perf_ram`, `perf_lan`), Kontrast zur Fläche mindestens 3:1. Fehlt eine Datei, steht «–». Ein Zeitgeber, 1 Messung pro Sekunde, nicht bei minimiertem Fenster.
 
-Die Verbindungen sind Buttons mit dem Dienst-Symbol (einfarbig, in der Textfarbe des Themes, PNG vor SVG; 20 px). Farbe des Buttons: grün = verbunden, rot = getrennt oder Fehler, orange = verbindet, grau (ausgegraut) = nicht eingerichtet oder unbekannt. Nach U-04 steht der Zustand zusätzlich als Zeichen (✔ ○ ↻ ✖ ?) auf einem Punkt am Button und als Text im Tipp. Die Buttons haben noch keine Klick-Funktion.
+Die Verbindungen sind Buttons mit dem Dienst-Symbol (einfarbig, in der Textfarbe des Themes, PNG vor SVG; 20 px). Farbe des Buttons: grün = verbunden, rot = getrennt oder Fehler, orange = verbindet, grau (ausgegraut) = nicht eingerichtet oder unbekannt. Nur bei Fehler und unbekanntem Zustand erscheint oben rechts am Button ein kleines «?»; sonst zeigt allein die Farbe den Zustand, dazu der Text im Tipp. Das ist ein Entscheid des Nutzers und weicht von U-04 («nie nur durch Farbe») ab. Die Buttons haben noch keine Klick-Funktion.
 
 ## 4. Modul «Chat-Bot» (nach Streamer.bot-Vorbild)
 

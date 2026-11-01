@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSizePolicy,
     QToolButton,
     QWidget,
@@ -97,14 +96,16 @@ def find_service_icon(key: str, directory: Path | None = None) -> QIcon | None:
 
 NOT_CONFIGURED = "nicht eingerichtet"  # Hinweis des Kern-Dienstes (YouTube im Gerüst, F-55)
 BUTTON_GAP = 6
+PROBLEM_SIGN = "?"
+PROBLEM_SIGN_STATES = ("Fehler", "unbekannt")  # nur hier wird ein Zeichen am Button gezeigt (Entscheid des Nutzers)
 
 
 class ConnectionIndicator(QWidget):
     """Eine Verbindungsanzeige als Button mit Dienst-Symbol (F-04). Feste Grösse.
 
     Farbe: grün verbunden, rot getrennt oder Fehler, orange verbindet, grau (ausgegraut) nicht eingerichtet
-    oder unbekannt. U-04: Der Zustand steht zusätzlich als Zeichen (✔ ○ ↻ ✖ ?) auf einem Punkt am Button
-    und als Text im Tipp und im barrierefreien Namen, nie nur als Farbe.
+    oder unbekannt. Nur bei Fehler und unbekanntem Zustand erscheint oben rechts ein «?». Der Zustand
+    steht ausserdem als Text im Tipp und im barrierefreien Namen (Entscheid des Nutzers zu U-04).
     """
 
     def __init__(self, key: str, title: str, icon: QPixmap | None, parent: QWidget | None = None) -> None:
@@ -174,18 +175,19 @@ class ConnectionIndicator(QWidget):
         if self._icon is not None:
             size = SERVICE_ICON_SIZE
             p.drawPixmap(round((self.width() - size) / 2) - 2, round((self.height() - size) / 2), self._icon)
-        # Zustandspunkt unten rechts mit Zeichen
-        d = 13
-        dot = QRectF(self.width() - d - 2, self.height() - d - 2, d, d)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(state)
-        p.drawEllipse(dot)
-        font = QFont(self.font())
-        font.setBold(True)
-        font.setPointSizeF(7)
-        p.setFont(font)
-        p.setPen(QColor(pal["bg"]))
-        p.drawText(dot, int(Qt.AlignmentFlag.AlignCenter), STATUS_STYLE[self.status][0])
+        # Fehler und unbekannter Zustand: kleines Fragezeichen auf einem Punkt oben rechts. Sonst zeigt nur die Farbe.
+        if self.status in PROBLEM_SIGN_STATES:
+            d = 13
+            dot = QRectF(self.width() - d - 2, 2, d, d)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(state)
+            p.drawEllipse(dot)
+            font = QFont(self.font())
+            font.setBold(True)
+            font.setPointSizeF(7)
+            p.setFont(font)
+            p.setPen(QColor(pal["bg"]))
+            p.drawText(dot, int(Qt.AlignmentFlag.AlignCenter), PROBLEM_SIGN)
         p.end()
 
 
@@ -506,27 +508,3 @@ class PreviewArea(QFrame):
         aw, ah = max(1, self.width() - 2 * self.MARGIN), max(1, self.height() - 2 * self.MARGIN)
         w, h = (aw, round(aw / self.ratio)) if aw / ah < self.ratio else (round(ah * self.ratio), ah)
         self.canvas.setGeometry((self.width() - w) // 2, (self.height() - h) // 2, w, h)
-
-
-class PreviewBar(QFrame):
-    """«Keine Quelle ausgewählt | Eigenschaften | Filter» unter der Vorschau; Funktion folgt in P06."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("previewbar")
-        self.setFixedHeight(theme.PREVIEW_BAR_HEIGHT)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(6, 0, 6, 0)
-        lay.setSpacing(8)
-        self.label = QLabel("Keine Quelle ausgewählt")
-        self.label.setObjectName("previewbar_label")
-        self.properties = QPushButton("Eigenschaften")
-        self.filters = QPushButton("Filter")
-        for b in (self.properties, self.filters):
-            b.setEnabled(False)  # gesperrt, bis P06 die Quellen bearbeitbar macht
-        self.properties.setObjectName("previewbar_properties")
-        self.filters.setObjectName("previewbar_filters")
-        lay.addWidget(self.label)
-        lay.addWidget(self.properties)
-        lay.addWidget(self.filters)
-        lay.addStretch(1)
