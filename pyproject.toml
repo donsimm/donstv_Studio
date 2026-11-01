@@ -8,11 +8,10 @@ version = "0.1.0"
 description = "donstv_Studio – Overlays und Chat-Bot für den Studio-Betrieb"
 readme = "README.md"
 requires-python = ">=3.12"
-# Laufzeitpakete werden erst in späteren Bausteinen eingetragen.
-dependencies = []
+dependencies = ["fastapi", "uvicorn", "websockets", "keyring"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "ruff"]
+dev = ["pytest", "pytest-asyncio", "ruff", "httpx"]
 
 [project.scripts]
 donstv-core = "donstv_studio.core.main:main"

@@ -1,0 +1,17 @@
+# Vorlage für `systemd --user`.
+# Installation:
+#   cp packaging/donstv-core.service ~/.config/systemd/user/
+#   (Pfad bei ExecStart anpassen, z. B. auf die virtuelle Umgebung)
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now donstv-core.service
+[Unit]
+Description=donstv_Studio Kern-Dienst
+
+[Service]
+Type=simple
+ExecStart=%h/donstv_Studio/.venv/bin/donstv-core
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

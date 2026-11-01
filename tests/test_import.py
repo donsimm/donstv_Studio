@@ -18,7 +18,7 @@ def test_subpackages_importable(sub):
 
 @pytest.mark.parametrize(
     ("module", "name"),
-    [("donstv_studio.core.main", "donstv-core"), ("donstv_studio.ui.main", "donstv-studio")],
+    [("donstv_studio.ui.main", "donstv-studio")],
 )
 def test_entrypoints_print_start_message(module, name, capsys):
     assert importlib.import_module(module).main() == 0

@@ -41,3 +41,7 @@ ruff check
 donstv-core
 donstv-studio
 ```
+
+## Kern-Dienst (P02)
+
+`donstv-core` lauscht nur auf `127.0.0.1` (Port 8765, Einstellung `api.port`). Der Zugriff braucht das Token aus `~/.config/donstv_studio/api-token` (Header `Authorization: Bearer <Token>`). Eine Vorlage für `systemd --user` liegt unter `packaging/donstv-core.service`.
