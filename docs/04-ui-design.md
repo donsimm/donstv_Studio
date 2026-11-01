@@ -1,6 +1,6 @@
 # 04 – UI und Design
 
-Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des Hauptfensters.** Farben und Schrift der Programmoberfläche sind Platzhalter, bis ein Theme festgelegt ist.
+Status: Entwurf 4, mit dem Code abgeglichen in P08 (1. November 2026). **Entscheid: Variante A (OBS klassisch) ist die Grundlage des Hauptfensters.** Farben und Schrift der Programmoberfläche sind Platzhalter, bis ein Theme festgelegt ist.
 
 ## 1. Grundsätze
 
@@ -22,8 +22,8 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 | Overlays | Liste der Overlays (wie Szenen): anlegen, kopieren, löschen |
 | Quellen | Liste der Quellen des gewählten Overlays: hinzufügen, Reihenfolge, Sichtbarkeit |
 | Vorschaufläche | Overlay in gewählter Auflösung, Quellen verschieben, skalieren, drehen |
-| Eigenschaften | Werte der gewählten Quelle (Lage, Inhalt, Animation) |
-| Steuerung | URL der Browserquelle kopieren, später NDI starten, Speichern |
+| Eigenschaften | Werte der gewählten Quelle (Lage, Inhalt, Animation). Umgesetzt (P06): nur Lage, Grösse, Drehung; Inhalt folgt mit F-70, Animation mit F-20. |
+| Steuerung | URL der Browserquelle kopieren, später NDI starten, Speichern. Umgesetzt (P06): kein «Speichern»; jede Änderung geht sofort an den Kern-Dienst (Abgleich P08). |
 
 ## 3. Hauptfenster: Variante A gewählt
 
@@ -71,7 +71,7 @@ Gezeigt in Vorschlag D (Gerüst von Variante A, auf B oder C übertragbar).
 | Command bearbeiten | Name, Befehl, Berechtigung, Cooldown (global, pro Nutzer), Antworttext |
 | Protokoll | Liste der letzten Bot-Ereignisse |
 
-Im Gerüst sind nur die Bereiche Chat und Commands gefüllt. Die übrigen Reiter folgen mit F-46 bis F-51.
+Im Gerüst sind nur die Bereiche Chat und Commands gefüllt (dazu «Einstellungen»). Die Reiter Actions, Timer und Queues sind vorhanden und zeigen «Folgt in einem späteren Baustein (F-46 bis F-51)».
 
 Umsetzung P07:
 
@@ -106,7 +106,7 @@ Die Docks «Chat» und «Protokoll» lassen sich verschieben und lösen, aber ni
 2. [OFFEN] Farbpalette und Logo («DonsTV»), jeweils für das dunkle und das helle Theme.
 3. [OFFEN] Schriftwahl: Soll es zusätzlich eine globale Standardschrift für alle Overlays geben, die du ändern kannst, oder nur die Wahl pro Textquelle?
 4. [OFFEN] Tastenkürzel.
-5. [OFFEN] Die Docks unten in A sind schmal: Sollen sie in der Grösse veränderbar und verschiebbar sein (wie in OBS)?
+5. [OFFEN] Die Docks unten in A sind schmal: Sollen sie in der Grösse veränderbar und verschiebbar sein (wie in OBS)? Stand des Codes (P08): Die Docks des Moduls «Overlays» lassen sich verschieben, lösen, schliessen und in der Grösse ändern (Qt-Docks); «Docks → Standardanordnung» stellt sie zurück.
 
 ## Quellen
 

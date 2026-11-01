@@ -12,9 +12,22 @@ Status: Entwurf 2. Gilt für das **Gerüst (Version 0.1)**. Die Prompts liegen u
 | P04 | `P04-overlay-server.md` | Overlay-Seite, Browserquelle-URL, Live-Aktualisierung, Quellen Text und Bild, Schrift | F-15, F-16, F-17, F-18, F-19, F-38 |
 | P05 | `P05-oberflaeche.md` | Hauptfenster (Variante A), Modulumschalter, Docks, Statusleiste, Theme dunkel/hell | F-01, F-02, F-04, F-06 |
 | P06 | `P06-editor-vorschau.md` | Vorschau mit QtWebEngine, Rahmen und Griffe, Eigenschaften, pixelgenau | F-13, F-14, F-65 |
-| P07 | `P07-chatbot-geruest.md` | Twitch-Anmeldung, Chat ansehen und senden, Commands, Protokoll | F-40 bis F-45 |
+| P07 | `P07-chatbot-geruest.md` | Twitch-Anmeldung, Chat ansehen und senden, Commands, Protokoll | F-40 bis F-45 (Bericht `docs/berichte/P07.md`) |
 
-Danach (nicht Teil des Gerüsts, einzeln beauftragen): OBS-Anbindung mit Szenenwechsel (F-07, F-64), Machbarkeitstests T-01 bis T-04 aus `03-hardware-netzwerk.md`, NDI (F-36), Streamer.bot-Import (F-52), Animationen und weitere Quellen.
+Nachträge und Korrekturen (in der Reihenfolge der Ausführung, Stand P08):
+
+| Nr. | Prompt-Datei | Inhalt | Funktionen |
+|---|---|---|---|
+| P04b | `P04b-textstile.md` | Textstile aus overlay-game-tool unverändert übernommen | F-15 |
+| P04c | keine (nur Commit `0544d68`) | Grundregel der Textquelle (Gewicht 800, Zeilenhöhe 1.15, zentriert), Be Vietnam Pro ExtraBold lokal | F-15, F-19 (F-67 als SOLL eingetragen) |
+| P05b | `P05b-fensterkopf-und-stil.md` | Fester Fensterkopf, YouTube-Status, Dienst-Symbole, Standardanordnung, Stil nach OBS | F-01, F-02, F-04, F-06 |
+| P05c | `P05c-leistungsanzeige.md` | Leistungsanzeige (CPU, RAM, LAN) im Fensterkopf, Symbole in Textfarbe, PNG vor SVG | F-68, F-04 |
+| P06c | `P06c-laptop-befunde.md` | Befunde vom Laptop: PNG-Testsymbole, sichtbare Fehler im Unterprozess-Test, Freigabe-Reihenfolge von QtWebEngine | F-01, F-04, F-65 (Bericht `docs/berichte/P06c.md`) |
+| P08 | `P08-aufraeumen.md` | Aufräumen ohne Verhaltensänderung: Signale nach Regel 12, toter und doppelter Code, `ruff format`, Dokumente gegen Code, Testdauer | – (Bericht `docs/berichte/P08.md`) |
+
+Berichte zu P01 bis P06 wurden nur im Chat geliefert; ab P06c liegen sie unter `docs/berichte/`.
+
+Danach (nicht Teil des Gerüsts, einzeln beauftragen): OBS-Anbindung (nächster Baustein nach P08) mit Szenenwechsel (F-07, F-64), Machbarkeitstests T-01 bis T-04 aus `03-hardware-netzwerk.md`, NDI (F-36), Streamer.bot-Import (F-52), Animationen und weitere Quellen.
 
 ## 2. Abhängigkeiten
 
