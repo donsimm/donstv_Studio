@@ -25,3 +25,4 @@ donstv_Studio ist eine Desktop-Anwendung im Stil von OBS Studio mit den Modulen 
 9. Wenn eine Angabe fehlt oder falsch scheint: nicht raten. Als `[OFFEN]` in den Abschlussbericht schreiben.
 10. Externe Aussagen (API-Verhalten, Protokolle) gegen die aktuelle Dokumentation prüfen und die Quelle (URL) im Code-Kommentar oder in `docs/` nennen.
 11. Der Abschlussbericht jedes Bausteins nennt: geänderte Dateien, ausgeführte Tests mit Ergebnis, nicht erledigte Punkte, getroffene Annahmen.
+12. Signale tragen nur Qt-eigene oder einfache Typen (Zahlen, Text, Listen, Wörterbücher als JSON-Text), keine eigenen Python-Objekte, besonders nicht über Threads hinweg. Gespeicherte Qt-Zustände (Geometrie, Dock-Anordnung) werden nur mit passender Versionsmarke wiederhergestellt. UI-Tests müssen auch auf dem Laptop mit den Debian-Paketen laufen (dort Qt 6.8.2 mit PyQt6 6.9.0); der Nutzer führt sie dort aus. Grund: `docs/02-architektur.md`, Abschnitt «Befund Debian 13».

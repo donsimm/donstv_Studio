@@ -82,6 +82,15 @@ Beide Arten nutzen dieselbe Overlay-Seite. Ob ein Overlay beides gleichzeitig au
 | Pakete | Soweit möglich aus Debian (Sicherheitsupdates), sonst `pip` in einer virtuellen Umgebung | [ANNAHME], Verfügbarkeit von PyQt6/QtWebEngine in Debian 13 vor Baubeginn prüfen |
 | Tests | pytest; Machbarkeitstests T-01 bis T-04 | [ANNAHME] |
 
+### Befund Debian 13: Absturz der Oberfläche (Qt 6.8.2 mit PyQt6 6.9.0)
+
+Auf dem Studio-Laptop (Debian 13) stürzte die Oberfläche mit «Speicherzugriffsfehler» ab. `dpkg -l` zeigt dort die Qt-Bibliotheken in Version 6.8.2 (`libqt6core6t64`, `libqt6widgets6`, `libqt6webengine*`), die Python-Pakete (`python3-pyqt6`, `python3-pyqt6.qtwebengine`) aber in Version 6.9.0. Die Aufrufliste (`gdb`) endete in `QLayout::activate` und der Python-Anbindung `QtWidgets.abi3.so`. Die Ursachen, soweit belegt:
+
+1. **Python-Objekte in Signalen des `TaskRunner`** (`pyqtSignal(object, …)`, Aufruf aus einem Hintergrundthread). Ersetzt durch eine Warteschlange und ein Signal ohne Daten. Behoben in Commit `9555c6c`. Ob dies allein den Absturz auslöste, ist nicht belegt; er trat nach dieser Änderung weiter auf, bis die zweite Ursache beseitigt war.
+2. **Gespeicherter Layout-Zustand ohne Versionsmarke** (`ui.geometry`, `ui.dock_state` aus früheren Versionen). Das Wiederherstellen (`restoreGeometry`, `restoreState`) stürzte ab, sobald der Kern verbunden war. Beleg: Löschen dieser beiden Werte beseitigte den Absturz. Behoben in Commit `9475a43`: Werte tragen die Marke `v3:`, Werte ohne Marke werden nicht wiederhergestellt.
+
+Warum Qt beim Wiederherstellen abstürzt, ist nicht geklärt; der Zusammenhang mit der Versionsmischung ist eine Vermutung. Unsere Testumgebungen (Qt 6.9.2 mit PyQt6 6.9.0 und Qt 6.12.0 mit PyQt6 6.12.0, Python 3.13) zeigten beide Ursachen nicht, weil dort Qt und PyQt zusammenpassen. Diagnose: `tools/diagnose_qt.py` (siehe README). Quellen: Commits `9555c6c` und `9475a43` in diesem Repository; Ausgabe von `dpkg -l` und `gdb` des Nutzers vom 1. November 2026.
+
 ## 8. Offene Punkte
 
 1. [ENTSCHIEDEN] Getrennter Kern-Dienst und Oberfläche.

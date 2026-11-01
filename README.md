@@ -105,6 +105,16 @@ Die Vorschau lädt dieselbe Overlay-Seite wie OBS in einer `QWebEngineView`. Qt 
 - QtWebEngine ist Teil des Extras `ui` (`PyQt6-WebEngine>=6.9.0`). Tests mit QtWebEngine werden mit Begründung übersprungen, wenn es sich nicht starten lässt (`pytest -rs`). Als root startet Chromium nur ohne Sandbox; `tests/conftest.py` und `donstv-studio` setzen dafür `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox`, wenn die Benutzerkennung 0 ist. Unter Debian/Ubuntu ohne Desktop brauchen die Tests Systembibliotheken wie `libegl1`, `libnss3` und `libxkbcommon-x11-0`.
 - Die Adresse mit Token wird nirgends protokolliert. Meldungen der Seite werden geschwärzt.
 
+### Diagnose bei Absturz
+
+Stürzt `donstv-studio` mit «Speicherzugriffsfehler» ab, hilft `tools/diagnose_qt.py`. Aufruf im Projektordner mit aktivierter Umgebung:
+
+```bash
+python tools/diagnose_qt.py
+```
+
+Das Skript meldet zuerst den Programmstand (Commit) und startet dann jede Widget-Klasse des Editors, das Hauptfenster mit und ohne Kern-Verbindung und mehrere Varianten mit jeweils einem abgeschalteten Teil einzeln in einem eigenen Prozess (ca. 1 Sekunde sichtbar). Jede Zeile heisst `OK` (mit Qt- und PyQt-Version) oder `ABSTURZ` (mit Rückgabecode, -11 = Speicherzugriffsfehler). Die Fälle `MainWindow_CoreLink_gestartet` und `CL:…` stürzen nur bei laufendem Kern ab, wenn die Ursache mit der Verbindung zusammenhängt; für ein aussagekräftiges Ergebnis das Skript einmal mit und einmal ohne laufenden `donstv-core` ausführen. Man braucht es, wenn die Oberfläche beim Start oder kurz danach abstürzt. Zusätzlich liefert `gdb -batch -ex run -ex bt --args python -c "from donstv_studio.ui.main import main; main()"` den Absturzort in Qt. Hintergrund und bisherige Ursachen: `docs/02-architektur.md`, «Befund Debian 13».
+
 ### Fensterkopf und Dienst-Symbole (P05b)
 
 Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.
