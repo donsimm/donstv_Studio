@@ -176,10 +176,6 @@ class Store:
                 (key, value),
             )
 
-    def delete_setting(self, key: str) -> None:
-        with self._lock:
-            self._db.execute("DELETE FROM settings WHERE key = ?", (key,))
-
     def all_settings(self) -> dict[str, str]:
         with self._lock:
             return dict(self._db.execute("SELECT key, value FROM settings ORDER BY key"))

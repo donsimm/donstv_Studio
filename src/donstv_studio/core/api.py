@@ -13,12 +13,13 @@ import secrets
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from donstv_studio.core.bus import Event, EventBus
 from donstv_studio.core.config import Config, ConfigError
 from donstv_studio.core.connections.manager import ConnectionManager
+from donstv_studio.core.ws_session import run_until_closed
 from donstv_studio.overlays.api import create_router as create_overlay_router
 from donstv_studio.overlays.media import MediaLibrary
 from donstv_studio.overlays.service import OverlayService
@@ -133,21 +134,6 @@ def create_app(
                 event = await queue.get()
                 await ws.send_json(event.to_dict())
 
-        async def receiver() -> None:
-            # Nur um das Schliessen (auch beim Beenden des Dienstes) zu bemerken; sonst bliebe
-            # der Handler in queue.get() hängen und uvicorn würde auf ihn warten.
-            while True:
-                await ws.receive_text()
-
-        tasks = [asyncio.create_task(sender()), asyncio.create_task(receiver())]
-        try:
-            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            sub.cancel()
-            for t in tasks:
-                t.cancel()
-            for t in tasks:
-                with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
-                    await t
+        await run_until_closed(ws, sub, sender)
 
     return app

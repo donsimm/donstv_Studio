@@ -89,9 +89,10 @@ class CoreLink(QObject):
     connected = pyqtSignal()
     unreachable = pyqtSignal(str, float)  # Meldung, Sekunden bis zum nächsten Versuch
     status_changed = pyqtSignal(str, str, str)  # Dienst, Status, Hinweis
-    statuses_loaded = pyqtSignal(dict)
-    settings_loaded = pyqtSignal(dict)
-    # Chat-Bot (P07): Art und Nutzlast als JSON-Text (Regel 12: nur einfache Typen in Signalen über Threads)
+    # Regel 12: nur einfache Typen in Signalen über Threads; Wörterbücher als JSON-Text (P08)
+    statuses_loaded = pyqtSignal(str)  # JSON-Text: Dienst -> {"status", "detail"}
+    settings_loaded = pyqtSignal(str)  # JSON-Text: Schlüssel -> Wert
+    # Chat-Bot (P07): Art und Nutzlast als JSON-Text
     event_received = pyqtSignal(str, str)
 
     def __init__(
@@ -205,8 +206,8 @@ class CoreLink(QObject):
             settings = await asyncio.to_thread(self._request, "GET", "/settings")
             statuses = await asyncio.to_thread(self._request, "GET", "/connections/info")
             self.connected.emit()
-            self.settings_loaded.emit(settings or {})
-            self.statuses_loaded.emit(statuses or {})
+            self.settings_loaded.emit(json.dumps(settings or {}, ensure_ascii=False))
+            self.statuses_loaded.emit(json.dumps(statuses or {}, ensure_ascii=False))
             async for raw in ws:
                 try:
                     event = json.loads(raw)

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import logging
 from pathlib import Path
 
@@ -149,7 +150,6 @@ class MainWindow(QMainWindow):
         self.prefs = EditorPrefs(getattr(core, "save_setting", None), self)
         self.model = EditorModel(backend, self.runner, getattr(core, "save_setting", None), self)
         self.bot = BotModel(getattr(core, "bot_backend", None) or backend, self.runner, self)
-        self._layout_saved_at_exit = False
 
         self.setWindowTitle("donstv_Studio")
         self.setWindowIcon(find_icon())
@@ -173,8 +173,8 @@ class MainWindow(QMainWindow):
         core.connected.connect(self._on_connected)
         core.unreachable.connect(self._on_unreachable)
         core.status_changed.connect(self._on_status_changed)
-        core.statuses_loaded.connect(self._on_statuses)
-        core.settings_loaded.connect(self.apply_settings)
+        core.statuses_loaded.connect(self._on_statuses_json)
+        core.settings_loaded.connect(self._on_settings_json)
         core.connected.connect(self.model.load)  # nach jedem (Wieder-)Verbinden den Stand der Overlays holen
         core.connected.connect(self.bot.load)
         if hasattr(core, "event_received"):
@@ -462,8 +462,8 @@ class MainWindow(QMainWindow):
             act.setChecked(value)
             act.blockSignals(False)
 
-    def _show_pointer(self, pixel) -> None:
-        self.pointer_label.setText("X: –   Y: –" if pixel is None else f"X: {pixel[0]}   Y: {pixel[1]}")
+    def _show_pointer(self, inside: bool, x: int, y: int) -> None:
+        self.pointer_label.setText(f"X: {x}   Y: {y}" if inside else "X: –   Y: –")
 
     def _show_zoom(self, zoom: float, fit: bool) -> None:
         index = 0 if fit else next((i for i in range(self.zoom_combo.count())
@@ -611,6 +611,10 @@ class MainWindow(QMainWindow):
     def _on_status_changed(self, name: str, status: str, detail: str = "") -> None:
         self.connections.set_status(name, status, detail)
 
+    def _on_statuses_json(self, text: str) -> None:
+        """Signal `statuses_loaded` (JSON-Text, Regel 12)."""
+        self._on_statuses(json.loads(text or "{}"))
+
     def _on_statuses(self, statuses: dict) -> None:
         """Zustand aller Dienste beim Verbinden: name -> {"status", "detail"}."""
         for key in self.connections.indicators:
@@ -625,6 +629,10 @@ class MainWindow(QMainWindow):
             KEY_GEOMETRY: _encode(self.saveGeometry()),
             KEY_STATE: _encode(state) if state is not None else _encode(self._default_state),
         }
+
+    def _on_settings_json(self, text: str) -> None:
+        """Signal `settings_loaded` (JSON-Text, Regel 12)."""
+        self.apply_settings(json.loads(text or "{}"))
 
     def apply_settings(self, values: dict) -> None:
         """Stellt Theme, Fensterposition und Dock-Anordnung aus den gespeicherten Werten her."""

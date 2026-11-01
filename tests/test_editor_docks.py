@@ -1,5 +1,6 @@
 """F-12, F-13, F-14, F-65, F-66: Docks «Overlays», «Quellen», «Eigenschaften», «Steuerung» im Hauptfenster (offscreen)."""
 
+import json
 import logging
 
 import pytest
@@ -15,13 +16,8 @@ from donstv_studio.ui import theme
 from donstv_studio.ui.backend import DirectRunner
 from donstv_studio.ui.main_window import MainWindow
 from fake_backend import FakeBackend
-from helpers import solid_png
-from test_ui_window import FakeCore
-
-
-@pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication(["donstv-tests"])
+from fake_core import FakeCore
+from helpers import dispose, solid_png
 
 
 @pytest.fixture
@@ -35,11 +31,10 @@ def env(app):
     w.show()
     app.processEvents()
     core.connected.emit()  # Verbindung steht: Overlays laden
-    core.settings_loaded.emit({})
+    core.settings_loaded.emit(json.dumps({}))
     app.processEvents()
     yield w, core
-    w.close()
-    w.deleteLater()
+    dispose(app, w)
 
 
 def texts(listing):
@@ -249,8 +244,8 @@ def test_f13_control_dock_preview_and_editor_settings_are_saved(env):
 
 def test_f13_editor_settings_restored_from_core(env):
     w, core = env
-    core.settings_loaded.emit({"ui.editor.preview_fps": "20", "ui.editor.grid": "1", "ui.editor.grid_size": "40",
-                               "ui.editor.zoom": "2.0", f"ui.guides.{w.model.current_id}": '{"v": [10], "h": [20]}'})  # fmt: skip
+    core.settings_loaded.emit(json.dumps({"ui.editor.preview_fps": "20", "ui.editor.grid": "1", "ui.editor.grid_size": "40",
+                               "ui.editor.zoom": "2.0", f"ui.guides.{w.model.current_id}": '{"v": [10], "h": [20]}'}))  # fmt: skip
     assert w.control_panel.fps.value() == 20 and w.control_panel.grid_check.isChecked()
     assert w.editor.zoom() == 2.0 and w.zoom_combo.currentText() == "200 %"
     assert w.model.guides() == ([10], [20])

@@ -10,7 +10,6 @@ macht der Nutzer.
 import json
 import logging
 import os
-import socket
 import subprocess
 import sys
 import time
@@ -35,22 +34,9 @@ from donstv_studio.ui.editor_model import EditorModel
 from donstv_studio.ui.editor_prefs import EditorPrefs
 from donstv_studio.ui.editor_view import EditorView
 from editor_web_scene import RED_BOX, TEXT_BOX, CoreBackend, H, RunningService, W, build_scene
-from helpers import Image
+from helpers import Image, dispose, free_port, pump
 
 HERE = Path(__file__).parent
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-def pump(ms: int) -> None:
-    end = time.time() + ms / 1000
-    while time.time() < end:
-        QApplication.processEvents()
-        time.sleep(0.01)
 
 
 def js(web, code: str, timeout: float = 10.0):
@@ -103,11 +89,6 @@ def dpr_failure_report(proc) -> str:
 
 
 @pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication(["donstv-tests"])
-
-
-@pytest.fixture(scope="module")
 def webengine(app):
     """Prüft einmal, ob QtWebEngine hier überhaupt Seiten laden kann; sonst werden alle Tests übersprungen."""
     from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -149,8 +130,7 @@ def editor(core, app):
     view.set_zoom(1.0)
     wait_rendered(view)
     yield view, model, prefs, ids, backend
-    view.close()
-    view.deleteLater()
+    dispose(app, view)
 
 
 def qimage_rows(img: QImage):

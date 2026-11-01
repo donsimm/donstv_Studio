@@ -1,7 +1,44 @@
-"""Hilfen für Tests: kleine PNG-Dateien erzeugen und lesen (ohne Pillow)."""
+"""Hilfen für Tests: kleine PNG-Dateien erzeugen und lesen (ohne Pillow), freie Ports, Warten auf Qt, Testszene."""
 
+import socket
 import struct
+import time
 import zlib
+
+# Testszene der Pixeltests (Overlay-Seite in Chromium und Vorschau in QtWebEngine)
+W, H = 1920, 1080
+RED, GREEN = (255, 0, 0, 255), (0, 255, 0, 255)
+TEXT_BOX = dict(x=100, y=50, width=400, height=80)
+RED_BOX = dict(x=700, y=300, width=200, height=150)
+GREEN_BOX = dict(x=500, y=500, width=200, height=100)  # 90° gedreht: 100 × 200 um (600, 550)
+
+
+def free_port() -> int:
+    """Freier TCP-Port auf 127.0.0.1."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def wait_until(app, cond, timeout: float = 5.0) -> bool:
+    """Verarbeitet Qt-Ereignisse, bis `cond()` wahr ist; False nach `timeout` Sekunden."""
+    end = time.time() + timeout
+    while time.time() < end:
+        app.processEvents()
+        if cond():
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def pump(ms: int) -> None:
+    """Verarbeitet Qt-Ereignisse während `ms` Millisekunden."""
+    from PyQt6.QtWidgets import QApplication
+
+    end = time.time() + ms / 1000
+    while time.time() < end:
+        QApplication.processEvents()
+        time.sleep(0.01)
 
 
 def _chunk(kind: bytes, data: bytes) -> bytes:
@@ -123,3 +160,33 @@ class RunningService:
         """Führt eine Coroutine in der Schleife des Dienstes aus und wartet auf das Ergebnis."""
         fut = self._asyncio.run_coroutine_threadsafe(coro_func(*args), self.loop)
         return fut.result(10)
+
+
+# Fenster mit QtWebEngine bleiben bis zum Ende der Testsitzung (P06c: Freigabe nach jedem Test stürzte in P06 ab);
+# `tests/conftest.py` gibt sie in `pytest_sessionfinish` frei.
+KEEP_UNTIL_SESSION_END: list = []
+
+
+def dispose(app, *widgets) -> None:
+    """Schliesst Test-Fenster und gibt sie sofort frei (P08, Testdauer).
+
+    `deleteLater()` allein wirkt in Tests nicht: Ohne laufende Ereignisschleife verarbeitet Qt die verzögerte Löschung
+    nicht, alle Fenster bleiben bis zum Ende der Sitzung bestehen, und jedes `QApplication.setStyleSheet` (beim Anlegen
+    eines Hauptfensters) muss alle alten Widgets neu gestalten. `sendPostedEvents(None, DeferredDelete)` führt die
+    Löschung aus (wie `preview_web.release_web_views`). Widgets mit einer QWebEngineView werden nur geschlossen und
+    erst am Sitzungsende freigegeben.
+    """
+    from PyQt6.QtCore import QCoreApplication, QEvent
+
+    try:
+        from PyQt6.QtWebEngineWidgets import QWebEngineView
+    except ImportError:
+        QWebEngineView = None
+    for w in widgets:
+        w.close()
+        if QWebEngineView is not None and (isinstance(w, QWebEngineView) or w.findChildren(QWebEngineView)):
+            KEEP_UNTIL_SESSION_END.append(w)
+        else:
+            w.deleteLater()
+    app.processEvents()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)

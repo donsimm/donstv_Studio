@@ -1,6 +1,5 @@
 """F-10 bis F-13: `CoreBackend` und `TaskRunner` gegen den echten Kern-Dienst (HTTP)."""
 
-import socket
 import time
 
 import pytest
@@ -12,13 +11,7 @@ from PyQt6.QtCore import QCoreApplication
 from donstv_studio.core.config import Paths
 from donstv_studio.ui.backend import BackendError, CoreBackend, TaskRunner
 from donstv_studio.ui.core_link import CoreLink
-from helpers import RunningService, solid_png
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+from helpers import RunningService, free_port, solid_png
 
 
 @pytest.fixture

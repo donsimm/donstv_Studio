@@ -3,7 +3,6 @@
 import json
 import os
 import signal
-import socket
 import subprocess
 import sys
 import time
@@ -18,15 +17,9 @@ from PyQt6.QtWidgets import QApplication
 
 from donstv_studio.core.config import Paths
 from donstv_studio.ui.signals import SignalBridge
-from helpers import RunningService
+from helpers import RunningService, free_port
 
 SRC = str(Path(__file__).resolve().parents[1] / "src")
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
 
 
 @pytest.mark.parametrize("signum", [signal.SIGTERM, signal.SIGINT])

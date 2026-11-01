@@ -21,13 +21,9 @@ from donstv_studio.ui.editor_prefs import EditorPrefs
 from donstv_studio.ui.editor_view import EditorView
 from donstv_studio.ui.geometry import FIT
 from fake_backend import FakeBackend
+from helpers import dispose
 
 NO, SHIFT = Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier
-
-
-@pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication(["donstv-tests"])
 
 
 @pytest.fixture
@@ -44,8 +40,7 @@ def env(app):
     view.set_zoom(1.0)
     app.processEvents()
     yield view, model, prefs, backend, saved
-    view.close()
-    view.deleteLater()
+    dispose(app, view)
 
 
 def add(model, x, y, w, h, text="Q"):
@@ -142,7 +137,7 @@ def test_f65_drag_moves_in_whole_overlay_pixels(env, zoom, dx_screen, dy_screen,
 def test_f65_zoom_100_percent_pointer_coordinate(env):
     view, model, *_ = env
     seen = []
-    view.pointer_changed.connect(seen.append)
+    view.pointer_changed.connect(lambda inside, x, y: seen.append((x, y) if inside else None))
     for x, y in ((0, 0), (123, 45), (799, 399)):
         move(view.layer, *at(view, x, y), held=False)
         assert seen[-1] == (x, y)

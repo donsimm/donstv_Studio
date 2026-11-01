@@ -1,6 +1,7 @@
 """F-04, Verbindung der Oberfläche zum Kern-Dienst (echter Dienst im Thread, Qt offscreen)."""
 
-import socket
+import functools
+import json
 import time
 
 import pytest
@@ -11,34 +12,16 @@ pytest.importorskip(
     reason="PyQt6 ist nicht installierbar oder lädt nicht (Systembibliotheken fehlen?)",
 )
 
-from PyQt6.QtWidgets import QApplication
 
+import helpers
 from donstv_studio.core.config import Paths
 from donstv_studio.core.connections.base import Connection, Status
 from donstv_studio.ui.core_link import CoreLink
 from donstv_studio.ui.main_window import MainWindow
-from helpers import RunningService
+from helpers import RunningService, free_port
 
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-@pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication([])
-
-
-def wait_until(app, cond, timeout=10.0):
-    end = time.time() + timeout
-    while time.time() < end:
-        app.processEvents()
-        if cond():
-            return True
-        time.sleep(0.01)
-    return False
+# Kern-Dienst im Thread: wie bisher bis zu 10 s warten
+wait_until = functools.partial(helpers.wait_until, timeout=10.0)
 
 
 class Recorder:
@@ -51,8 +34,13 @@ class Recorder:
         link.connected.connect(lambda: setattr(self, "connected", self.connected + 1))
         link.unreachable.connect(lambda r, s: self.unreachable.append((r, s)))
         link.status_changed.connect(lambda n, s, d: self.status.append((n, s, d)))
-        link.statuses_loaded.connect(self.statuses.append)
-        link.settings_loaded.connect(self.settings.append)
+        link.statuses_loaded.connect(lambda text: self.statuses.append(self._parse(text)))
+        link.settings_loaded.connect(lambda text: self.settings.append(self._parse(text)))
+
+    @staticmethod
+    def _parse(text: str) -> dict:
+        assert isinstance(text, str)  # Regel 12: JSON-Text, kein dict über Threads
+        return json.loads(text)
 
 
 @pytest.fixture

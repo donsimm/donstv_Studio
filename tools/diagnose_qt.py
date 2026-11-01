@@ -49,7 +49,7 @@ elif case == "MainWindow":
     from PyQt6.QtCore import QObject, pyqtSignal
     class C(QObject):
         connected = pyqtSignal(); unreachable = pyqtSignal(str, float); status_changed = pyqtSignal(str, str, str)
-        statuses_loaded = pyqtSignal(dict); settings_loaded = pyqtSignal(dict)
+        statuses_loaded = pyqtSignal(str); settings_loaded = pyqtSignal(str)
         def save_setting(self, *a): pass
         def save_settings_blocking(self, *a, **k): return True
     from donstv_studio.ui.main_window import MainWindow
@@ -67,7 +67,7 @@ elif case.startswith("CL:"):
     elif patch == "ohne_prefs_und_hilfslinien": _EP.load = lambda self, v: None; _EM.load_guides = lambda self, v: None
     elif patch == "direkter_runner": mw.TaskRunner = DirectRunner
     elif patch == "ohne_statuszeilen_widgets":
-        _orig = mw.MainWindow._show_pointer; mw.MainWindow._show_pointer = lambda self, p: None
+        _orig = mw.MainWindow._show_pointer; mw.MainWindow._show_pointer = lambda self, *p: None
         mw.MainWindow._show_zoom = lambda self, z, f: None
     elif patch == "ohne_dock_inhalt":
         from PyQt6.QtWidgets import QFrame, QLabel
@@ -109,7 +109,7 @@ elif case.startswith("MainWindow_"):
         from donstv_studio.ui.backend import TaskRunner
         class C(QObject):
             connected = pyqtSignal(); unreachable = pyqtSignal(str, float); status_changed = pyqtSignal(str, str, str)
-            statuses_loaded = pyqtSignal(dict); settings_loaded = pyqtSignal(dict)
+            statuses_loaded = pyqtSignal(str); settings_loaded = pyqtSignal(str)
             backend = B()
             runner = TaskRunner() if "Thread" in case else DirectRunner()
             def save_setting(self, *a): pass
@@ -119,7 +119,7 @@ elif case.startswith("MainWindow_"):
         if case == "MainWindow_Banner" or case == "MainWindow_Banner_Daten":
             c.unreachable.emit("Der Kern-Dienst antwortet nicht", 5.0)
         if case != "MainWindow_Banner":
-            c.connected.emit(); c.settings_loaded.emit({})
+            c.connected.emit(); c.settings_loaded.emit("{}")
     else:
         from donstv_studio.ui.core_link import CoreLink
         c = CoreLink(); w = MainWindow(c); host = w

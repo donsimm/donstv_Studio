@@ -1,6 +1,6 @@
 """F-01, F-02, F-04, F-06: Hauptfenster (offscreen, ohne Kern-Dienst)."""
 
-import time
+import json
 
 import pytest
 
@@ -10,35 +10,13 @@ pytest.importorskip(
     reason="PyQt6 ist nicht installierbar oder lädt nicht (Systembibliotheken fehlen?)",
 )
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtWidgets import QApplication, QDockWidget, QLabel, QTabWidget
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QDockWidget, QLabel, QTabWidget
 
 from donstv_studio.ui import theme
 from donstv_studio.ui.main_window import KEY_THEME, MainWindow
-
-
-class FakeCore(QObject):
-    connected = pyqtSignal()
-    unreachable = pyqtSignal(str, float)
-    status_changed = pyqtSignal(str, str, str)
-    statuses_loaded = pyqtSignal(dict)
-    settings_loaded = pyqtSignal(dict)
-
-    def __init__(self):
-        super().__init__()
-        self.store: dict[str, str] = {}
-
-    def save_setting(self, key, value):
-        self.store[key] = value
-
-    def save_settings_blocking(self, values, timeout=2.0):
-        self.store.update(values)
-        return True
-
-
-@pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication([])
+from fake_core import FakeCore
+from helpers import dispose
 
 
 @pytest.fixture
@@ -54,20 +32,7 @@ def make(app):
         return w, core
 
     yield factory
-    for w in windows:
-        w.close()
-        w.deleteLater()
-    app.processEvents()
-
-
-def wait_until(app, cond, timeout=5.0):
-    end = time.time() + timeout
-    while time.time() < end:
-        app.processEvents()
-        if cond():
-            return True
-        time.sleep(0.01)
-    return False
+    dispose(app, *windows)
 
 
 def test_f01_window_structure(make):
@@ -143,7 +108,7 @@ def test_f04_status_never_only_by_color(make):
 def test_f04_status_events_update_labels(make, app):
     w, core = make()
     core.connected.emit()
-    core.statuses_loaded.emit({"twitch": {"status": "verbunden", "detail": ""}})  # übrige: im Kern unbekannt
+    core.statuses_loaded.emit(json.dumps({"twitch": {"status": "verbunden", "detail": ""}}))  # übrige: im Kern unbekannt
     assert "verbunden" in w.connections.text_of("twitch")
     for key in ("youtube", "obs", "ndi"):
         assert "getrennt" in w.connections.text_of(key)
@@ -174,7 +139,7 @@ def test_core_unreachable_shows_message_without_crash(make, app):
 
 def test_f06_theme_switch_dark_default_and_light(make, app):
     w, core = make()
-    core.settings_loaded.emit({})  # Kern erreichbar, nichts gespeichert
+    core.settings_loaded.emit(json.dumps({}))  # Kern erreichbar, nichts gespeichert
     assert w.theme == theme.DARK
     assert theme.palette("dark")["bg"] in app.styleSheet()
     w.open_settings()
@@ -202,7 +167,7 @@ def test_f06_invalid_theme_ignored(make):
 
 def test_layout_saved_and_restored(make, app):
     w, core = make()
-    core.settings_loaded.emit({})
+    core.settings_loaded.emit(json.dumps({}))
     w.move(37, 53)
     size = (w.minimumWidth() + 40, 480)  # Mindestbreite des Fensterkopfes (F-68) beachten
     w.resize(*size)
@@ -222,7 +187,7 @@ def test_layout_saved_and_restored(make, app):
 
     w2, core2 = make()
     assert w2.theme == "dark" and not w2.docks[1].isHidden()  # vor dem Laden: Standard
-    core2.settings_loaded.emit(saved)  # wie nach dem Verbinden
+    core2.settings_loaded.emit(json.dumps(saved))  # wie nach dem Verbinden
     app.processEvents()
     assert w2.theme == "light"
     assert w2.docks[1].isHidden()
@@ -240,19 +205,19 @@ def test_layout_not_saved_before_settings_were_loaded(make):
 
 def test_layout_saved_while_in_chatbot_module_keeps_overlay_docks(make, app):
     w, core = make()
-    core.settings_loaded.emit({})
+    core.settings_loaded.emit(json.dumps({}))
     w.docks[3].hide()
     w.set_module(1)  # Docks werden dabei ausgeblendet
     vals = w.layout_values()
     w2, core2 = make()
-    core2.settings_loaded.emit(vals)
+    core2.settings_loaded.emit(json.dumps(vals))
     assert w2.docks[3].isHidden() and not w2.docks[0].isHidden()  # nicht alle als «versteckt» gespeichert
 
 
 def test_invalid_saved_values_do_not_crash(make):
     w, core = make()
-    core.settings_loaded.emit({"ui.theme": "dark", "ui.geometry": "###", "ui.dock_state": "AAAA"})
-    core.settings_loaded.emit({"ui.geometry": "", "ui.dock_state": "!"})
+    core.settings_loaded.emit(json.dumps({"ui.theme": "dark", "ui.geometry": "###", "ui.dock_state": "AAAA"}))
+    core.settings_loaded.emit(json.dumps({"ui.geometry": "", "ui.dock_state": "!"}))
     assert w.theme == "dark"
     assert all(not d.isHidden() for d in w.docks)
 

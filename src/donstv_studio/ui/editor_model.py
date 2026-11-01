@@ -7,7 +7,6 @@ Alles Fachliche läuft über die Schnittstelle des Kerns (P03), nicht am Kern vo
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
 import time
@@ -63,11 +62,11 @@ class _History:
 
 class EditorModel(QObject):
     overlays_changed = pyqtSignal()  # Liste oder Namen der Overlays
-    current_changed = pyqtSignal(object)  # Kennung des gewählten Overlays oder None
+    current_changed = pyqtSignal(str)  # Kennung des gewählten Overlays oder "" (Regel 12: kein object)
     meta_changed = pyqtSignal()  # Name, Auflösung, Ausgabeart des gewählten Overlays
     sources_changed = pyqtSignal()  # Liste, Reihenfolge, Sichtbarkeit der Quellen
     box_changed = pyqtSignal(str)  # Lage, Grösse oder Drehung einer Quelle
-    selection_changed = pyqtSignal(object)  # Kennung der gewählten Quelle oder None
+    selection_changed = pyqtSignal(str)  # Kennung der gewählten Quelle oder ""
     guides_changed = pyqtSignal()
     history_changed = pyqtSignal()
     error = pyqtSignal(str)
@@ -155,11 +154,11 @@ class EditorModel(QObject):
         self.current_id = overlay_id
         if changed:
             self.selected_id = None
-        self.current_changed.emit(overlay_id)
+        self.current_changed.emit(overlay_id or "")
         self.meta_changed.emit()
         self.sources_changed.emit()
         if changed:
-            self.selection_changed.emit(None)
+            self.selection_changed.emit("")
         self.history_changed.emit()
         self.guides_changed.emit()
 
@@ -215,7 +214,7 @@ class EditorModel(QObject):
         if source_id is not None and self.source(source_id) is None:
             source_id = None
         self.selected_id = source_id
-        self.selection_changed.emit(source_id)
+        self.selection_changed.emit(source_id or "")
 
     def add_text_source(self, text: str = DEFAULT_TEXT) -> None:
         o = self.current()
@@ -437,6 +436,3 @@ class EditorModel(QObject):
     def wait_idle(self, timeout: float = 3.0) -> bool:
         """Wartet, bis alle Änderungen beim Kern angekommen sind (z. B. vor dem Beenden)."""
         return self._runner.wait_idle(timeout)
-
-    def snapshot(self) -> list[dict]:
-        return copy.deepcopy(self.overlays)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
@@ -78,7 +78,7 @@ class IconButton(QToolButton):
         self.setAccessibleName(tip)
         self.setAutoRaise(True)
         self.setFixedSize(BAR_BUTTON, BAR_BUTTON)
-        self.setIconSize(QSize(icons.ICON_SIZE, icons.ICON_SIZE))
+        self.setIconSize(icons.icon_size())
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self._theme = theme.DEFAULT_THEME
         self.apply_theme(self._theme)
@@ -297,7 +297,7 @@ class SourceList(QListWidget):
         self.setObjectName("source_list")
         self.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.setIconSize(QSize(icons.ICON_SIZE, icons.ICON_SIZE))
+        self.setIconSize(icons.icon_size())
         self.setAccessibleName("Quellen")
         self.model().rowsMoved.connect(lambda *_: self.reordered.emit())
 

@@ -101,5 +101,3 @@ class FakeBackend:
     def source(self, overlay_id: str, source_id: str) -> dict:
         return next(s for s in self._overlay(overlay_id)["sources"] if s["id"] == source_id)
 
-    def updates(self, source_id: str) -> list[dict]:
-        return [c[3] for c in self.calls if c[0] == "update_source" and c[2] == source_id]

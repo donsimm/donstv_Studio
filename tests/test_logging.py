@@ -3,6 +3,7 @@
 import logging
 
 from donstv_studio.core.logging_setup import setup_logging
+from helpers import free_port
 
 
 def test_tokens_redacted_in_log(tmp_path):
@@ -35,18 +36,12 @@ async def test_uvicorn_websocket_lines_do_not_contain_token(tmp_path, caplog):
     """
     import asyncio
     import contextlib
-    import socket
 
     import httpx
     from websockets.asyncio.client import connect
 
     from donstv_studio.core.config import Paths
     from donstv_studio.core.service import Service
-
-    def free_port() -> int:
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            return s.getsockname()[1]
 
     # Handler aus Vortests (setup_logging) schwärzen denselben Datensatz vorher: wegräumen, sonst prüft der Test nichts.
     root = logging.getLogger()
@@ -83,17 +78,11 @@ async def test_uvicorn_access_log_stays_silent_even_if_a_handler_is_attached(tmp
     """pytest 9 hängt seine Handler an `uvicorn.access` (propagate=False) und schaltet so uvicorns Zugriffslog wieder ein
     (`access_log = access_logger.hasHandlers()`). Der Dienst hält ihn trotzdem still."""
     import asyncio
-    import socket
 
     import httpx
 
     from donstv_studio.core.config import Paths
     from donstv_studio.core.service import Service
-
-    def free_port() -> int:
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            return s.getsockname()[1]
 
     root = logging.getLogger()
     for h in list(root.handlers):

@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from donstv_studio.core.bus import Event, EventBus
+from donstv_studio.core.ws_session import run_until_closed
 from donstv_studio.overlays.media import MediaLibrary
 from donstv_studio.overlays.models import NotFoundError, Overlay
 from donstv_studio.overlays.service import OverlayService
@@ -117,20 +118,9 @@ def create_overlay_app(service: OverlayService, media: MediaLibrary, bus: EventB
                     return
                 await ws.send_json({"type": "update", "change": change, "overlay": payload(current)})
 
-        async def receiver() -> None:
-            while True:  # nur um das Schliessen durch den Client zu bemerken
-                await ws.receive_text()
-
-        tasks = [asyncio.create_task(sender()), asyncio.create_task(receiver())]
         try:
-            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            await run_until_closed(ws, sub, sender)
         finally:
-            sub.cancel()
-            for t in tasks:
-                t.cancel()
-            for t in tasks:
-                with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
-                    await t
             # Schliesst der Client zuerst (OBS lädt die Seite neu, Vorschau wird geschlossen), wirft `close()` je nach
             # Starlette-Version RuntimeError oder WebSocketDisconnect(1006); beides ist hier harmlos.
             with contextlib.suppress(RuntimeError, WebSocketDisconnect):

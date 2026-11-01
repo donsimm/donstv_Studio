@@ -15,7 +15,8 @@ from PyQt6.QtWidgets import QApplication
 from donstv_studio.ui.backend import BackendError, DirectRunner
 from donstv_studio.ui.bot_page import CHAT_LIMIT
 from donstv_studio.ui.main_window import MainWindow
-from test_ui_window import FakeCore
+from fake_core import FakeCore
+from helpers import dispose
 
 
 class FakeBotBackend:
@@ -92,11 +93,6 @@ class BotCore(FakeCore):
     event_received = pyqtSignal(str, str)
 
 
-@pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication(["donstv-tests"])
-
-
 @pytest.fixture
 def env(app):
     core = BotCore()
@@ -107,12 +103,11 @@ def env(app):
     w.show()
     app.processEvents()
     core.connected.emit()
-    core.settings_loaded.emit({})
+    core.settings_loaded.emit(json.dumps({}))
     w.set_module(1)
     app.processEvents()
     yield w, core, core.bot_backend
-    w.close()
-    w.deleteLater()
+    dispose(app, w)
 
 
 def table_rows(w):

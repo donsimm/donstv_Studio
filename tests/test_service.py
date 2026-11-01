@@ -1,18 +1,12 @@
 """Dienst: Start, /health mit und ohne Token, sauberes Beenden."""
 
 import asyncio
-import socket
 
 import httpx
 
 from donstv_studio.core.config import Paths
 from donstv_studio.core.service import Service
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+from helpers import free_port
 
 
 async def test_service_start_health_stop(tmp_path):

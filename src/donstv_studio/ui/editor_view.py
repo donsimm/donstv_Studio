@@ -145,7 +145,7 @@ class Ruler(QWidget):
 class InteractionLayer(QWidget):
     """Liegt über der Webansicht: zeichnet Raster, Hilfslinien, Auswahlrahmen und Griffe; nimmt Maus und Tasten an."""
 
-    pointer_pixel = pyqtSignal(object)  # (x, y) in Overlay-Pixeln oder None
+    pointer_pixel = pyqtSignal(bool, int, int)  # Zeiger über der Fläche?, x, y in Overlay-Pixeln (Regel 12)
 
     def __init__(self, view: EditorView) -> None:
         super().__init__(view.viewport)
@@ -341,7 +341,7 @@ class InteractionLayer(QWidget):
         pos = e.position()
         t = self.view.transform()
         px = t.pixel_at(pos.x(), pos.y())
-        self.pointer_pixel.emit(px)
+        self.pointer_pixel.emit(True, px[0], px[1])
         self.view.set_ruler_pointer(pos)
         if self._live_guide is not None:
             self.update_guide(QPoint(round(pos.x()), round(pos.y())))
@@ -386,7 +386,7 @@ class InteractionLayer(QWidget):
         self._update_cursor(e.position())
 
     def leaveEvent(self, _e) -> None:
-        self.pointer_pixel.emit(None)
+        self.pointer_pixel.emit(False, 0, 0)
         self.view.set_ruler_pointer(None)
 
     def _update_cursor(self, pos: QPointF) -> None:
@@ -468,7 +468,7 @@ class InteractionLayer(QWidget):
 class EditorView(QWidget):
     """Lineale, Bühne mit Webansicht, Bedienebene und Rollbalken. Ersetzt die Platzhalter-Leinwand von P05."""
 
-    pointer_changed = pyqtSignal(object)  # (x, y) in Overlay-Pixeln oder None
+    pointer_changed = pyqtSignal(bool, int, int)  # Zeiger über der Fläche?, x, y in Overlay-Pixeln
     zoom_changed = pyqtSignal(float, bool)  # wirksamer Zoom (1.0 = 100 %), «Einpassen»?
     overlay_available = pyqtSignal(bool)
 

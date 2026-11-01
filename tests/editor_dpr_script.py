@@ -4,7 +4,6 @@ Gibt eine JSON-Zeile aus. Prüft, dass bei 100 % ein Overlay-Pixel genau ein phy
 """
 
 import json
-import socket
 import sys
 import time
 import traceback
@@ -37,19 +36,7 @@ from donstv_studio.ui.editor_model import EditorModel
 from donstv_studio.ui.editor_prefs import EditorPrefs
 from donstv_studio.ui.editor_view import EditorView
 from editor_web_scene import RED_BOX, CoreBackend, RunningService, build_scene
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-def pump(ms: int) -> None:
-    end = time.time() + ms / 1000
-    while time.time() < end:
-        app.processEvents()
-        time.sleep(0.01)
+from helpers import free_port, pump
 
 
 def js(web, code):

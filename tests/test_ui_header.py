@@ -1,6 +1,7 @@
 """F-01, F-02, F-04: fester Fensterkopf, YouTube, Dienst-Symbole, Standardanordnung, OBS-Stil."""
 
 import itertools
+import json
 
 import pytest
 
@@ -10,35 +11,18 @@ pytest.importorskip(
     reason="PyQt6 ist nicht installierbar oder lädt nicht (Systembibliotheken fehlen?)",
 )
 
-from PyQt6.QtCore import QObject, QPoint, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QColor, QFontMetrics
 from PyQt6.QtWidgets import QApplication, QDockWidget, QLabel, QListWidget, QMessageBox, QPushButton
 
 from donstv_studio.ui import perf, theme, widgets
 from donstv_studio.ui.main_window import STATE_VERSION, MainWindow
 from donstv_studio.ui.widgets import SERVICES, STATUS_STYLE, ConnectionStatusBar
+from fake_core import FakeCore
+from helpers import dispose
 
 STATES = tuple(STATUS_STYLE)
 SERVICE_KEYS = [k for k, _ in SERVICES]
-
-
-class FakeCore(QObject):
-    connected = pyqtSignal()
-    unreachable = pyqtSignal(str, float)
-    status_changed = pyqtSignal(str, str, str)
-    statuses_loaded = pyqtSignal(dict)
-    settings_loaded = pyqtSignal(dict)
-
-    def save_setting(self, key, value):
-        pass
-
-    def save_settings_blocking(self, values, timeout=2.0):
-        return True
-
-
-@pytest.fixture(scope="module")
-def app():
-    return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture
@@ -54,10 +38,7 @@ def make(app):
         return w
 
     yield factory
-    for w in windows:
-        w.close()
-        w.deleteLater()
-    app.processEvents()
+    dispose(app, *windows)
 
 
 def header_geometry(w):
@@ -404,7 +385,7 @@ def test_f04_order_and_all_four_services_with_symbol_and_text(make):
 def test_f04_youtube_tooltip_says_not_configured(make):
     w = make()
     core = w._core
-    core.statuses_loaded.emit({"youtube": {"status": "getrennt", "detail": "nicht eingerichtet"}})
+    core.statuses_loaded.emit(json.dumps({"youtube": {"status": "getrennt", "detail": "nicht eingerichtet"}}))
     assert "getrennt" in w.connections.text_of("youtube")
     assert w.connections.tooltip_of("youtube") == "YouTube: getrennt (nicht eingerichtet)"
     assert w.connections.tooltip_of("twitch") == "Twitch: getrennt"
@@ -434,13 +415,6 @@ def write_test_icons(folder, keys, fmt="png"):
             img = QImage(64, 64, QImage.Format.Format_ARGB32)
             img.fill(QColor("#808080"))
             assert img.save(str(folder / f"{k}.png"), "PNG")
-
-
-def bar_geometry(bar):
-    out = {}
-    for k, ind in bar.indicators.items():
-        out[k] = (ind.width(), ind.height())
-    return out
 
 
 @pytest.mark.parametrize("fmt", ICON_FORMATS)

@@ -71,12 +71,6 @@ class OverlayRepository:
         )
         return self._overlay(rows[0]) if rows else None
 
-    def get_by_token(self, token: str) -> Overlay | None:
-        rows = self._store.query(
-            "SELECT id, name, width, height, output, token FROM overlays WHERE token = ?", (token,)
-        )
-        return self._overlay(rows[0]) if rows else None
-
     def insert(self, o: Overlay) -> None:
         with self._store.transaction() as db:
             db.execute(

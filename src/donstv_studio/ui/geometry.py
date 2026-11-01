@@ -184,11 +184,10 @@ def snap_targets(
     edges: bool = True,
     guides: bool = True,
     sources: bool = True,
-    grid: int = 0,
 ) -> SnapTargets:
     """Sammelt die Fanglinien: Ränder und Mitte des Overlays, Hilfslinien, Kanten und Mitten anderer Quellen.
 
-    Das Raster (`grid` > 0) wird als Linie je Bewegungskante in `snap_axis` berücksichtigt (siehe `grid`-Argument dort).
+    Das Raster gehört nicht hierher: `snap_axis` berücksichtigt es je Bewegungskante (Argument `grid` dort).
     """
     t = SnapTargets()
     if edges:

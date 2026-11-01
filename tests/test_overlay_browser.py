@@ -7,7 +7,6 @@ Skip-Meldung (`pytest -rs` zeigt sie an).
 import asyncio
 import os
 import shutil
-import socket
 import threading
 from pathlib import Path
 
@@ -16,22 +15,9 @@ import pytest
 
 from donstv_studio.core.config import Paths
 from donstv_studio.core.service import Service
-from helpers import Image, solid_png
+from helpers import GREEN, GREEN_BOX, RED, RED_BOX, TEXT_BOX, H, Image, W, free_port, solid_png
 
 sync_api = pytest.importorskip("playwright.sync_api", reason="Playwright (Python) ist nicht installiert")
-
-W, H = 1920, 1080
-RED, GREEN = (255, 0, 0, 255), (0, 255, 0, 255)
-TEXT_BOX = dict(x=100, y=50, width=400, height=80)
-RED_BOX = dict(x=700, y=300, width=200, height=150)
-GREEN_BOX = dict(x=500, y=500, width=200, height=100)
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
 
 def _chromium_candidates():
     yield {}  # Standard von Playwright

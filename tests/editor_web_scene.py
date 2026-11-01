@@ -1,13 +1,9 @@
 """Gemeinsame Szene für die Tests mit echter Webansicht: Kern-Dienst, Overlay mit Text, rotem und gedrehtem grünem Bild."""
 
 from donstv_studio.ui.backend import CoreBackend
-from helpers import RunningService, solid_png
+from helpers import GREEN, GREEN_BOX, RED, RED_BOX, TEXT_BOX, H, RunningService, W, solid_png
 
-W, H = 1920, 1080
-RED, GREEN = (255, 0, 0, 255), (0, 255, 0, 255)
-TEXT_BOX = dict(x=100, y=50, width=400, height=80)
-RED_BOX = dict(x=700, y=300, width=200, height=150)
-GREEN_BOX = dict(x=500, y=500, width=200, height=100)  # 90° gedreht: 100 × 200 um (600, 550)
+__all__ = ["GREEN_BOX", "RED_BOX", "TEXT_BOX", "CoreBackend", "H", "RunningService", "W", "build_scene"]
 
 
 def build_scene(backend: CoreBackend, overlay_port: int) -> dict:

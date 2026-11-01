@@ -24,7 +24,7 @@ import logging
 import re
 import time
 from collections import deque
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -399,8 +399,7 @@ class TwitchConnection(Connection):
         self.login_state = {"role": "bot", "state": state, **extra}
         await self._bus.publish(Event(source="twitch", type=AUTH_EVENT, payload=dict(self.login_state)))
 
-    async def begin_login(self, role: str = "bot",
-                          on_done: Callable[[str, str], Awaitable[None]] | None = None) -> dict[str, Any]:  # fmt: skip
+    async def begin_login(self, role: str = "bot") -> dict[str, Any]:
         """Startet den Device Code Grant Flow. Gibt Code und Adresse zurück; die Abfrage läuft im Hintergrund."""
         if role != "bot":
             raise TwitchAuthError("Im Gerüst meldet sich nur das Bot-Konto an")

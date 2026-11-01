@@ -85,7 +85,7 @@ class FakeTwitch(Connection):
             await self.inject(self.bot_login, text, [], message_id=message_id, user_id=self.bot_user_id)
         return {"message_id": message_id}
 
-    async def begin_login(self, role: str = "bot", on_done=None) -> dict[str, Any]:
+    async def begin_login(self, role: str = "bot") -> dict[str, Any]:
         return dict(self.login_state)
 
     async def logout(self, role: str = "bot") -> None:

@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 # Qt-Tests ohne Bildschirm (Debian-Laptop: X11, Tests: offscreen)
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 if hasattr(os, "geteuid") and os.geteuid() == 0:  # Chromium (QtWebEngine) läuft als root nur ohne Sandbox
@@ -22,6 +24,14 @@ def pytest_configure(config):
         config._qt_app = QApplication(["donstv-tests"])  # Verweis halten, sonst wird die Anwendung abgeräumt
 
 
+@pytest.fixture(scope="session")
+def app():
+    """Die gemeinsame QApplication der UI-Tests (angelegt in `pytest_configure`)."""
+    from PyQt6.QtWidgets import QApplication
+
+    return QApplication.instance() or QApplication(["donstv-tests"])
+
+
 
 def pytest_sessionfinish(session, exitstatus):
     """Einmal am Ende der Sitzung (P06c): alle QWebEngineView mit Seite und Profil kontrolliert freigeben,
@@ -33,6 +43,11 @@ def pytest_sessionfinish(session, exitstatus):
         from donstv_studio.ui import preview_web
     except ImportError:
         return
+    import helpers
+
+    for w in helpers.KEEP_UNTIL_SESSION_END:  # Fenster mit Webansicht aus `helpers.dispose`
+        w.deleteLater()
+    helpers.KEEP_UNTIL_SESSION_END.clear()
     n = preview_web.release_web_views()
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if n and reporter is not None:  # print() wäre hier noch abgefangen
