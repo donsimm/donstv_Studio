@@ -27,7 +27,7 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 
 ## 3. Hauptfenster: Variante A gewählt
 
-Gewählt: **Variante A**. Aufbau: Menüleiste, fester Fensterkopf (48 px hoch) mit Modul-Reitern (Overlays, Chat-Bot) links, der Leistungsanzeige daneben (CPU, RAM, LAN, siehe unten) und Verbindungsstatus rechts (Twitch, YouTube, OBS, NDI), Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
+Gewählt: **Variante A**. Aufbau: Menüleiste, fester, dezent umrahmter Fensterkopf (56 px hoch) mit Modul-Reitern (Overlays, Chat-Bot) links, rechts den Verbindungs-Buttons (Twitch, YouTube, OBS, NDI) und ganz rechts der Leistungsanzeige (CPU, RAM, LAN, siehe unten), Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
 
 | Variante | Idee | Stärke | Schwäche |
 |---|---|---|---|
@@ -47,7 +47,7 @@ Drei Felder zwischen Reitern und Verbindungsanzeigen, jedes mit Beschriftung lin
 
 Jedes Feld hat eine feste Breite für den längsten Text; der Kopf hat eine Mindestbreite, bei der alles nebeneinander Platz hat. Linienfarben je Feld im Theme (`perf_cpu`, `perf_ram`, `perf_lan`), Kontrast zur Fläche mindestens 3:1. Fehlt eine Datei, steht «–». Ein Zeitgeber, 1 Messung pro Sekunde, nicht bei minimiertem Fenster.
 
-Dienst-Symbole der Verbindungsanzeigen sind einfarbig und werden in der Textfarbe des Themes eingefärbt (PNG vor SVG).
+Die Verbindungen sind Buttons mit dem Dienst-Symbol (einfarbig, in der Textfarbe des Themes, PNG vor SVG; 20 px). Farbe des Buttons: grün = verbunden, rot = getrennt oder Fehler, orange = verbindet, grau (ausgegraut) = nicht eingerichtet oder unbekannt. Nach U-04 steht der Zustand zusätzlich als Zeichen (✔ ○ ↻ ✖ ?) auf einem Punkt am Button und als Text im Tipp. Die Buttons haben noch keine Klick-Funktion.
 
 ## 4. Modul «Chat-Bot» (nach Streamer.bot-Vorbild)
 

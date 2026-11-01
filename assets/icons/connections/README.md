@@ -12,10 +12,10 @@ Programms und werden nicht von der Software erzeugt oder geladen.
 | NDI | `ndi.svg` |
 
 Format: PNG (`twitch.png` usw.) mit Transparenz, mindestens 64 × 64 Pixel, wird zuerst verwendet und braucht kein Qt-SVG-Modul. SVG nur, wenn keine PNG-Datei da ist.
-Gezeigt wird das Symbol in 16 Pixeln Grösse vor dem Text, in der Textfarbe des Themes eingefärbt (nur die Form zählt, die Farbe der Datei nicht).
+Gezeigt wird das Symbol in 20 Pixeln Grösse auf dem Verbindungs-Button, in der Textfarbe des Themes eingefärbt (nur die Form zählt, die Farbe der Datei nicht).
 
-Fehlt eine Datei, zeigt die Anzeige nur das Zustandszeichen und den Text; der Platz für das
-Symbol bleibt frei, damit sich nichts verschiebt, wenn die Datei später dazukommt.
+Fehlt eine Datei, zeigt der Button nur den Zustandspunkt mit Zeichen; die Grösse des Buttons
+bleibt gleich, damit sich nichts verschiebt, wenn die Datei später dazukommt.
 
 ## Nutzungsregeln
 

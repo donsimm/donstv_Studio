@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -18,6 +19,11 @@ def main() -> int:
     from donstv_studio.ui.core_link import CoreLink
     from donstv_studio.ui.main_window import MainWindow
 
+    # Unter Linux X11 (xcb, auf Wayland über XWayland) vor Wayland: CLAUDE.md nennt X11 als Zielsystem, und nur dort
+    # lassen sich Fensterlage und schwebende Docks sicher speichern und wiederherstellen. Ein vom Nutzer
+    # gesetztes QT_QPA_PLATFORM gilt weiter. Fehlt xcb, probiert Qt den nächsten Eintrag.
+    if sys.platform.startswith("linux"):
+        os.environ.setdefault("QT_QPA_PLATFORM", "xcb;wayland")
     app = QApplication(sys.argv[:1])
     app.setApplicationName("donstv_Studio")
     core = CoreLink()

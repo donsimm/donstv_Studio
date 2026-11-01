@@ -53,7 +53,7 @@ MODULE_OVERLAYS, MODULE_BOT = 0, 1
 MODULES = ("Overlays", "Chat-Bot")
 BOT_TABS = ("Actions", "Commands", "Timer", "Queues", "Einstellungen")
 # (Objektname, Titel, Platzhaltertext)
-PERF_LEFT_GAP = 12  # zusätzlicher Abstand zwischen Reitern und Leistungsanzeige
+PERF_LEFT_GAP = 16  # zusätzlicher Abstand zwischen den Verbindungs-Buttons und der Leistungsanzeige
 DOCK_HEIGHT = 215  # Höhe der Docks unten in Pixeln (OBS-Bild: 215)
 DOCKS = (
     ("dock_overlays", "Overlays", "Liste der Overlays: anlegen, kopieren, löschen."),
@@ -143,7 +143,7 @@ class MainWindow(QMainWindow):
 
     # --- Aufbau --------------------------------------------------------
     def _build_header(self) -> None:
-        """Fester Fensterkopf: Modul-Reiter links, Verbindungsanzeigen rechts.
+        """Fester Fensterkopf mit Rahmen: Modul-Reiter links, rechts Verbindungs-Buttons und ganz rechts die Leistungsanzeige.
 
         Er wird als Menü-Widget gesetzt (`setMenuWidget`) und liegt damit unter der Menüleiste über
         der ganzen Fensterbreite und über allen Docks. Eine Werkzeugleiste käme in Frage, lässt sich
@@ -157,10 +157,10 @@ class MainWindow(QMainWindow):
         self.header = QWidget()
         self.header.setObjectName("header")
         self.header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.header.setFixedHeight(theme.HEADER_HEIGHT)
         row = QHBoxLayout(self.header)
         row.setContentsMargins(8, 0, 8, 0)
         row.setSpacing(12)
-        self.header.setFixedHeight(theme.HEADER_HEIGHT)
         self.tabbar = QTabBar()
         self.tabbar.setObjectName("module_tabs")
         self.tabbar.setExpanding(False)
@@ -173,13 +173,20 @@ class MainWindow(QMainWindow):
             self.tabbar.addTab(name)
         self.tabbar.currentChanged.connect(self.set_module)
         row.addWidget(self.tabbar, 0, Qt.AlignmentFlag.AlignVCenter)
-        # Leistungsanzeige (F-68): links angeschlossen an die Reiter, feste Breite je Feld
+        row.addStretch(1)
+        # Rechts: vier Verbindungs-Buttons (F-04), daneben ganz rechts die Leistungsanzeige (F-68)
+        self.connections = ConnectionStatusBar()
+        row.addWidget(self.connections, 0, Qt.AlignmentFlag.AlignVCenter)
         row.addSpacing(PERF_LEFT_GAP)
         self.perf = PerfBar()
         row.addWidget(self.perf, 0, Qt.AlignmentFlag.AlignVCenter)
-        row.addStretch(1)
-        self.connections = ConnectionStatusBar()
-        row.addWidget(self.connections, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        # Rahmen des Kopfes mit kleinem Abstand zum Fensterrand
+        header_wrap = QWidget()
+        header_wrap.setObjectName("header_wrap")
+        wrap = QVBoxLayout(header_wrap)
+        wrap.setContentsMargins(theme.HEADER_MARGIN, 2, theme.HEADER_MARGIN, theme.HEADER_MARGIN)
+        wrap.addWidget(self.header)
 
         container = QWidget()
         container.setObjectName("menu_container")
@@ -187,7 +194,7 @@ class MainWindow(QMainWindow):
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(0)
         col.addWidget(self.menu_bar)
-        col.addWidget(self.header)
+        col.addWidget(header_wrap)
         self.setMenuWidget(container)
 
     def _build_central(self) -> None:
@@ -372,7 +379,7 @@ class MainWindow(QMainWindow):
         lay = self.header.layout()
         lay.invalidate()
         lay.activate()
-        self.setMinimumWidth(max(lay.minimumSize().width(), 1))
+        self.setMinimumWidth(max(lay.minimumSize().width() + 2 * theme.HEADER_MARGIN, 1))
 
     # --- Leistungsanzeige läuft nur bei sichtbarem, nicht minimiertem Fenster -------------------
     def _sync_perf(self) -> None:

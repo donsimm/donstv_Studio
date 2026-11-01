@@ -185,7 +185,7 @@ def test_f06_theme_switch_dark_default_and_light(make, app):
     assert theme.palette("dark")["bg"] not in app.styleSheet()
     assert core.store[KEY_THEME] == "light"  # gespeichert
     assert w.connections.text_of("twitch")  # Statusfarben folgen dem Theme
-    assert theme.palette("light")["text_muted"] in w.connections.indicators["twitch"].text_label.styleSheet()
+    assert w.connections.indicators["twitch"]._palette == theme.palette("light")
     d.radios["dark"].setChecked(True)
     assert core.store[KEY_THEME] == "dark" and w.theme == "dark"
     d.accept()

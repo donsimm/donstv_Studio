@@ -61,30 +61,27 @@ def make(app):
 
 
 def header_geometry(w):
-    """Lage und Grösse der Reiter und jeder Verbindungsanzeige in Fensterkoordinaten.
+    """Lage und Grösse der Reiter, Verbindungs-Buttons und Leistungsfelder in Fensterkoordinaten.
 
-    Rechtsbündige Teile werden vom rechten Fensterrand aus gemessen: Ändert sich die Breite des
-    Fensters, bleibt dieser Abstand gleich.
+    Rechtsbündige Teile (Buttons, Leistungsfelder) werden vom rechten Fensterrand aus gemessen: Ändert
+    sich die Breite des Fensters, bleibt dieser Abstand gleich.
     """
 
     def rect(widget, origin=None):
         tl = widget.mapTo(w, origin or QPoint(0, 0))
         return tl.x(), tl.y(), widget.width(), widget.height()
 
+    def from_right(widget):
+        x, y, wd, h = rect(widget)
+        return w.width() - (x + wd), y, wd, h
+
     tabs = []
     for i in range(w.tabbar.count()):
         r = w.tabbar.tabRect(i)
         x, y, _, _ = rect(w.tabbar, r.topLeft())
         tabs.append((x, y, r.width(), r.height()))
-    inds = {}
-    for k, ind in w.connections.indicators.items():
-        x, y, wd, h = rect(ind)
-        inds[k] = (w.width() - (x + wd), y, wd, h)  # Abstand zum rechten Rand
-        ix, iy, iw, ih = rect(ind.icon_label)
-        inds[k + "_icon"] = (ix - x, iy - y, iw, ih)
-    fields = {}
-    for k, f in w.perf.fields.items():  # von links gemessen (links angeschlossen an die Reiter)
-        fields[k] = rect(f)
+    inds = {k: from_right(ind) for k, ind in w.connections.indicators.items()}
+    fields = {k: from_right(f) for k, f in w.perf.fields.items()}
     return {"tabs": tabs, "indicators": inds, "perf": fields, "header_height": w.header.height()}
 
 
@@ -94,9 +91,9 @@ def test_f01_header_is_part_of_the_menu_area_not_of_the_middle(make):
     w = make()
     assert w.menuWidget().isAncestorOf(w.header)
     assert not w.centralWidget().isAncestorOf(w.header)
-    assert w.header.width() == w.width()  # ganze Fensterbreite
+    assert w.header.width() == w.width() - 2 * theme.HEADER_MARGIN  # ganze Fensterbreite, Rahmen mit kleinem Rand
     top = w.header.mapTo(w, QPoint(0, 0))
-    assert top.x() == 0
+    assert top.x() == theme.HEADER_MARGIN
     for dock in w.docks:  # über allen Docks
         assert w.header.geometry().bottom() < dock.mapTo(w, QPoint(0, 0)).y()
     assert w.header.mapTo(w, QPoint(0, 0)).y() >= w.menu_bar.geometry().bottom()  # direkt unter dem Menü
@@ -190,7 +187,7 @@ def test_f68_perf_history_has_exactly_60_values_oldest_drops_out(make):
 
 def test_f68_header_height_and_vertical_centering(make):
     w = make()
-    assert w.header.height() == theme.HEADER_HEIGHT and 44 <= theme.HEADER_HEIGHT <= 48
+    assert w.header.height() == theme.HEADER_HEIGHT and theme.HEADER_HEIGHT > 48  # höher als in P05c (48)
     assert theme.PERF_GRAPH_HEIGHT == 28
     mid = w.header.height() / 2
     for widget in [w.tabbar, w.perf, w.connections]:
@@ -199,13 +196,13 @@ def test_f68_header_height_and_vertical_centering(make):
 
 
 def header_parts(w):
-    parts = [("tabs", w.tabbar), ("perf", w.perf)] + [(k, i) for k, i in w.connections.indicators.items()]
+    parts = [("tabs", w.tabbar)] + [(k, i) for k, i in w.connections.indicators.items()] + [("perf", w.perf)]
     return [(n, widget.mapTo(w, QPoint(0, 0)).x(), widget.width()) for n, widget in parts]
 
 
 def test_f68_minimum_width_fits_everything_without_overlap_or_clipping(make, app):
     w = make()
-    assert w.minimumWidth() == w.header.layout().minimumSize().width()
+    assert w.minimumWidth() == w.header.layout().minimumSize().width() + 2 * theme.HEADER_MARGIN
     w.resize(100, 700)  # kleiner geht nicht
     app.processEvents()
     assert w.width() == w.minimumWidth()
@@ -213,15 +210,13 @@ def test_f68_minimum_width_fits_everything_without_overlap_or_clipping(make, app
     for (n1, x1, w1), (n2, x2, w2) in itertools.pairwise(parts):
         assert x1 + w1 <= x2, (n1, n2)  # nichts überlappt
     assert parts[0][1] >= 0 and parts[-1][1] + parts[-1][2] <= w.width()  # nichts abgeschnitten
-    for ind in w.connections.indicators.values():
-        assert ind.text_label.sizeHint().width() <= ind.text_label.width()
     assert w.tabbar.width() >= w.tabbar.sizeHint().width()  # Reiter nicht gestaucht, keine Laufpfeile
     for i in range(w.tabbar.count()):
         assert w.tabbar.tabRect(i).left() >= 0
     # in beiden Themes
     w.set_theme("light")
     app.processEvents()
-    assert w.minimumWidth() == w.header.layout().minimumSize().width()
+    assert w.minimumWidth() == w.header.layout().minimumSize().width() + 2 * theme.HEADER_MARGIN
 
 
 def test_f68_perf_bar_does_not_run_while_minimized_or_hidden(make, app):
@@ -302,21 +297,75 @@ def test_f04_indicators_have_fixed_width_for_every_state(make, app):
         assert header_geometry(w) == base, state
     texts = {s: w.connections.text_of("twitch") for s in STATES if not w.connections.set_status("twitch", s)}
     assert len(set(texts.values())) == len(STATES)
-    # die feste Breite reicht für den längsten Text
-    for key in SERVICE_KEYS:
+    for key in SERVICE_KEYS:  # feste Grösse der Buttons
         ind = w.connections.indicators[key]
-        assert ind.text_label.sizeHint().width() <= ind.text_label.width()
+        assert (ind.width(), ind.height()) == (theme.CONN_BUTTON_WIDTH, theme.CONN_BUTTON_HEIGHT)
 
 
-def test_f04_indicators_right_aligned_with_fixed_gaps(make):
+def test_f04_buttons_left_of_the_perf_bar_and_perf_bar_at_the_far_right(make):
     w = make()
-    rects = [w.connections.indicators[k].mapTo(w, QPoint(0, 0)).x() for k in SERVICE_KEYS]
-    assert rects == sorted(rects)  # Reihenfolge Twitch, YouTube, OBS, NDI
-    last = w.connections.indicators["ndi"]
-    right_edge = last.mapTo(w, QPoint(0, 0)).x() + last.width()
-    assert w.width() - right_edge <= 20  # rechtsbündig, nur Rand
-    left_of_tabs = w.tabbar.mapTo(w, QPoint(0, 0)).x()
-    assert left_of_tabs <= 12  # Reiter ganz links
+    xs = [w.connections.indicators[k].mapTo(w, QPoint(0, 0)).x() for k in SERVICE_KEYS]
+    assert xs == sorted(xs)  # Reihenfolge Twitch, YouTube, OBS, NDI
+    ndi = w.connections.indicators["ndi"]
+    perf_left = w.perf.mapTo(w, QPoint(0, 0)).x()
+    assert ndi.mapTo(w, QPoint(0, 0)).x() + ndi.width() < perf_left  # Buttons links der Leistungsanzeige
+    right_edge = perf_left + w.perf.width()
+    assert w.width() - right_edge <= theme.HEADER_MARGIN + 12  # Leistungsanzeige ganz rechts
+    assert w.tabbar.mapTo(w, QPoint(0, 0)).x() <= 16  # Reiter ganz links
+
+
+def test_f04_button_color_follows_the_state_and_state_is_also_a_sign_and_text(make):
+    w = make()
+    ind = w.connections.indicators["twitch"]
+    cases = [
+        ("verbunden", "", "ok"),  # grün
+        ("getrennt", "", "error"),  # rot
+        ("Fehler", "x", "error"),
+        ("verbindet", "", "warn"),  # orange
+        ("getrennt", "nicht eingerichtet", "text_muted"),  # ausgegraut
+        ("unbekannt", "", "text_muted"),
+    ]
+    seen = set()
+    for status, detail, color in cases:
+        ind.set_state(status, detail)
+        assert ind.color_name() == color, (status, detail)
+        assert status in ind.text() and ind.text().split()[0] == STATUS_STYLE[status][0]  # Zeichen + Text
+        assert status in ind.toolTip() and status in ind.accessibleName()
+        seen.add(color)
+    assert seen == {"ok", "warn", "error", "text_muted"}
+    pal = theme.palette(theme.DARK)
+    ind.set_state("verbunden")
+    img = ind.grab().toImage()
+    assert img.pixelColor(ind.width() // 2, 1).name() == pal["ok"]  # Rand oben in Grün
+    ind.set_state("verbindet")
+    assert ind.grab().toImage().pixelColor(ind.width() // 2, 1).name() == pal["warn"]
+    ind.set_state("getrennt")
+    assert ind.grab().toImage().pixelColor(ind.width() // 2, 1).name() == pal["error"]
+    ind.set_state("getrennt", "nicht eingerichtet")
+    assert ind.grab().toImage().pixelColor(ind.width() // 2, 1).name() == pal["text_muted"]
+
+
+def test_f04_dot_sign_is_drawn_on_the_button(make):
+    w = make()
+    ind = w.connections.indicators["obs"]
+    ind.set_state("verbunden")
+    a = ind.grab().toImage()
+    ind.set_state("Fehler")
+    b = ind.grab().toImage()
+    dot = (ind.width() - 9, ind.height() - 9)
+    assert a.pixelColor(*dot) != b.pixelColor(*dot)
+
+
+def test_f04_header_has_a_subtle_frame_all_around(make, app):
+    w = make(1600, 900)
+    p = theme.palette(theme.DARK)
+    img = w.grab().toImage()
+    h = w.header
+    tl = h.mapTo(w, QPoint(0, 0))
+    mid_x, mid_y = tl.x() + h.width() // 2, tl.y() + h.height() // 2
+    for x, y in ((mid_x, tl.y()), (mid_x, tl.y() + h.height() - 1), (tl.x(), mid_y), (tl.x() + h.width() - 1, mid_y)):
+        assert img.pixelColor(x, y).name() == p["border"], (x, y)  # Rahmen oben, unten, links, rechts
+    assert theme.contrast_ratio(p["border"], p["bg"]) < 2.5  # dezent
 
 
 def test_header_test_would_catch_header_inside_the_middle_area(make, app):
@@ -367,7 +416,7 @@ def write_test_icons(folder, keys):
 def bar_geometry(bar):
     out = {}
     for k, ind in bar.indicators.items():
-        out[k] = (ind.width(), ind.height(), ind.icon_label.size().width(), ind.text_label.width())
+        out[k] = (ind.width(), ind.height())
     return out
 
 
@@ -384,9 +433,9 @@ def test_f04_service_icons_do_not_change_position_or_width(make, app, tmp_path, 
     w_with = make()
     assert all(w_with.connections.has_icon(k) for k in SERVICE_KEYS)
     for k in SERVICE_KEYS:
-        pm = w_with.connections.indicators[k].icon_label.pixmap()
+        pm = w_with.connections.indicators[k].icon_pixmap()
         assert pm is not None and not pm.isNull()
-        assert w_with.connections.indicators[k].icon_label.size().width() == widgets.SERVICE_ICON_SIZE
+        assert pm.deviceIndependentSize().width() == widgets.SERVICE_ICON_SIZE
     assert header_geometry(w_with) == before  # Lage und Breite unverändert
     # nur einige Symbole: ebenfalls gleich
     folder2 = tmp_path / "teilweise"
@@ -397,7 +446,7 @@ def test_f04_service_icons_do_not_change_position_or_width(make, app, tmp_path, 
     assert header_geometry(w_part) == before
 
 
-def test_f04_state_symbol_and_text_stay_next_to_service_icon(make, tmp_path, monkeypatch):
+def test_f04_state_symbol_and_text_with_service_icons(make, tmp_path, monkeypatch):
     folder = tmp_path / "i"
     write_test_icons(folder, SERVICE_KEYS)
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: folder)
@@ -406,9 +455,7 @@ def test_f04_state_symbol_and_text_stay_next_to_service_icon(make, tmp_path, mon
         w.connections.set_status("obs", state)
         t = w.connections.text_of("obs")
         assert state in t and "OBS" in t and t.split()[0] == STATUS_STYLE[state][0]  # Zeichen + Text
-    # Dienst-Symbol steht vor dem Text
-    ind = w.connections.indicators["obs"]
-    assert ind.icon_label.mapTo(w, QPoint(0, 0)).x() < ind.text_label.mapTo(w, QPoint(0, 0)).x()
+        assert w.connections.indicators["obs"].icon_pixmap() is not None
 
 
 def test_f04_missing_or_broken_icon_file_is_no_error(tmp_path):
@@ -651,7 +698,7 @@ def test_all_docks_are_qdockwidgets_with_custom_title(make):
 
 def tinted_pixels(label):
     """Farben (ohne Alpha) aller sichtbaren Pixel des Symbols."""
-    img = label.pixmap().toImage()
+    img = label.icon_pixmap().toImage()
     out = set()
     for y in range(img.height()):
         for x in range(img.width()):
@@ -667,9 +714,10 @@ def test_f04_real_icons_are_drawn_in_the_text_color_of_the_theme(make, app, name
     w.set_theme(name)
     app.processEvents()
     text = theme.palette(name)["text"]
+    w.connections.set_all("verbunden")  # ausgegraute Symbole sind im Nebentext-Ton, siehe unten
     for key in SERVICE_KEYS:
         assert w.connections.has_icon(key), key  # die Dateien liegen im Repo
-        colors = tinted_pixels(w.connections.indicators[key].icon_label)
+        colors = tinted_pixels(w.connections.indicators[key])
         assert colors, key  # sichtbare Pixel vorhanden
         ref = QColor(text)
         for c in colors:  # Textfarbe (±2 wegen Rundung bei Alpha), nicht weiss auf weiss
@@ -680,14 +728,14 @@ def test_f04_real_icons_are_drawn_in_the_text_color_of_the_theme(make, app, name
 
 def test_f04_icons_are_retinted_when_the_theme_changes(make, app):
     w = make()
-    label = w.connections.indicators["twitch"].icon_label
-    dark = label.pixmap().toImage()
+    label = w.connections.indicators["twitch"]
+    dark = label.icon_pixmap().toImage()
     w.set_theme("light")
     app.processEvents()
-    light = label.pixmap().toImage()
+    light = label.icon_pixmap().toImage()
     assert dark != light
     w.set_theme("dark")
-    assert label.pixmap().toImage() == dark
+    assert label.icon_pixmap().toImage() == dark
 
 
 def test_f04_icon_files_in_the_repo_are_single_colour_with_alpha():
@@ -716,7 +764,7 @@ def test_f04_png_is_shown_without_the_svg_module(make, app, tmp_path, monkeypatc
     monkeypatch.setattr(widgets, "connection_icon_dir", lambda: folder)
     w = make()
     assert all(w.connections.has_icon(k) for k in SERVICE_KEYS)
-    assert tinted_pixels(w.connections.indicators["obs"].icon_label)
+    assert tinted_pixels(w.connections.indicators["obs"])
     # auch die echten Dateien im Repo: PNG vorhanden, also angezeigt
     monkeypatch.undo()
     monkeypatch.setattr(widgets, "HAS_SVG", False)
@@ -765,3 +813,13 @@ def test_help_about_names_ndi_trademark_with_the_real_icon_file(make, monkeypatc
     w = make()
     w._about()  # echte Dateien im Repo: ndi.png/ndi.svg vorhanden
     assert "NDI® is a registered trademark of Vizrt NDI AB" in shown[-1]
+
+
+def test_f04_not_configured_button_is_greyed_out_icon_in_muted_color(make):
+    w = make()
+    ind = w.connections.indicators["youtube"]
+    ind.set_state("getrennt", "nicht eingerichtet")
+    muted = QColor(theme.palette(theme.DARK)["text_muted"])
+    for c in tinted_pixels(ind):
+        q = QColor(c)
+        assert max(abs(q.red() - muted.red()), abs(q.green() - muted.green()), abs(q.blue() - muted.blue())) <= 2

@@ -33,7 +33,10 @@ STATUS_BAR_HEIGHT = 29
 
 # Fensterkopf (F-68): kräftiger als in P05b (dort etwa 30 px). Höhe des Kopfes inklusive unterer Linie;
 # darin Leistungsfelder mit Beschriftungszeile und Verlaufsgrafik von 28 px.
-HEADER_HEIGHT = 48
+HEADER_HEIGHT = 56
+HEADER_MARGIN = 4  # Abstand des Kopfrahmens zum Fensterrand
+CONN_BUTTON_WIDTH = 46  # Verbindungs-Buttons (F-04)
+CONN_BUTTON_HEIGHT = 40
 PERF_TEXT_ROW = 16
 PERF_GRAPH_HEIGHT = 28
 
@@ -99,6 +102,10 @@ TEXT_PAIRS: tuple[tuple[str, str], ...] = (
     ("canvas_text", "canvas"),
     ("accent_text", "accent"),
     ("selection_text", "selection_bg"),
+    ("bg", "ok"),  # Zustandszeichen auf dem farbigen Punkt der Verbindungs-Buttons
+    ("bg", "warn"),
+    ("bg", "error"),
+    ("bg", "text_muted"),
     ("ok", "bg"),
     ("ok", "surface"),
     ("warn", "bg"),
@@ -153,7 +160,7 @@ QMenu::item:selected {{ background-color: {c["selection_bg"]}; color: {c["select
 QMenu::item:disabled {{ color: {c["text_muted"]}; }}
 QMenu::separator {{ height: 1px; background: {c["border"]}; margin: 3px 0; }}
 
-QWidget#header {{ background-color: {c["bg"]}; border-bottom: 1px solid {c["border"]}; }}
+QWidget#header {{ background-color: {c["bg"]}; border: 1px solid {c["border"]}; border-radius: 4px; }}
 QWidget#header QWidget {{ background-color: transparent; }}
 
 QStatusBar {{ background-color: {c["surface"]}; color: {c["text"]}; border-top: 1px solid {c["border"]}; }}

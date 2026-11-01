@@ -40,11 +40,8 @@ STATUS_STYLE = {
 }
 # Reihenfolge der Anzeigen: Twitch, YouTube, OBS, NDI
 SERVICES = (("twitch", "Twitch"), ("youtube", "YouTube"), ("obs", "OBS"), ("ndi", "NDI"))
-SERVICE_ICON_SIZE = 16  # Pixel
+SERVICE_ICON_SIZE = 20  # Pixel (Kopf ist höher, Platz der Buttons ist fest)
 ICON_SCALE = 2  # Symbole werden doppelt gross vorbereitet, damit sie auch bei hoher Auflösung scharf sind
-ICON_GAP = 6
-SERVICE_GAP = 12
-INDICATOR_PADDING = 8
 
 
 def connection_icon_dir() -> Path:
@@ -98,8 +95,17 @@ def find_service_icon(key: str, directory: Path | None = None) -> QIcon | None:
     return QIcon(pm) if pm is not None else None
 
 
+NOT_CONFIGURED = "nicht eingerichtet"  # Hinweis des Kern-Dienstes (YouTube im Gerüst, F-55)
+BUTTON_GAP = 6
+
+
 class ConnectionIndicator(QWidget):
-    """Eine Verbindungsanzeige: [Dienst-Symbol] «✔ Twitch: verbunden». Feste Breite (F-04)."""
+    """Eine Verbindungsanzeige als Button mit Dienst-Symbol (F-04). Feste Grösse.
+
+    Farbe: grün verbunden, rot getrennt oder Fehler, orange verbindet, grau (ausgegraut) nicht eingerichtet
+    oder unbekannt. U-04: Der Zustand steht zusätzlich als Zeichen (✔ ○ ↻ ✖ ?) auf einem Punkt am Button
+    und als Text im Tipp und im barrierefreien Namen, nie nur als Farbe.
+    """
 
     def __init__(self, key: str, title: str, icon: QPixmap | None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -107,34 +113,26 @@ class ConnectionIndicator(QWidget):
         self.status = "unbekannt"
         self.detail = ""
         self._palette = theme.palette(theme.DEFAULT_THEME)
-        self._last_style = ""
-        self.setObjectName(f"indicator_{key}")
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(ICON_GAP)
-        # Der Platz für das Symbol bleibt immer reserviert, auch ohne Datei: so verschiebt sich
-        # nichts, wenn Symbole später dazukommen.
-        self.icon_label = QLabel()
-        self.icon_label.setObjectName(f"icon_{key}")
-        self.icon_label.setFixedSize(SERVICE_ICON_SIZE, SERVICE_ICON_SIZE)
         self._icon_source = icon
         self.has_icon = icon is not None
-        lay.addWidget(self.icon_label)
-        self.text_label = QLabel()
-        self.text_label.setObjectName(f"status_{key}")
-        self.text_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        lay.addWidget(self.text_label)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        self._icon: QPixmap | None = None
+        self.setObjectName(f"indicator_{key}")
+        self.setFixedSize(theme.CONN_BUTTON_WIDTH, theme.CONN_BUTTON_HEIGHT)
         self.render()
-        self._tint_icon()
-
-    def _tint_icon(self) -> None:
-        """Symbol in der Textfarbe des aktuellen Themes (sonst weiss auf hellem Grund unsichtbar)."""
-        if self._icon_source is not None:
-            self.icon_label.setPixmap(tint_pixmap(self._icon_source, self._palette["text"]))
 
     def text(self) -> str:
-        return self.text_label.text()
+        """«✔ Twitch: verbunden»: Zeichen, Dienst und Zustand als Text."""
+        return f"{STATUS_STYLE[self.status][0]} {self.title}: {self.status}"
+
+    def color_name(self) -> str:
+        """Name der Palettenfarbe des Zustands."""
+        if self.status == "verbunden":
+            return "ok"
+        if self.status == "verbindet":
+            return "warn"
+        if self.status == "Fehler" or (self.status == "getrennt" and self.detail != NOT_CONFIGURED):
+            return "error"
+        return "text_muted"  # nicht eingerichtet oder unbekannt: ausgegraut
 
     def set_state(self, status: str, detail: str = "") -> None:
         self.status = status if status in STATUS_STYLE else "unbekannt"
@@ -144,36 +142,51 @@ class ConnectionIndicator(QWidget):
     def apply_palette(self, palette: dict[str, str]) -> None:
         self._palette = palette
         self.render()
-        self._tint_icon()
 
     def render(self) -> None:
-        symbol, color = STATUS_STYLE[self.status]
-        self.text_label.setText(f"{symbol} {self.title}: {self.status}")
         tip = f"{self.title}: {self.status}" + (f" ({self.detail})" if self.detail else "")
         self.setToolTip(tip)
         self.setAccessibleName(tip)
-        style = f"color: {self._palette[color]}; font-weight: bold;"
-        if style != self._last_style:  # nicht bei jedem Zustand neu setzen (löst sonst Neuberechnung aus)
-            self._last_style = style
-            self.text_label.setStyleSheet(style)
-        self.update_width()
+        if self._icon_source is not None:  # Symbol in der Textfarbe (ausgegraut: Nebentext)
+            muted = self.color_name() == "text_muted"
+            self._icon = tint_pixmap(self._icon_source, self._palette["text_muted" if muted else "text"])
+        self.update()
 
-    def update_width(self) -> None:
-        """Feste Breite für den längsten möglichen Text («↻ Twitch: verbindet» o. ä.)."""
-        self.ensurePolished()
-        font = QFont(self.text_label.font())
+    def icon_pixmap(self) -> QPixmap | None:
+        return self._icon
+
+    def paintEvent(self, _e) -> None:
+        pal = self._palette
+        state = QColor(pal[self.color_name()])
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        box = QRectF(self.rect()).adjusted(1, 1, -1, -1)
+        p.setBrush(QColor(pal["surface"]))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(box, 5, 5)
+        fill = QColor(state)
+        fill.setAlpha(45)
+        p.setBrush(fill)
+        pen = QPen(state)
+        pen.setWidthF(2.0)
+        p.setPen(pen)
+        p.drawRoundedRect(box, 5, 5)
+        if self._icon is not None:
+            size = SERVICE_ICON_SIZE
+            p.drawPixmap(round((self.width() - size) / 2) - 2, round((self.height() - size) / 2), self._icon)
+        # Zustandspunkt unten rechts mit Zeichen
+        d = 13
+        dot = QRectF(self.width() - d - 2, self.height() - d - 2, d, d)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(state)
+        p.drawEllipse(dot)
+        font = QFont(self.font())
         font.setBold(True)
-        fm = QFontMetrics(font)
-        widest = max(fm.horizontalAdvance(f"{s} {self.title}: {st}") for st, (s, _) in STATUS_STYLE.items())
-        self.text_label.setFixedWidth(widest + INDICATOR_PADDING)
-        self.setFixedWidth(SERVICE_ICON_SIZE + ICON_GAP + widest + INDICATOR_PADDING)
-
-    def event(self, e: QEvent) -> bool:
-        if e.type() in (QEvent.Type.StyleChange, QEvent.Type.FontChange, QEvent.Type.PolishRequest):
-            ok = super().event(e)
-            self.update_width()
-            return ok
-        return super().event(e)
+        font.setPointSizeF(7)
+        p.setFont(font)
+        p.setPen(QColor(pal["bg"]))
+        p.drawText(dot, int(Qt.AlignmentFlag.AlignCenter), STATUS_STYLE[self.status][0])
+        p.end()
 
 
 class ConnectionStatusBar(QWidget):
@@ -183,7 +196,7 @@ class ConnectionStatusBar(QWidget):
         super().__init__(parent)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(SERVICE_GAP)
+        lay.setSpacing(BUTTON_GAP)
         self.indicators: dict[str, ConnectionIndicator] = {}
         for key, title in SERVICES:
             ind = ConnectionIndicator(key, title, load_service_pixmap(key, icon_dir))
