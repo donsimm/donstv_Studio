@@ -76,13 +76,21 @@ def find_icon() -> QIcon:
     return QIcon(str(path)) if path.exists() else QIcon()
 
 
+# Gespeicherte Fensterlage und Dock-Anordnung tragen die Layout-Version im Wert. Zustände aus früheren Versionen
+# (ohne diese Marke) werden nicht wiederhergestellt: Auf dem Laptop (Debian 13: Qt 6.8.2 mit PyQt6 6.9.0) stürzte
+# `restoreState` mit einer alten Anordnung ab, sobald der Kern verbunden war.
+LAYOUT_TAG = "v3:"
+
+
 def _encode(data: QByteArray) -> str:
-    return base64.b64encode(bytes(data)).decode("ascii")
+    return LAYOUT_TAG + base64.b64encode(bytes(data)).decode("ascii")
 
 
 def _decode(text: str) -> QByteArray | None:
+    if not text.startswith(LAYOUT_TAG):
+        return None
     try:
-        return QByteArray(base64.b64decode(text.encode("ascii"), validate=True))
+        return QByteArray(base64.b64decode(text[len(LAYOUT_TAG):].encode("ascii"), validate=True))
     except (binascii.Error, ValueError, UnicodeEncodeError):
         return None
 

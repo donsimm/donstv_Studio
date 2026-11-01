@@ -268,3 +268,26 @@ def test_texts_use_swiss_spelling(make):
     texts = [a.text() for m in w.menu_bar.findChildren(type(w.docks_menu)) for a in m.actions()]
     texts += [lbl.text() for lbl in w.findChildren(QLabel)]
     assert not any("ß" in t for t in texts)
+
+
+def test_f01_layout_values_without_version_tag_are_not_restored(make, app):
+    """Zustände aus früheren Versionen (ohne Marke) werden nicht wiederhergestellt: Auf dem Laptop (Qt 6.8.2 mit PyQt6 6.9.0)
+    stürzte `restoreState` mit einer alten Anordnung ab, sobald der Kern verbunden war."""
+    import base64
+
+    a, _ = make()
+    a.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, a.docks[0])
+    app.processEvents()
+    old = {
+        "ui.geometry": base64.b64encode(bytes(a.saveGeometry())).decode(),
+        "ui.dock_state": base64.b64encode(bytes(a.saveState(2))).decode(),  # Format von vor der Marke
+    }
+    b, _ = make()
+    before = bytes(b.saveState(2))
+    b.apply_settings(old)
+    assert bytes(b.saveState(2)) == before  # nichts wiederhergestellt
+    saved = a.layout_values()
+    assert saved["ui.dock_state"].startswith("v3:") and saved["ui.geometry"].startswith("v3:")
+    c, _ = make()
+    c.apply_settings(saved)  # mit Marke: wiederhergestellt
+    assert c.dockWidgetArea(c.docks[0]) == Qt.DockWidgetArea.LeftDockWidgetArea

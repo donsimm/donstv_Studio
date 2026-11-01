@@ -95,7 +95,7 @@ def test_ui_process_saves_layout_on_signal_and_exits_cleanly(tmp_path, signum):
             assert saved[key], key
             import base64
 
-            assert base64.b64decode(saved[key])  # gültiges Base64
+            assert saved[key].startswith("v3:") and base64.b64decode(saved[key][3:])  # Marke und gültiges Base64
         json.dumps(saved)
     finally:
         if proc.poll() is None:
