@@ -24,10 +24,13 @@ Nachträge und Korrekturen (in der Reihenfolge der Ausführung, Stand P08):
 | P05c | `P05c-leistungsanzeige.md` | Leistungsanzeige (CPU, RAM, LAN) im Fensterkopf, Symbole in Textfarbe, PNG vor SVG | F-68, F-04 |
 | P06c | `P06c-laptop-befunde.md` | Befunde vom Laptop: PNG-Testsymbole, sichtbare Fehler im Unterprozess-Test, Freigabe-Reihenfolge von QtWebEngine | F-01, F-04, F-65 (Bericht `docs/berichte/P06c.md`) |
 | P08 | `P08-aufraeumen.md` | Aufräumen ohne Verhaltensänderung: Signale nach Regel 12, toter und doppelter Code, `ruff format`, Dokumente gegen Code, Testdauer | – (Bericht `docs/berichte/P08.md`) |
+| P06d | `P06d-editor-fehler.md` | Editor: Fehler und Kleinkram (Bildrahmen, Kontrast, Zeigerposition, Umbenennen, Leistungsanzeige, README, Stylesheet nur bei Änderung) | F-74 bis F-78 |
+| P06e | `P06e-eigenschaften.md` | Eigenschaften-Dock: Regler-Felder und Reset, Transformation kopieren/einfügen, Sperren, Leinwandgrösse, Ausgabe-Schalter | F-80 bis F-84 |
+| P06f | `P06f-quellenfenster.md` | Quellenfenster per Doppelklick (Text: Rand, Schatten, Gewicht, Ausrichtung; Bild: Einpassen) | F-79, F-67, F-70, F-38 |
 
 Berichte zu P01 bis P06 wurden nur im Chat geliefert; ab P06c liegen sie unter `docs/berichte/`.
 
-Danach (nicht Teil des Gerüsts, einzeln beauftragen): OBS-Anbindung (nächster Baustein nach P08) mit Szenenwechsel (F-07, F-64), Machbarkeitstests T-01 bis T-04 aus `03-hardware-netzwerk.md`, NDI (F-36), Streamer.bot-Import (F-52), Animationen und weitere Quellen.
+Danach (nicht Teil des Gerüsts, einzeln beauftragen): OBS-Anbindung (nach P06d, P06e und P06f) mit Szenenwechsel (F-07, F-64), Machbarkeitstests T-01 bis T-04 aus `03-hardware-netzwerk.md`, NDI (F-36), Streamer.bot-Import (F-52), Animationen und weitere Quellen.
 
 ## 2. Abhängigkeiten
 
