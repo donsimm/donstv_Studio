@@ -20,7 +20,9 @@ from donstv_studio.core.bus import Event, EventBus
 from donstv_studio.core.config import Config, ConfigError
 from donstv_studio.core.connections.manager import ConnectionManager
 from donstv_studio.overlays.api import create_router as create_overlay_router
+from donstv_studio.overlays.media import MediaLibrary
 from donstv_studio.overlays.service import OverlayService
+from donstv_studio.overlays.urls import UrlBuilder
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +47,8 @@ def create_app(
     manager: ConnectionManager,
     config: Config,
     overlays: OverlayService | None = None,
+    media: MediaLibrary | None = None,
+    urls: UrlBuilder | None = None,
 ) -> FastAPI:
     app = FastAPI(title="donstv-core", docs_url=None, redoc_url=None, openapi_url=None)
     def valid(candidate: str | None) -> bool:
@@ -57,7 +61,7 @@ def create_app(
             raise HTTPException(status_code=401, detail="Token fehlt oder ist falsch")
 
     if overlays is not None:
-        app.include_router(create_overlay_router(overlays), dependencies=[Depends(require_token)])
+        app.include_router(create_overlay_router(overlays, urls, media), dependencies=[Depends(require_token)])
 
     @app.get("/health", dependencies=[Depends(require_token)])
     async def health() -> dict[str, str]:

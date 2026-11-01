@@ -111,14 +111,14 @@ async def test_f12_order_and_visibility(env):
 async def test_f10_duplicate_copies_sources_with_new_ids_and_token(env):
     svc, events, *_ = env
     o = await svc.create_overlay("A", output="ndi")
-    s = await svc.add_source(o.id, "text", **BOX, props={"t": {"n": 1}})
+    s = await svc.add_source(o.id, "text", **BOX, props={"text": "A", "size": 12})
     d = await svc.duplicate_overlay(o.id)
     assert d.id != o.id and d.token != o.token
     assert d.name == "A (Kopie)" and d.output == "ndi"
     assert len(d.sources) == 1 and d.sources[0].id != s.id
-    assert d.sources[0].props == {"t": {"n": 1}}
-    d.sources[0].props["t"]["n"] = 2  # Kopie darf das Original nicht teilen
-    assert svc.get_overlay(o.id).sources[0].props == {"t": {"n": 1}}
+    assert d.sources[0].props == {"text": "A", "size": 12}
+    d.sources[0].props["size"] = 13  # Kopie darf das Original nicht teilen
+    assert svc.get_overlay(o.id).sources[0].props == {"text": "A", "size": 12}
     assert events[-1] == {"overlay_id": d.id, "change": "duplicated", "source_overlay_id": o.id}
 
 

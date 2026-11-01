@@ -64,3 +64,15 @@ def test_f03_xdg_paths(monkeypatch, tmp_path):
     assert p.config_dir == tmp_path / "c" / "donstv_studio"
     assert p.backup_dir == tmp_path / "d" / "donstv_studio" / "backups"
     assert p.log_file.parent == tmp_path / "s" / "donstv_studio" / "log"
+
+
+def test_f17_overlay_server_settings(tmp_path):
+    c = make(tmp_path)
+    assert (c.overlay_port, c.overlay_host, c.overlay_local_only) == (8080, "0.0.0.0", False)
+    c.set("overlay.port", "9000")
+    c.set("overlay.host", "192.168.1.5")
+    assert (c.overlay_port, c.overlay_host) == (9000, "192.168.1.5")
+    c.set("overlay.local_only", "true")  # «nur lokal» gewinnt gegen overlay.host
+    assert (c.overlay_local_only, c.overlay_host) == (True, "127.0.0.1")
+    c.set("overlay.local_only", "false")
+    assert c.overlay_host == "192.168.1.5"

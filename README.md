@@ -45,3 +45,22 @@ donstv-studio
 ## Kern-Dienst (P02)
 
 `donstv-core` lauscht nur auf `127.0.0.1` (Port 8765, Einstellung `api.port`). Der Zugriff braucht das Token aus `~/.config/donstv_studio/api-token` (Header `Authorization: Bearer <Token>`). Eine Vorlage für `systemd --user` liegt unter `packaging/donstv-core.service`.
+
+## Overlay-Server (P04)
+
+Der Overlay-Server liefert die Overlay-Seite für die Browserquelle in OBS. Er läuft im Kern-Dienst auf einem eigenen Port, getrennt von der lokalen Schnittstelle.
+
+| Einstellung | Standard | Bedeutung |
+|---|---|---|
+| `overlay.host` | `0.0.0.0` | Lauschadresse (alle Schnittstellen, Heimnetz) |
+| `overlay.port` | `8080` | Port |
+| `overlay.local_only` | `false` | «nur lokal»: `true` erzwingt `127.0.0.1` (gewinnt gegen `overlay.host`) |
+| `overlay.public_host` | automatisch | Adresse oder Hostname des Laptops in der Browserquelle-URL |
+
+Die Einstellungen werden über `POST /config/import` (siehe F-03) oder die Tabelle `settings` gesetzt; der Dienst muss danach neu gestartet werden. Die URL jedes Overlays steht im Feld `url` der Schnittstelle (`GET /overlays`). Sie enthält das Token des Overlays. Sie gehört in OBS als Browserquelle, Breite und Höhe wie das Overlay.
+
+Die Schrift Be Vietnam Pro liegt lokal unter `src/donstv_studio/overlays/web/fonts/` (SIL Open Font License, Quelle und Lizenz dort).
+
+### Tests mit Browser
+
+`pytest` prüft die Pixelpositionen der Overlay-Seite in Chromium über Playwright. Ohne Playwright oder Chromium werden diese Tests mit Begründung übersprungen (`pytest -rs`). Einrichtung: `pip install -e ".[browser]"`; ein vorhandenes Chromium wird gefunden oder per `DONSTV_CHROMIUM=/Pfad/zu/chromium` angegeben.

@@ -14,9 +14,13 @@ _REDACT = re.compile(
 )
 
 
+# Overlay-Adressen tragen das Token als «t=…» in der Abfrage (/o/<id>?t=…).
+_REDACT_QUERY_T = re.compile(r"([?&]t=)[^\s&'\"]+")
+
+
 class RedactFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = _REDACT.sub(r"\1\2***", record.getMessage())
+        record.msg = _REDACT_QUERY_T.sub(r"\1***", _REDACT.sub(r"\1\2***", record.getMessage()))
         record.args = None
         return True
 

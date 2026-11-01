@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+from collections.abc import Callable
 from typing import Any
 
 from donstv_studio.core.bus import Event, EventBus
@@ -33,9 +34,21 @@ def _unknown(keys: set[str], allowed: set[str], what: str) -> None:
 
 
 class OverlayService:
-    def __init__(self, repo: OverlayRepository, bus: EventBus) -> None:
+    def __init__(
+        self,
+        repo: OverlayRepository,
+        bus: EventBus,
+        media_exists: Callable[[str], bool] | None = None,
+    ) -> None:
         self._repo = repo
         self._bus = bus
+        self._media_exists = media_exists
+
+    def _check_media(self, s: Source) -> None:
+        """Eine Bildquelle darf nur auf Dateien der Bibliothek zeigen (F-16)."""
+        mid = s.props.get("media_id") if s.kind == "image" else None
+        if mid and self._media_exists is not None and not self._media_exists(mid):
+            raise OverlayError(f"Die Mediendatei {mid!r} gibt es in der Bibliothek nicht")
 
     async def _changed(self, overlay_id: str, change: str, **extra: Any) -> None:
         payload = {"overlay_id": overlay_id, "change": change, **extra}
@@ -120,6 +133,7 @@ class OverlayService:
         if not {"x", "y", "width", "height"} <= set(fields):
             raise OverlayError("Quelle braucht x, y, width und height (ganze Pixel)")
         s = Source(kind=kind, **fields)
+        self._check_media(s)
         self._repo.insert_source(overlay_id, s)
         await self._changed(overlay_id, "source_added", source_id=s.id)
         return s
@@ -134,6 +148,7 @@ class OverlayService:
         _unknown(set(changes), _SOURCE_FIELDS, "Quelle")
         o = self._require(overlay_id)
         new = dataclasses.replace(self._source(o, source_id), **changes)
+        self._check_media(new)
         self._repo.update_source(overlay_id, new)
         await self._changed(overlay_id, "source_updated", source_id=source_id)
         return new

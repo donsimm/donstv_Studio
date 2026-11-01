@@ -13,6 +13,11 @@ from donstv_studio.core.store import Store
 APP_DIR = "donstv_studio"
 EXPORT_VERSION = 1
 DEFAULT_API_PORT = 8765
+# Overlay-Server (F-17). Vorgaben [ANNAHME]: Port 8080, alle Schnittstellen des Heimnetzes.
+DEFAULT_OVERLAY_PORT = 8080
+DEFAULT_OVERLAY_HOST = "0.0.0.0"
+LOCAL_ONLY_HOST = "127.0.0.1"
+_TRUE = {"1", "true", "ja", "yes", "on"}
 # Schlüssel mit diesen Präfixen sind Zugangsdaten und gehören nie in den Export.
 SECRET_PREFIXES = ("secret.", "secrets.", "credential.", "token.", "password.")
 
@@ -59,11 +64,15 @@ class Paths:
         return self.config_dir / "api-token"
 
     @property
+    def media_dir(self) -> Path:
+        return self.data_dir / "media"
+
+    @property
     def log_file(self) -> Path:
         return self.log_dir / "donstv-core.log"
 
     def ensure(self) -> None:
-        for d in (self.config_dir, self.data_dir, self.backup_dir, self.log_dir):
+        for d in (self.config_dir, self.data_dir, self.backup_dir, self.media_dir, self.log_dir):
             d.mkdir(parents=True, exist_ok=True)
         self.config_dir.chmod(0o700)
 
@@ -80,6 +89,28 @@ class Config:
     def api_port(self) -> int:
         raw = self._store.get_setting("api.port")
         return int(raw) if raw else DEFAULT_API_PORT
+
+    @property
+    def overlay_port(self) -> int:
+        raw = self._store.get_setting("overlay.port")
+        return int(raw) if raw else DEFAULT_OVERLAY_PORT
+
+    @property
+    def overlay_local_only(self) -> bool:
+        """Konfigurationszeile «nur lokal» (`overlay.local_only`)."""
+        return (self._store.get_setting("overlay.local_only") or "false").strip().lower() in _TRUE
+
+    @property
+    def overlay_host(self) -> str:
+        """Lauschadresse. «nur lokal» gewinnt immer gegen `overlay.host`."""
+        if self.overlay_local_only:
+            return LOCAL_ONLY_HOST
+        return self._store.get_setting("overlay.host") or DEFAULT_OVERLAY_HOST
+
+    @property
+    def overlay_public_host(self) -> str | None:
+        """Adresse oder Hostname des Laptops für die Browserquelle-URL (leer = automatisch)."""
+        return self._store.get_setting("overlay.public_host") or None
 
     def get(self, key: str, default: str | None = None) -> str | None:
         return self._store.get_setting(key, default)

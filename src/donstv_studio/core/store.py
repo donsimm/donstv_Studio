@@ -47,6 +47,20 @@ MIGRATIONS: list[tuple[int, str]] = [
         CREATE INDEX sources_overlay ON sources(overlay_id, z)
         """,
     ),
+    (
+        # F-16: Bibliothek für Bilder (Dateien liegen im Ordner «media», hier nur die Angaben).
+        3,
+        """
+        CREATE TABLE media (
+            id TEXT PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            mime TEXT NOT NULL,
+            ext TEXT NOT NULL,
+            size INTEGER NOT NULL CHECK (size >= 1),
+            created_at REAL NOT NULL
+        )
+        """,
+    ),
 ]
 
 BACKUP_PREFIX = "donstv-"

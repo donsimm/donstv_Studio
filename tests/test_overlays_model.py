@@ -81,3 +81,50 @@ def test_f65_no_percent_fields_in_model():
     assert not any("percent" in n or "pct" in n for n in names)
     d = src().to_dict()
     assert all(isinstance(d[k], int) for k in ("x", "y", "width", "height", "z"))
+
+
+# --- P04: Prüfung der props je Quellenart, Obergrenze der Auflösung ------------------------
+
+def test_f11_resolution_upper_limit_8192():
+    assert Overlay(name="A", width=8192, height=8192).width == 8192
+    with pytest.raises(OverlayError, match="darf höchstens 8192 sein"):
+        Overlay(name="A", width=8193)
+    with pytest.raises(OverlayError, match="darf höchstens 8192 sein"):
+        Overlay(name="A", height=9000)
+
+
+def test_f15_text_props_valid():
+    s = src(props={"text": "Grüezi", "color": "#ff8800", "size": 64, "font": "DejaVu Sans", "style": "comic"})
+    assert s.props["size"] == 64
+    for style in ("comic", "comic_thick", "plain", "none"):
+        assert src(props={"style": style}).props["style"] == style
+    src(props={})  # fehlende Werte gelten als Standard
+
+
+@pytest.mark.parametrize(
+    ("props", "match"),
+    [
+        ({"text": 5}, "Text"),
+        ({"text": "x" * 5001}, "Text"),
+        ({"color": "rot"}, "Farbe"),
+        ({"color": "#12"}, "Farbe"),
+        ({"size": 0}, "Schriftgrösse"),
+        ({"size": 12.5}, "Schriftgrösse"),
+        ({"size": 5000}, "höchstens"),
+        ({"font": 'x"; background:url(//e)'}, "Schriftname"),
+        ({"font": ""}, "Schriftname"),
+        ({"style": "fett"}, "Stil"),
+        ({"media_id": "a" * 32}, "unbekannte Eigenschaften"),
+    ],
+)
+def test_f15_text_props_invalid(props, match):
+    with pytest.raises(OverlayError, match=match):
+        src(kind="text", props=props)
+
+
+def test_f16_image_props():
+    assert src(kind="image", props={"media_id": "a" * 32}).props["media_id"] == "a" * 32
+    assert src(kind="image", props={"media_id": ""}).kind == "image"
+    for bad in ({"media_id": "../etc"}, {"media_id": 3}, {"text": "x"}):
+        with pytest.raises(OverlayError):
+            src(kind="image", props=bad)
