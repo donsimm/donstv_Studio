@@ -77,3 +77,40 @@ def test_token_file_mode(tmp_path):
     assert p.read_text() == t1 and len(t1) >= 32
     assert stat.S_IMODE(p.stat().st_mode) == 0o600
     assert create_token_file(p) != t1
+
+
+# --- P05: Einstellungen für die Oberfläche (Layout merken) ---------------------------------
+
+def test_settings_need_token(env):
+    client = env[0]
+    assert client.get("/settings").status_code == 401
+    assert client.put("/settings/ui.theme", json={"value": "dark"}).status_code == 401
+
+
+def test_settings_put_get_roundtrip(env):
+    client, _, cfg = env
+    assert client.get("/settings", headers=AUTH).json() == {}
+    assert client.put("/settings/ui.theme", json={"value": "light"}, headers=AUTH).status_code == 200
+    assert client.put("/settings/ui.dock_state", json={"value": "QUJD"}, headers=AUTH).status_code == 200
+    assert client.get("/settings", headers=AUTH).json() == {"ui.theme": "light", "ui.dock_state": "QUJD"}
+    assert cfg.get("ui.theme") == "light"
+    # erscheint auch im Export (F-03)
+    assert client.get("/config/export", headers=AUTH).json()["settings"]["ui.theme"] == "light"
+
+
+@pytest.mark.parametrize(
+    ("key", "body"),
+    [
+        ("secret.twitch", {"value": "x"}),   # Zugangsdaten gehören nicht in die Konfiguration
+        ("token.x", {"value": "x"}),
+        ("UI.Theme", {"value": "x"}),         # Schlüsselform
+        ("a..b", {"value": "x"}),
+        ("ui.theme", {"value": 5}),           # Wert muss Text sein
+        ("ui.theme", {}),
+        ("ui.theme", [1]),
+        ("ui.theme", {"value": "x" * 200_001}),
+    ],
+)
+def test_settings_put_rejects_bad_input(env, key, body):
+    r = env[0].put(f"/settings/{key}", json=body, headers=AUTH)
+    assert r.status_code == 400, r.text

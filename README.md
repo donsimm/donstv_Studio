@@ -64,3 +64,34 @@ Die Schrift Be Vietnam Pro liegt lokal unter `src/donstv_studio/overlays/web/fon
 ### Tests mit Browser
 
 `pytest` prüft die Pixelpositionen der Overlay-Seite in Chromium über Playwright. Ohne Playwright oder Chromium werden diese Tests mit Begründung übersprungen (`pytest -rs`). Einrichtung: `pip install -e ".[browser]"`; ein vorhandenes Chromium wird gefunden oder per `DONSTV_CHROMIUM=/Pfad/zu/chromium` angegeben.
+
+## Oberfläche (P05)
+
+`donstv-studio` ist das Hauptfenster (PyQt6, Variante A wie OBS). Es startet den Kern-Dienst nicht selbst, sondern verbindet sich lokal mit ihm (`127.0.0.1:8765`, Token aus `~/.config/donstv_studio/api-token`). Ist der Kern nicht erreichbar, zeigt das Fenster eine Meldung und versucht es mit wachsender Wartezeit erneut. Einen anderen Port des Kerns gibt `DONSTV_CORE_PORT` an.
+
+Design (dunkel oder hell), Fensterposition und Dock-Anordnung merkt sich der Kern in seiner Datenbank (Einstellungen `ui.theme`, `ui.geometry`, `ui.dock_state`). Sie gelangen beim Beenden des Fensters dorthin.
+
+PyQt6 ist ein Extra: `pip install -e ".[ui]"`. Unter Debian kommt es aus den Paketen `python3-pyqt6` und `python3-pyqt6.qtwebengine`. Tests mit Oberfläche laufen mit `QT_QPA_PLATFORM=offscreen` (setzt `tests/conftest.py`) und werden mit Begründung übersprungen, wenn PyQt6 fehlt.
+
+### Auf dem Laptop starten
+
+```bash
+cd ~/donstv_Studio
+git fetch origin claude/epic-faraday-4rfiwx && git checkout claude/epic-faraday-4rfiwx && git pull
+sudo apt install python3-venv python3-pyqt6 python3-pyqt6.qtwebengine
+python3 -m venv --system-site-packages .venv
+. .venv/bin/activate
+pip install -e ".[ui]"
+```
+
+Terminal 1, zuerst der Kern-Dienst:
+
+```bash
+cd ~/donstv_Studio && . .venv/bin/activate && donstv-core
+```
+
+Terminal 2, danach das Fenster:
+
+```bash
+cd ~/donstv_Studio && . .venv/bin/activate && donstv-studio
+```

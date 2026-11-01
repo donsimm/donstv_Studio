@@ -25,6 +25,7 @@ from donstv_studio.overlays.urls import UrlBuilder
 log = logging.getLogger(__name__)
 
 BACKUP_CHECK_SECONDS = 3600
+SHUTDOWN_TIMEOUT = 5  # Sekunden
 LOCAL_HOST = "127.0.0.1"  # in diesem Baustein nie im Heimnetz erreichbar
 
 
@@ -55,7 +56,10 @@ class Service:
     @staticmethod
     def _make_server(app, host: str, port: int) -> uvicorn.Server:
         server = uvicorn.Server(
-            uvicorn.Config(app, host=host, port=port, log_config=None, access_log=False)
+            uvicorn.Config(
+                app, host=host, port=port, log_config=None, access_log=False,
+                timeout_graceful_shutdown=SHUTDOWN_TIMEOUT,  # offene Verbindungen nicht ewig abwarten
+            )
         )
         server.install_signal_handlers = lambda: None  # Signale behandeln wir selbst
         return server

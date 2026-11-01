@@ -76,3 +76,50 @@ class Image:
                     xs.append(x)
                     ys.append(y)
         return (min(xs), min(ys), max(xs), max(ys)) if xs else None
+
+
+class RunningService:
+    """Startet den Kern-Dienst in einem eigenen Thread (für Tests mit Browser oder Oberfläche)."""
+
+    def __init__(self, paths, port: int, overlay_port: int) -> None:
+        import asyncio
+        import threading
+
+        from donstv_studio.core.service import Service
+
+        self.paths, self.port = paths, port
+        self.svc = Service(paths, port=port, overlay_port=overlay_port)
+        self.loop = None
+        self._ready = threading.Event()
+        self._asyncio = asyncio
+
+        def runner():
+            async def main():
+                self.loop = asyncio.get_running_loop()
+                task = asyncio.create_task(self.svc.run())
+                await self.svc.started.wait()
+                self._ready.set()
+                await task
+
+            asyncio.run(main())
+
+        self.thread = threading.Thread(target=runner, daemon=True)
+
+    @property
+    def base_url(self) -> str:
+        return f"http://127.0.0.1:{self.port}"
+
+    def start(self) -> "RunningService":
+        self.thread.start()
+        assert self._ready.wait(20), "Dienst startet nicht"
+        return self
+
+    def stop(self) -> None:
+        if self.loop is not None:
+            self.loop.call_soon_threadsafe(self.svc.stop_event.set)
+        self.thread.join(20)
+
+    def run(self, coro_func, *args):
+        """Führt eine Coroutine in der Schleife des Dienstes aus und wartet auf das Ergebnis."""
+        fut = self._asyncio.run_coroutine_threadsafe(coro_func(*args), self.loop)
+        return fut.result(10)

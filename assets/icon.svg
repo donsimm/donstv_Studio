@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Platzhalter-Icon (nur Fenster-Icon): schlichtes Quadrat mit den Buchstaben «DS». -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="16" y="16" width="224" height="224" rx="24" fill="#2b2d31" stroke="#4c8dff" stroke-width="8"/>
+  <text x="128" y="128" font-family="DejaVu Sans, Arial, sans-serif" font-size="112" font-weight="700"
+        fill="#ffffff" text-anchor="middle" dominant-baseline="central">DS</text>
+</svg>

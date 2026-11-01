@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,8 @@ DEFAULT_API_PORT = 8765
 DEFAULT_OVERLAY_PORT = 8080
 DEFAULT_OVERLAY_HOST = "0.0.0.0"
 LOCAL_ONLY_HOST = "127.0.0.1"
+_KEY = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)*$")
+MAX_VALUE_LENGTH = 200_000
 _TRUE = {"1", "true", "ja", "yes", "on"}
 # Schlüssel mit diesen Präfixen sind Zugangsdaten und gehören nie in den Export.
 SECRET_PREFIXES = ("secret.", "secrets.", "credential.", "token.", "password.")
@@ -119,6 +122,14 @@ class Config:
         if is_secret_key(key):
             raise ConfigError(f"Zugangsdaten gehören in den Schlüsselbund, nicht in die Konfiguration: {key}")
         self._store.set_setting(key, value)
+
+    def set_checked(self, key: str, value: str) -> None:
+        """Wie `set`, prüft zusätzlich Form des Schlüssels und Länge des Werts (für die Schnittstelle)."""
+        if not _KEY.match(key):
+            raise ConfigError(f"Ungültiger Schlüssel: {key!r}")
+        if len(value) > MAX_VALUE_LENGTH:
+            raise ConfigError(f"Wert zu lang (höchstens {MAX_VALUE_LENGTH} Zeichen)")
+        self.set(key, value)
 
     def export_data(self) -> dict[str, Any]:
         settings = {k: v for k, v in self._store.all_settings().items() if not is_secret_key(k)}

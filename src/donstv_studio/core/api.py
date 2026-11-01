@@ -71,6 +71,23 @@ def create_app(
     async def connections() -> dict[str, str]:
         return manager.statuses()
 
+    @app.get("/settings", dependencies=[Depends(require_token)])
+    async def settings_all() -> dict[str, str]:
+        """Alle Einstellungen ohne Zugangsdaten (z. B. `ui.theme`, `ui.geometry`)."""
+        return config.export_data()["settings"]
+
+    @app.put("/settings/{key}", dependencies=[Depends(require_token)])
+    async def settings_put(key: str, request: Request) -> dict[str, str]:
+        try:
+            body = await request.json()
+            value = body["value"] if isinstance(body, dict) else None
+            if not isinstance(value, str):
+                raise ConfigError("«value» muss Text sein")
+            config.set_checked(key, value)
+        except (ConfigError, ValueError, KeyError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        return {"status": "ok"}
+
     @app.get("/config/export", dependencies=[Depends(require_token)])
     async def config_export() -> dict[str, Any]:
         return config.export_data()
@@ -102,13 +119,27 @@ def create_app(
             queue.put_nowait(event)
 
         sub = bus.subscribe("*", forward)
-        try:
+
+        async def sender() -> None:
             while True:
                 event = await queue.get()
                 await ws.send_json(event.to_dict())
-        except (WebSocketDisconnect, RuntimeError):
-            pass
+
+        async def receiver() -> None:
+            # Nur um das Schliessen (auch beim Beenden des Dienstes) zu bemerken; sonst bliebe
+            # der Handler in queue.get() hängen und uvicorn würde auf ihn warten.
+            while True:
+                await ws.receive_text()
+
+        tasks = [asyncio.create_task(sender()), asyncio.create_task(receiver())]
+        try:
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         finally:
             sub.cancel()
+            for t in tasks:
+                t.cancel()
+            for t in tasks:
+                with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
+                    await t
 
     return app

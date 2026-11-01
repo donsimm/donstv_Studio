@@ -16,10 +16,6 @@ def test_subpackages_importable(sub):
     importlib.import_module(f"donstv_studio.{sub}")
 
 
-@pytest.mark.parametrize(
-    ("module", "name"),
-    [("donstv_studio.ui.main", "donstv-studio")],
-)
-def test_entrypoints_print_start_message(module, name, capsys):
-    assert importlib.import_module(module).main() == 0
-    assert name in capsys.readouterr().out
+def test_ui_entrypoint_importable_without_qt():
+    # Der Einstieg importiert Qt erst beim Start; ohne PyQt6 bleibt das Modul importierbar.
+    assert callable(importlib.import_module("donstv_studio.ui.main").main)
