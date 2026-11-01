@@ -2,7 +2,10 @@
 
 Lies `CLAUDE.md`, `docs/01-funktionen.md` (5.1), `docs/02-architektur.md` und `docs/04-ui-design.md` (Abschnitt 4).
 
-**Voraussetzung vom Nutzer:** Twitch-Entwickler-Anwendung mit Client-ID, Kanalname und Entscheid, ob ein getrenntes Bot-Konto genutzt wird (siehe `docs/05-prompt-plan.md`, Abschnitt 3). Fehlt etwas davon, melde es und baue alles andere mit einer Testverbindung.
+**Angaben des Nutzers (ersetzen die früheren Voraussetzungen):**
+- Hauptkanal (Streamer): `donstv2020` (https://www.twitch.tv/donstv2020).
+- Bot-Konto: `donstvbot` (https://www.twitch.tv/donstvbot), ein eigenes Konto. Der Bot liest und schreibt im Chat von `donstv2020` unter dem Konto `donstvbot`.
+- Eine Twitch-Entwickler-Anwendung (Client-ID) gibt es noch nicht. Der Nutzer legt sie nach deiner Anleitung an und trägt die Client-ID in der Oberfläche ein. Bis dahin baust du alles andere mit der Testverbindung.
 
 ## Aufgabe (F-40 bis F-45)
 
@@ -26,3 +29,12 @@ Lies `CLAUDE.md`, `docs/01-funktionen.md` (5.1), `docs/02-architektur.md` und `d
 ## Nicht bauen
 
 Keine Actions mit Sub-Actions, keine Queues, keine Timer, kein Streamer.bot-Import, keine Twitch-Ereignisse wie Follow/Sub (F-54), kein YouTube.
+
+## Zusätze
+
+1. **Zwei Anmeldungen mit getrennten Rollen:** «bot» (donstvbot) und «broadcaster» (donstv2020). Die Tokens beider Konten liegen getrennt über `secrets.py` (Rolle im Schlüsselnamen). Für das Gerüst gilt: Chat lesen und senden über das Bot-Konto. Welche Berechtigung der Hauptkanal dafür erteilen muss (zum Beispiel eine Autorisierung des Bots für den Kanal oder Moderatorenstatus), ermittelst du aus der aktuellen Twitch-Dokumentation (https://dev.twitch.tv/docs/chat/ und https://dev.twitch.tv/docs/authentication/scopes/) und nennst die Quelle im Bericht. Die Anmeldung des Hauptkanals baust du nur, wenn sie dafür nötig ist. Ereignisse wie Follow und Sub (F-54) bleiben ausserhalb.
+2. **Client-ID** wird in «Chat-Bot → Einstellungen» eingetragen (kein Geheimnis, in den Einstellungen des Kerns gespeichert). Ein Client-Secret, falls dein Ablauf eines braucht, kommt nur über `secrets.py` und nie in Konfiguration, Export oder Protokoll.
+3. **Anleitung «Twitch einrichten»** im Bericht, für einen Laien: Wo auf dev.twitch.tv die Anwendung angelegt wird, welche Einstellungen (Typ, Kategorie, Redirect-URL falls nötig) genau einzutragen sind und warum, welcher Anmeldeablauf gewählt wurde und warum, und in welcher Reihenfolge sich `donstvbot` und `donstv2020` anmelden. Bei jeder Angabe die Quelle (URL). Angaben ohne Fundstelle in der Dokumentation als «nicht geprüft» kennzeichnen.
+4. **Anzeige:** Im Verbindungsstatus «Twitch» nennt der Tipp-Text das verbundene Konto (zum Beispiel «donstvbot im Kanal donstv2020»).
+5. Tests in zwei Umgebungen (neueste Pakete und Mindestversionen aus `pyproject.toml`), beide Ergebnisse nennen. Alle Signale tragen nur einfache Typen (`CLAUDE.md`, Regel 12).
+6. Bericht nach `CLAUDE.md`, Regeln 11, 13 und 14. Am Ende «Auf dem Laptop prüfen», und die Angabe, was nur mit echten Zugangsdaten geprüft werden kann.

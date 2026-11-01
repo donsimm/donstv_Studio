@@ -118,3 +118,11 @@ Das Skript meldet zuerst den Programmstand (Commit) und startet dann jede Widget
 ### Fensterkopf und Dienst-Symbole (P05b)
 
 Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.
+
+## Arbeitsweise mit Claude Code
+
+Der Nutzer startet jeden Auftrag in Claude Code mit demselben Satz (Repository `donsimm/donstv_Studio` als Quelle wählen):
+
+> Das Repository ist donsimm/donstv_Studio. Hole den Zweig claude/epic-faraday-4rfiwx (git fetch origin claude/epic-faraday-4rfiwx && git checkout claude/epic-faraday-4rfiwx && git pull), lies CLAUDE.md und prompts/AKTUELL.md und führe den Auftrag aus.
+
+Der Planer schreibt den jeweiligen Auftrag in `prompts/AKTUELL.md`. Claude Code legt den Bericht unter `docs/berichte/` ab. Der Nutzer muss nichts kopieren.
