@@ -11,6 +11,8 @@ CASES = [
     "plain_toolbutton", "IconButton", "ButtonBar", "ListWithHint", "SourceList", "OverlaysDock",
     "SourcesDock", "PropertiesDock", "ControlDock", "EditorView", "MainWindow",
     "MainWindow_mit_Daten", "MainWindow_CoreLink", "MainWindow_CoreLink_gestartet", "MainWindow_Signale",
+    "CL:ohne_nichts", "CL:ohne_stylesheet", "CL:ohne_editor_einbettung", "CL:ohne_modell_load", "CL:ohne_prefs_und_hilfslinien",
+    "CL:direkter_runner", "CL:ohne_statuszeilen_widgets", "CL:ohne_dock_inhalt", "CL:ohne_modell_signale",
     "MainWindow_Banner", "MainWindow_Banner_Daten", "MainWindow_leer", "MainWindow_Thread_leer", "MainWindow_Thread_Daten",
 ]  # fmt: skip
 
@@ -52,6 +54,43 @@ elif case == "MainWindow":
         def save_settings_blocking(self, *a, **k): return True
     from donstv_studio.ui.main_window import MainWindow
     w = MainWindow(C()); host = w
+elif case.startswith("CL:"):
+    patch = case[3:]
+    import donstv_studio.ui.main_window as mw
+    from donstv_studio.ui import theme as _theme
+    from donstv_studio.ui.editor_model import EditorModel as _EM
+    from donstv_studio.ui.editor_prefs import EditorPrefs as _EP
+    from donstv_studio.ui.widgets import PreviewArea as _PA
+    if patch == "ohne_stylesheet": _theme.stylesheet = lambda t: ""
+    elif patch == "ohne_editor_einbettung": _PA.set_editor = lambda self, e: None
+    elif patch == "ohne_modell_load": _EM.load = lambda self: None
+    elif patch == "ohne_prefs_und_hilfslinien": _EP.load = lambda self, v: None; _EM.load_guides = lambda self, v: None
+    elif patch == "direkter_runner": mw.TaskRunner = DirectRunner
+    elif patch == "ohne_statuszeilen_widgets":
+        _orig = mw.MainWindow._show_pointer; mw.MainWindow._show_pointer = lambda self, p: None
+        mw.MainWindow._show_zoom = lambda self, z, f: None
+    elif patch == "ohne_dock_inhalt":
+        from PyQt6.QtWidgets import QFrame, QLabel
+        class _Stub:
+            def __init__(self, *a, **k):
+                self.body = QFrame(); self.body.setObjectName("dockbody"); QLabel("x", self.body)
+                from PyQt6.QtCore import QObject, pyqtSignal
+                self.copied = type("S", (), {"connect": lambda *a: None})()
+            def apply_theme(self, n): pass
+        mw.OverlaysDock = mw.SourcesDock = mw.PropertiesDock = _Stub
+        mw.ControlDock = lambda model, prefs: _Stub()
+    elif patch == "ohne_modell_signale":
+        from PyQt6.QtCore import QObject
+        for _n in ("overlays_changed", "current_changed", "meta_changed", "sources_changed", "box_changed", "selection_changed",
+                   "guides_changed", "history_changed"):
+            pass  # Signale sind Klassenattribute; unten werden die Verbindungen der Ansicht gekappt
+        from donstv_studio.ui.editor_view import EditorView as _EV
+        _EV._on_overlay = lambda self, i: None; _EV._on_meta = lambda self: None
+    from donstv_studio.ui.core_link import CoreLink
+    c = CoreLink(); w = mw.MainWindow(c); host = w
+    saved = c.fetch_settings_blocking()
+    if saved is not None: w.apply_settings(saved)
+    c.start()
 elif case.startswith("MainWindow_"):
     from PyQt6.QtCore import QObject, pyqtSignal
     from donstv_studio.ui.main_window import MainWindow
@@ -90,7 +129,7 @@ elif case.startswith("MainWindow_"):
         if case == "MainWindow_Signale":
             from donstv_studio.ui.signals import SignalBridge
             bridge = SignalBridge(parent=app)
-if case != "MainWindow" and not case.startswith("MainWindow_"):
+if case != "MainWindow" and not case.startswith(("MainWindow_", "CL:")):
     lay.addWidget(w)
 host.resize(500, 300); host.show()
 QTimer.singleShot(1200, app.quit)
