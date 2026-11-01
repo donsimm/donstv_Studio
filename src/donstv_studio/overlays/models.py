@@ -21,8 +21,10 @@ TOKEN_BYTES = 32  # 256 Bit, verlangt sind mindestens 128 Bit
 MAX_SIDE = 8192  # [ANNAHME] Obergrenze für Breite und Höhe eines Overlays, in Pixeln
 
 DEFAULT_FONT = "Be Vietnam Pro"
-TEXT_STYLES = ("comic", "comic_thick", "plain", "none")  # Comic, Comic dick, Schlicht, Ohne
-TEXT_STYLE_LABELS = {"comic": "Comic", "comic_thick": "Comic dick", "plain": "Schlicht", "none": "Ohne"}
+# Schlüssel wie im Original (overlay-game-tool): Comic, Comic dick, Schlicht, Ohne
+TEXT_STYLES = ("comic", "thick", "plain", "none")
+TEXT_STYLE_LABELS = {"comic": "Comic", "thick": "Comic dick", "plain": "Schlicht", "none": "Ohne"}
+DEFAULT_TEXT_STYLE = "comic"  # gilt, wenn «style» fehlt (die Overlay-Seite wendet ihn an)
 MAX_TEXT_LENGTH = 5000
 MAX_FONT_SIZE = 2000
 _COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")

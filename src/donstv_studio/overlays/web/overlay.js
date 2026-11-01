@@ -5,6 +5,7 @@
   "use strict";
 
   var DEFAULT_FONT = "Be Vietnam Pro";
+  var DEFAULT_STYLE = "comic"; // Standardstil einer Textquelle (wie im Original)
   var parts = location.pathname.split("/");
   var overlayId = parts[parts.length - 1];
   var token = new URLSearchParams(location.search).get("t") || "";
@@ -29,8 +30,8 @@
   }
 
   function applyText(el, props) {
-    var style = props.style || "plain";
-    el.className = "source text style-" + style;
+    var style = props.style || DEFAULT_STYLE;
+    el.className = "source text txt-" + style;
     el.textContent = props.text || ""; // textContent: kein HTML einschleusbar
     el.style.color = props.color || "#ffffff";
     el.style.fontSize = px(props.size || 48);

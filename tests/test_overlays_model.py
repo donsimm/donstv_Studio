@@ -96,7 +96,7 @@ def test_f11_resolution_upper_limit_8192():
 def test_f15_text_props_valid():
     s = src(props={"text": "Grüezi", "color": "#ff8800", "size": 64, "font": "DejaVu Sans", "style": "comic"})
     assert s.props["size"] == 64
-    for style in ("comic", "comic_thick", "plain", "none"):
+    for style in ("comic", "thick", "plain", "none"):
         assert src(props={"style": style}).props["style"] == style
     src(props={})  # fehlende Werte gelten als Standard
 
@@ -114,6 +114,7 @@ def test_f15_text_props_valid():
         ({"font": 'x"; background:url(//e)'}, "Schriftname"),
         ({"font": ""}, "Schriftname"),
         ({"style": "fett"}, "Stil"),
+        ({"style": "comic_thick"}, "Stil"),  # alter Schlüssel, ersetzt durch «thick»
         ({"media_id": "a" * 32}, "unbekannte Eigenschaften"),
     ],
 )

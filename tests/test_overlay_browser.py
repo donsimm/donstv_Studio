@@ -9,6 +9,7 @@ import os
 import shutil
 import socket
 import threading
+from pathlib import Path
 
 import httpx
 import pytest
@@ -235,20 +236,14 @@ def test_f19_f38_f15_local_font_style_and_no_external_requests(browser, scene):
         assert "Be Vietnam Pro" in css(ids["text"], "fontFamily")  # Standard
         assert css(ids["text"], "fontSize") == "48px"
         assert css(ids["text"], "color") == "rgb(255, 255, 255)"
-        # Stil und Schriftart pro Quelle
+        # Stil und Schriftart pro Quelle (die Stile selbst: test_f15_text_styles_match_reference)
         api.patch(f"/overlays/{o['id']}/sources/{ids['text']}",
                   json={"props": {"text": "X", "style": "comic", "font": "DejaVu Sans", "color": "#ff0000"}})
         page.wait_for_function(
-            "id => document.querySelector(`[data-source-id=\"${id}\"]`).classList.contains('style-comic')",
+            "id => document.querySelector(`[data-source-id=\"${id}\"]`).classList.contains('txt-comic')",
             arg=ids["text"])
         assert css(ids["text"], "fontFamily").startswith('"DejaVu Sans"')
-        assert css(ids["text"], "webkitTextStrokeWidth") == "6px"
         assert css(ids["text"], "color") == "rgb(255, 0, 0)"
-        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "X", "style": "comic_thick"}})
-        page.wait_for_function(
-            "id => document.querySelector(`[data-source-id=\"${id}\"]`).classList.contains('style-comic_thick')",
-            arg=ids["text"])
-        assert css(ids["text"], "webkitTextStrokeWidth") == "12px"
         # Kein CDN: alle Anfragen gehen an den Overlay-Server selbst
         hosts = {r.split("/")[2] for r in requests if r.startswith("http")}
         assert hosts == {base.split("//")[1]}, hosts
@@ -264,5 +259,57 @@ def test_f17_wrong_token_shows_nothing(browser, scene):
         resp = page.goto(f"{base}/o/{o['id']}?t=falsch")
         assert resp.status == 404
         assert page.evaluate("typeof window.__overlay") == "undefined"
+    finally:
+        ctx.close()
+
+
+REFERENCE = (Path(__file__).parent.parent / "docs" / "referenz" / "textstile-overlay-game-tool.css")
+
+
+def test_f15_text_styles_match_reference(browser, scene):
+    """Jeder Stil: text-shadow und filter entsprechen den Regeln der Referenzdatei."""
+    api, o, ids, url, base = scene
+    ctx, page, _ = open_page(browser, url)
+    try:
+        # Referenzwerte in einer getrennten, leeren Seite lesen. Würden die Originalregeln in die
+        # Overlay-Seite eingefügt, überschrieben sie dort die Regeln aus overlay.css (Scheinvergleich).
+        refpage = ctx.new_page()
+        refpage.set_content(
+            "<style>" + REFERENCE.read_text(encoding="utf-8") + "</style>"
+            + "".join(f'<div id="ref-{k}" class="txt-{k}" style="font-size:48px">X</div>' for k in ("comic", "thick", "plain"))
+        )
+        refvals = {
+            k: tuple(refpage.evaluate(
+                f"() => {{ const c = getComputedStyle(document.getElementById('ref-{k}')); return [c.textShadow, c.filter]; }}"))
+            for k in ("comic", "thick", "plain")
+        }
+        refpage.close()
+        assert all(v[0] != "none" for v in refvals.values())
+        sel = 'document.querySelector(`[data-source-id="${id}"]`)'
+        cs = lambda target, prop: page.evaluate(
+            f"([id, p]) => getComputedStyle({target})[p]", [ids["text"], prop])
+        seen = {}
+        for style in ("comic", "thick", "plain", "none"):
+            r = api.patch(f"/overlays/{o['id']}/sources/{ids['text']}",
+                          json={"props": {"text": "Aa", "size": 48, "style": style}})
+            assert r.status_code == 200, r.text
+            page.wait_for_function(f"id => {sel}.classList.contains('txt-{style}')", arg=ids["text"])
+            shadow, flt = cs(sel, "textShadow"), cs(sel, "filter")
+            if style == "none":
+                assert (shadow, flt) == ("none", "none")
+                continue
+            assert (shadow, flt) == refvals[style], style
+            assert shadow != "none"
+            seen[style] = (shadow, flt)
+        assert seen["plain"][1] == "none"  # «Schlicht» hat im Original keinen drop-shadow-Filter
+        assert "drop-shadow" in seen["comic"][1] and "drop-shadow" in seen["thick"][1]
+        assert len({v for v in seen.values()}) == 3  # drei verschiedene Stile
+        # Ränder in em wachsen mit der Schriftgrösse in Pixeln (props.size)
+        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Aa", "size": 100, "style": "comic"}})
+        page.wait_for_function(f"id => {sel}.style.fontSize === '100px'", arg=ids["text"])
+        assert cs(sel, "textShadow").startswith("rgb(0, 0, 0) 6.7px 0px 0px,")  # 0.067em × 100 px
+        # Standardstil ohne Angabe: comic
+        api.patch(f"/overlays/{o['id']}/sources/{ids['text']}", json={"props": {"text": "Aa", "size": 48}})
+        page.wait_for_function(f"id => {sel}.classList.contains('txt-comic')", arg=ids["text"])
     finally:
         ctx.close()

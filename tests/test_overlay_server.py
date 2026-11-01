@@ -121,8 +121,12 @@ def test_f19_font_served_locally_from_static(env):
     assert "BeVietnamPro-Regular.ttf" in client.get("/static/overlay.css").text
     assert client.get("/static/fonts/OFL.txt").status_code == 200
     assert client.get("/static/../server.py").status_code == 404
-    css = (WEB_DIR / "overlay.css").read_text() + (WEB_DIR / "overlay.html").read_text()
-    assert "http://" not in css and "https://" not in css  # kein CDN
+    import re
+
+    web = "".join((WEB_DIR / n).read_text(encoding="utf-8") for n in ("overlay.css", "overlay.html", "overlay.js"))
+    # Kommentare (Quellenangaben) ausnehmen; geladen wird nur, was in url(), src oder href steht
+    code = re.sub(r"/\*.*?\*/", "", web, flags=re.DOTALL)
+    assert not re.search(r"(?:url\(|src=|href=|@import)\s*[\"']?(?:https?:)?//", code)  # kein CDN
 
 
 def test_static_has_no_media_or_database(env):

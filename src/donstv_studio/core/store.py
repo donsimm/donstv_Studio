@@ -61,6 +61,14 @@ MIGRATIONS: list[tuple[int, str]] = [
         )
         """,
     ),
+    (
+        # F-15: Stilschlüssel wie im Original; «comic_thick» heisst jetzt «thick».
+        4,
+        """
+        UPDATE sources SET props = json_set(props, '$.style', 'thick')
+        WHERE kind = 'text' AND json_extract(props, '$.style') = 'comic_thick'
+        """,
+    ),
 ]
 
 BACKUP_PREFIX = "donstv-"

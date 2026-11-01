@@ -52,18 +52,16 @@ html, body {
   font-family: "Be Vietnam Pro", sans-serif;
 }
 
-/* Textstile (F-15). Die Aussen-Kontur wird unter die Füllung gelegt (paint-order). */
-.source.text.style-none { text-shadow: none; }
-.source.text.style-plain { text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6); }
-.source.text.style-comic {
-  font-weight: 700;
-  paint-order: stroke fill;
-  -webkit-text-stroke: 6px #000;
-  text-shadow: 3px 3px 0 #000;
-}
-.source.text.style-comic_thick {
-  font-weight: 700;
-  paint-order: stroke fill;
-  -webkit-text-stroke: 12px #000;
-  text-shadow: 5px 5px 0 #000;
-}
+/* Textstile (F-15). Regeln unverändert aus https://github.com/donsimm/overlay-game-tool,
+   Datei web/overlays/_base.css, Zeilen 20-27 (Commit 225a70ebbf0e7f7e92224dce4a85cad6933480e7);
+   Kopie unter docs/referenz/textstile-overlay-game-tool.css. Ränder und Schatten sind in em
+   und wachsen deshalb mit der Schriftgrösse (props.size, in Pixeln). */
+.txt-comic{text-shadow:0.067em 0.000em 0 #000,0.065em 0.017em 0 #000,0.058em 0.033em 0 #000,0.047em 0.047em 0 #000,0.034em 0.058em 0 #000,0.017em 0.065em 0 #000,0.000em 0.067em 0 #000,-0.017em 0.065em 0 #000,-0.033em 0.058em 0 #000,-0.047em 0.047em 0 #000,-0.058em 0.033em 0 #000,-0.065em 0.017em 0 #000,-0.067em 0.000em 0 #000,-0.065em -0.017em 0 #000,-0.058em -0.033em 0 #000,-0.047em -0.047em 0 #000,-0.034em -0.058em 0 #000,-0.017em -0.065em 0 #000,-0.000em -0.067em 0 #000,0.017em -0.065em 0 #000,0.034em -0.058em 0 #000,0.047em -0.047em 0 #000,0.058em -0.034em 0 #000,0.065em -0.017em 0 #000;
+  filter:drop-shadow(.078em .089em 0 rgba(0,0,0,.4)) drop-shadow(.044em .067em .133em rgba(0,0,0,.25))}
+/* Comic dick: doppelt so dicker runder Rand, Schatten wird aus der fertigen Form berechnet */
+.txt-thick{text-shadow:0.125em 0.000em 0 #000,0.123em 0.024em 0 #000,0.115em 0.048em 0 #000,0.104em 0.069em 0 #000,0.088em 0.088em 0 #000,0.069em 0.104em 0 #000,0.048em 0.115em 0 #000,0.024em 0.123em 0 #000,0.000em 0.125em 0 #000,-0.024em 0.123em 0 #000,-0.048em 0.115em 0 #000,-0.069em 0.104em 0 #000,-0.088em 0.088em 0 #000,-0.104em 0.069em 0 #000,-0.115em 0.048em 0 #000,-0.123em 0.024em 0 #000,-0.125em 0.000em 0 #000,-0.123em -0.024em 0 #000,-0.115em -0.048em 0 #000,-0.104em -0.069em 0 #000,-0.088em -0.088em 0 #000,-0.069em -0.104em 0 #000,-0.048em -0.115em 0 #000,-0.024em -0.123em 0 #000,-0.000em -0.125em 0 #000,0.024em -0.123em 0 #000,0.048em -0.115em 0 #000,0.069em -0.104em 0 #000,0.088em -0.088em 0 #000,0.104em -0.069em 0 #000,0.115em -0.048em 0 #000,0.123em -0.024em 0 #000;
+  filter:drop-shadow(.14em .16em 0 rgba(0,0,0,.4)) drop-shadow(.08em .12em .24em rgba(0,0,0,.25))}
+/* Schlicht: dünner, leicht transparenter schwarzer Rand + weicher Schatten */
+.txt-plain{text-shadow:0.028em 0.000em 0 rgba(0,0,0,.85),0.026em 0.011em 0 rgba(0,0,0,.85),0.020em 0.020em 0 rgba(0,0,0,.85),0.011em 0.026em 0 rgba(0,0,0,.85),0.000em 0.028em 0 rgba(0,0,0,.85),-0.011em 0.026em 0 rgba(0,0,0,.85),-0.020em 0.020em 0 rgba(0,0,0,.85),-0.026em 0.011em 0 rgba(0,0,0,.85),-0.028em 0.000em 0 rgba(0,0,0,.85),-0.026em -0.011em 0 rgba(0,0,0,.85),-0.020em -0.020em 0 rgba(0,0,0,.85),-0.011em -0.026em 0 rgba(0,0,0,.85),-0.000em -0.028em 0 rgba(0,0,0,.85),0.011em -0.026em 0 rgba(0,0,0,.85),0.020em -0.020em 0 rgba(0,0,0,.85),0.026em -0.011em 0 rgba(0,0,0,.85),0 .05em .15em rgba(0,0,0,.55)}
+/* Ohne: kein Rand, kein Schatten */
+.txt-none{text-shadow:none;filter:none}
