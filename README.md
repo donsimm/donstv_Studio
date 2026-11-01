@@ -95,3 +95,7 @@ Terminal 2, danach das Fenster:
 ```bash
 cd ~/donstv_Studio && . .venv/bin/activate && donstv-studio
 ```
+
+### Fensterkopf und Dienst-Symbole (P05b)
+
+Die Modul-Reiter und die Verbindungsanzeigen (Twitch, YouTube, OBS, NDI) bilden einen festen Kopf über der ganzen Fensterbreite; Docks und Fenstergrösse verschieben ihn nicht. Die Symbole der Dienste legst du als `twitch.svg`, `youtube.svg`, `obs.svg` und `ndi.svg` unter `assets/icons/connections/` ab (siehe die README dort). Ohne Datei zeigt die Anzeige nur Zustandszeichen und Text.

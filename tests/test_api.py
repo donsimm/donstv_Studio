@@ -114,3 +114,9 @@ def test_settings_put_get_roundtrip(env):
 def test_settings_put_rejects_bad_input(env, key, body):
     r = env[0].put(f"/settings/{key}", json=body, headers=AUTH)
     assert r.status_code == 400, r.text
+
+
+def test_f04_connections_info_with_detail(env):
+    client = env[0]
+    assert client.get("/connections/info").status_code == 401
+    assert client.get("/connections/info", headers=AUTH).json() == {"obs": {"status": "getrennt", "detail": ""}}

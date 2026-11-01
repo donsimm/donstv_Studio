@@ -21,6 +21,7 @@ class Connection:
         self.name = name
         self._bus = bus
         self._status = Status.DISCONNECTED
+        self.detail: str | None = None  # kurzer Hinweis zum Zustand, z. B. «nicht eingerichtet»
 
     @property
     def status(self) -> Status:
@@ -31,6 +32,7 @@ class Connection:
         if status == self._status:
             return
         self._status = status
+        self.detail = detail
         payload = {"name": self.name, "status": status.value}
         if detail:
             payload["detail"] = detail

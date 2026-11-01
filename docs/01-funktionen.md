@@ -30,7 +30,7 @@ Die Spalte «Quelle» verweist auf die Nummern aus der Funktionsliste (S1 overla
 | F-01 | Hauptfenster im OBS-Stil: Menüleiste, Docks, Vorschaufläche, Statuszeile. | MUSS | Vorgabe |
 | F-02 | Modulumschalter oben: «Overlays» und «Chat-Bot». | MUSS | Vorgabe |
 | F-03 | Konfiguration als Datei speichern und laden, eigener Export und Import. | MUSS | |
-| F-04 | Verbindungsstatus (Twitch, OBS, NDI) jederzeit sichtbar. | MUSS | |
+| F-04 | Verbindungsstatus (Twitch, YouTube, OBS, NDI) jederzeit sichtbar, in einem festen Fensterkopf über allen Docks. YouTube hat im Gerüst keine echte Verbindung (F-55) und zeigt «getrennt, nicht eingerichtet». | MUSS | |
 | F-05 | Programm kann beim Streamen im Hintergrund weiterlaufen und startet auf Wunsch automatisch. | SOLL | |
 | F-06 | Einstellungen: Design der Programmoberfläche wählbar (dunkel oder hell). | MUSS | Vorgabe |
 | F-07 | OBS-Anbindung (eine einzige Verbindung): erkennt den Szenenwechsel in OBS und stellt ihn als Ereignis «OBS-Szene gewechselt» für Overlays und Bot bereit; zeigt die aktive Szene an. | SOLL (wichtig) | Vorgabe |

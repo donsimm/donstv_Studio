@@ -71,6 +71,10 @@ def create_app(
     async def connections() -> dict[str, str]:
         return manager.statuses()
 
+    @app.get("/connections/info", dependencies=[Depends(require_token)])
+    async def connections_info() -> dict[str, dict[str, str]]:
+        return manager.info()
+
     @app.get("/settings", dependencies=[Depends(require_token)])
     async def settings_all() -> dict[str, str]:
         """Alle Einstellungen ohne Zugangsdaten (z. B. `ui.theme`, `ui.geometry`)."""

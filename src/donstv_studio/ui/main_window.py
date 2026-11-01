@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenuBar,
     QMessageBox,
     QPushButton,
     QRadioButton,
@@ -32,15 +33,25 @@ from PyQt6.QtWidgets import (
 
 from donstv_studio import __version__
 from donstv_studio.ui import theme
-from donstv_studio.ui.widgets import STATUS_STYLE, ConnectionStatusBar, placeholder
+from donstv_studio.ui.widgets import (
+    STATUS_STYLE,
+    ConnectionStatusBar,
+    DockTitleBar,
+    PreviewArea,
+    PreviewBar,
+    find_service_icon,
+    placeholder,
+)
 
 log = logging.getLogger(__name__)
 
-STATE_VERSION = 1
+# Version 2: Die Anordnung aus P05 (Dock «Overlays» links) wird beim Laden verworfen.
+STATE_VERSION = 2
 MODULE_OVERLAYS, MODULE_BOT = 0, 1
 MODULES = ("Overlays", "Chat-Bot")
 BOT_TABS = ("Actions", "Commands", "Timer", "Queues", "Einstellungen")
 # (Objektname, Titel, Platzhaltertext)
+DOCK_HEIGHT = 215  # Höhe der Docks unten in Pixeln (OBS-Bild: 215)
 DOCKS = (
     ("dock_overlays", "Overlays", "Liste der Overlays: anlegen, kopieren, löschen."),
     ("dock_sources", "Quellen", "Quellen des gewählten Overlays: Reihenfolge, Sichtbarkeit."),
@@ -105,11 +116,13 @@ class MainWindow(QMainWindow):
         self.resize(1280, 800)
         self.setDockNestingEnabled(True)
 
+        self._build_header()
         self._build_central()
         self._build_docks()
         self._build_menus()
         self._build_status_bar()
 
+        self.arrange_docks()
         self._default_state = self.saveState(STATE_VERSION)
         self._apply_theme_style()
 
@@ -119,31 +132,58 @@ class MainWindow(QMainWindow):
 
         core.connected.connect(self._on_connected)
         core.unreachable.connect(self._on_unreachable)
-        core.status_changed.connect(self.connections.set_status)
+        core.status_changed.connect(self._on_status_changed)
         core.statuses_loaded.connect(self._on_statuses)
         core.settings_loaded.connect(self.apply_settings)
         self.banner.hide()
         self._set_core_status("verbindet", "Kern-Dienst: verbindet …")
 
     # --- Aufbau --------------------------------------------------------
-    def _build_central(self) -> None:
-        central = QWidget()
-        outer = QVBoxLayout(central)
-        outer.setContentsMargins(8, 8, 8, 4)
+    def _build_header(self) -> None:
+        """Fester Fensterkopf: Modul-Reiter links, Verbindungsanzeigen rechts.
 
-        header = QHBoxLayout()
+        Er wird als Menü-Widget gesetzt (`setMenuWidget`) und liegt damit unter der Menüleiste über
+        der ganzen Fensterbreite und über allen Docks. Eine Werkzeugleiste käme in Frage, lässt sich
+        aber per Kontextmenü ausblenden und verschieben, und Docks können neben ihr in dieselbe
+        Zeile rücken. Das Menü-Widget kann weder gelöst noch ausgeblendet werden, und kein Dock
+        und keine Fenstergrösse ändert seine Lage.
+        """
+        self.menu_bar = QMenuBar()
+        self.menu_bar.setObjectName("menubar")
+
+        self.header = QWidget()
+        self.header.setObjectName("header")
+        self.header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        row = QHBoxLayout(self.header)
+        row.setContentsMargins(8, 4, 8, 0)
+        row.setSpacing(12)
         self.tabbar = QTabBar()
         self.tabbar.setObjectName("module_tabs")
         self.tabbar.setExpanding(False)
+        self.tabbar.setDrawBase(False)
         self.tabbar.setAccessibleName("Modul")
         for name in MODULES:
             self.tabbar.addTab(name)
         self.tabbar.currentChanged.connect(self.set_module)
-        header.addWidget(self.tabbar)
-        header.addStretch(1)
+        row.addWidget(self.tabbar, 0, Qt.AlignmentFlag.AlignBottom)
+        row.addStretch(1)
         self.connections = ConnectionStatusBar()
-        header.addWidget(self.connections)
-        outer.addLayout(header)
+        row.addWidget(self.connections, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        container = QWidget()
+        container.setObjectName("menu_container")
+        col = QVBoxLayout(container)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(0)
+        col.addWidget(self.menu_bar)
+        col.addWidget(self.header)
+        self.setMenuWidget(container)
+
+    def _build_central(self) -> None:
+        central = QWidget()
+        outer = QVBoxLayout(central)
+        outer.setContentsMargins(theme.DOCK_GAP, theme.DOCK_GAP, theme.DOCK_GAP, 0)
+        outer.setSpacing(theme.DOCK_GAP)
 
         self.banner = QFrame()
         self.banner.setObjectName("banner")
@@ -156,11 +196,16 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.stack.setObjectName("modules")
-        self.preview = QFrame()
-        self.preview.setObjectName("preview")
-        pv = QVBoxLayout(self.preview)
-        pv.addWidget(placeholder("Vorschaufläche\nHier erscheint später das gewählte Overlay."))
-        self.stack.addWidget(self.preview)
+
+        overlays_page = QWidget()
+        page = QVBoxLayout(overlays_page)
+        page.setContentsMargins(0, 0, 0, 0)
+        page.setSpacing(theme.DOCK_GAP)
+        self.preview = PreviewArea()
+        self.preview_bar = PreviewBar()
+        page.addWidget(self.preview, 1)
+        page.addWidget(self.preview_bar)
+        self.stack.addWidget(overlays_page)
 
         self.bot_tabs = QTabWidget()
         self.bot_tabs.setObjectName("bot_tabs")
@@ -172,6 +217,7 @@ class MainWindow(QMainWindow):
 
     def _build_docks(self) -> None:
         self.docks: list[QDockWidget] = []
+        self.dock_titles: list[DockTitleBar] = []
         for name, title, text in DOCKS:
             dock = QDockWidget(title, self)
             dock.setObjectName(name)
@@ -180,13 +226,33 @@ class MainWindow(QMainWindow):
                 | QDockWidget.DockWidgetFeature.DockWidgetMovable
                 | QDockWidget.DockWidgetFeature.DockWidgetFloatable
             )
-            dock.setWidget(placeholder(f"{text}\nInhalt folgt."))
-            dock.setMinimumHeight(120)
-            self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+            titlebar = DockTitleBar(dock)
+            dock.setTitleBarWidget(titlebar)
+            body = QFrame()
+            body.setObjectName("dockbody")
+            lay = QVBoxLayout(body)
+            lay.setContentsMargins(6, 6, 6, 6)
+            lay.addWidget(placeholder(f"{text}\nInhalt folgt."))
+            dock.setWidget(body)
+            dock.setMinimumHeight(theme.DOCK_TITLE_HEIGHT + 60)
             self.docks.append(dock)
+            self.dock_titles.append(titlebar)
+
+    def arrange_docks(self) -> None:
+        """Standardanordnung (Variante A): vier Docks nebeneinander unten, wie bei OBS."""
+        for dock in self.docks:
+            dock.setFloating(False)  # zuerst andocken, sonst bliebe ein schwebendes Dock schwebend
+            self.removeDockWidget(dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docks[0])
+        for left, right in zip(self.docks, self.docks[1:], strict=False):
+            self.splitDockWidget(left, right, Qt.Orientation.Horizontal)
+        for dock in self.docks:
+            dock.show()
+        self.resizeDocks(self.docks, [1] * len(self.docks), Qt.Orientation.Horizontal)
+        self.resizeDocks([self.docks[0]], [DOCK_HEIGHT], Qt.Orientation.Vertical)
 
     def _build_menus(self) -> None:
-        bar = self.menuBar()
+        bar = self.menu_bar
         file_menu = bar.addMenu("&Datei")
         quit_action = QAction("&Beenden", self, shortcut=QKeySequence("Ctrl+Q"))
         quit_action.triggered.connect(self.close)
@@ -228,6 +294,8 @@ class MainWindow(QMainWindow):
         help_menu.addAction(about)
 
     def _build_status_bar(self) -> None:
+        self.statusBar().setSizeGripEnabled(False)
+        self.statusBar().setFixedHeight(theme.STATUS_BAR_HEIGHT)
         self.core_status = QLabel()
         self.core_status.setObjectName("core_status")
         self.statusBar().addPermanentWidget(self.core_status)
@@ -261,7 +329,7 @@ class MainWindow(QMainWindow):
 
     def reset_docks(self) -> None:
         if self._module == MODULE_OVERLAYS:
-            self.restoreState(self._default_state, STATE_VERSION)
+            self.arrange_docks()
         else:
             self._overlay_dock_state = self._default_state
 
@@ -280,6 +348,8 @@ class MainWindow(QMainWindow):
         sheet = theme.stylesheet(self.theme)
         (app or self).setStyleSheet(sheet)
         self.connections.apply_theme(self.theme)
+        for bar in self.dock_titles:
+            bar.apply_theme(self.theme)
         if hasattr(self, "_core_state"):
             self._set_core_status(*self._core_state)
 
@@ -288,7 +358,10 @@ class MainWindow(QMainWindow):
         self.settings_dialog.show()
 
     def _about(self) -> None:
-        QMessageBox.about(self, "Über donstv_Studio", f"donstv_Studio {__version__}\nOverlays und Chat-Bot.")
+        text = f"donstv_Studio {__version__}\nOverlays und Chat-Bot."
+        if find_service_icon("ndi") is not None:  # NDI-Symbol in Gebrauch: Markenhinweis nötig
+            text += "\n\nNDI® is a registered trademark of Vizrt NDI AB."
+        QMessageBox.about(self, "Über donstv_Studio", text)
 
     # --- Kern-Dienst ---------------------------------------------------
     def _on_connected(self) -> None:
@@ -323,9 +396,14 @@ class MainWindow(QMainWindow):
         self.core_status.setText(f"{symbol} {text}")
         self.core_status.setStyleSheet(f"color: {theme.palette(self.theme)[color]}; font-weight: bold;")
 
+    def _on_status_changed(self, name: str, status: str, detail: str = "") -> None:
+        self.connections.set_status(name, status, detail)
+
     def _on_statuses(self, statuses: dict) -> None:
-        for key in ("twitch", "obs", "ndi"):
-            self.connections.set_status(key, statuses.get(key, "getrennt"))
+        """Zustand aller Dienste beim Verbinden: name -> {"status", "detail"}."""
+        for key in self.connections.indicators:
+            info = statuses.get(key) or {}
+            self.connections.set_status(key, info.get("status", "getrennt"), info.get("detail", ""))
 
     # --- Layout merken -------------------------------------------------
     def layout_values(self) -> dict[str, str]:

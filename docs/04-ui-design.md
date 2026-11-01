@@ -10,7 +10,7 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 | U-02 | Das Programm sieht grundsätzlich aus wie OBS Studio: Menüleiste, andockbare Bereiche (Docks), Vorschaufläche, Statuszeile. Standard-Theme dunkel. [ANNAHME dunkel] |
 | U-06 | In den Einstellungen kann zwischen dunklem und hellem Design gewählt werden (F-06). Beide Themes erfüllen den Kontrast von mindestens 4,5:1. |
 | U-03 | Modulumschalter oben: «Overlays» und «Chat-Bot». |
-| U-04 | Verbindungszustände (Twitch, OBS, NDI) sind immer sichtbar und nie nur durch Farbe unterscheidbar. |
+| U-04 | Verbindungszustände (Twitch, YouTube, OBS, NDI) sind immer sichtbar und nie nur durch Farbe unterscheidbar. Sie stehen mit den Modul-Reitern in einem festen Fensterkopf über der ganzen Fensterbreite und über allen Docks; kein Dock und keine Fenstergrösse verschiebt ihn. Jede Anzeige hat eine feste Breite. |
 | U-05 | Begriffe: Overlay = Szene, Quelle = Source. Beschriftungen auf Deutsch (Schweizer Rechtschreibung, kein «ß»). |
 | U-07 | Lage und Grösse von Quellen werden in ganzen Pixeln der Overlay-Auflösung angezeigt und gespeichert (F-65), nicht in Prozent. Die Prozentwerte in den Mockups sind überholt. |
 | U-08 | Das Steuerung-Dock enthält pro Overlay die Wahl der Ausgabeart «Browserquelle» oder «NDI» (F-66). |
@@ -27,7 +27,7 @@ Status: Entwurf 4. **Entscheid: Variante A (OBS klassisch) ist die Grundlage des
 
 ## 3. Hauptfenster: Variante A gewählt
 
-Gewählt: **Variante A**. Aufbau: Menüleiste, Modul-Reiter oben (Overlays, Chat-Bot) mit Verbindungsstatus rechts, Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
+Gewählt: **Variante A**. Aufbau: Menüleiste, fester Fensterkopf mit Modul-Reitern (Overlays, Chat-Bot) und Verbindungsstatus rechts (Twitch, YouTube, OBS, NDI), Vorschaufläche in der Mitte, unten vier Docks (Overlays, Quellen, Eigenschaften, Steuerung), Statuszeile. Die Varianten B und C sind verworfen und bleiben nur als Vergleich im Design-Artefakt «donstv_Studio UI-Vorschläge» erhalten.
 
 | Variante | Idee | Stärke | Schwäche |
 |---|---|---|---|

@@ -41,3 +41,17 @@ def test_stylesheet_only_uses_named_palette_colors(name):
     used = set(re.findall(r"#[0-9a-fA-F]{6}\b", sheet))
     assert used <= colors, used - colors  # keine Farbe ausserhalb der Palette
     assert theme.palette(name)["bg"] in sheet
+
+
+@pytest.mark.parametrize("name", [theme.DARK, theme.LIGHT])
+def test_font_is_the_system_font_with_fixed_size(name):
+    sheet = theme.stylesheet(name)
+    assert f"font-size: {theme.FONT_PT}pt" in sheet
+    assert "font-family" not in sheet  # Schriftart bleibt die des Systems
+
+
+def test_dark_theme_uses_the_colors_measured_in_the_obs_screenshot():
+    p = theme.PALETTES[theme.DARK]
+    assert (p["bg"], p["surface"], p["title_bg"], p["preview_bg"], p["canvas"], p["selection_bg"]) == (
+        "#1d1f26", "#272a33", "#3c404d", "#13141a", "#000000", "#284cb8")
+    assert theme.contrast_ratio(p["selection_text"], p["selection_bg"]) >= 7  # weisse Schrift auf kräftigem Blau

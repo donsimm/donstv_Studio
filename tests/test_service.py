@@ -24,6 +24,10 @@ async def test_service_start_health_stop(tmp_path):
         assert (await c.get("/health")).status_code == 401
         r = await c.get("/health", headers={"Authorization": f"Bearer {svc.token}"})
         assert r.status_code == 200
+    # F-04: YouTube ist als Platzhalter-Verbindung registriert und meldet «getrennt»
+    async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{port}", headers={"Authorization": f"Bearer {svc.token}"}) as c:
+        assert (await c.get("/connections")).json()["youtube"] == "getrennt"
+        assert (await c.get("/connections/info")).json()["youtube"]["detail"] == "nicht eingerichtet"
     # F-17: Overlay-Server auf eigenem Port, Token pro Overlay
     async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{port}", headers={"Authorization": f"Bearer {svc.token}"}) as c:
         o = (await c.post("/overlays", json={"name": "A"})).json()

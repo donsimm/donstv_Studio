@@ -78,7 +78,7 @@ def describe(error: BaseException) -> str:
 class CoreLink(QObject):
     connected = pyqtSignal()
     unreachable = pyqtSignal(str, float)  # Meldung, Sekunden bis zum nächsten Versuch
-    status_changed = pyqtSignal(str, str)  # Dienst, Status
+    status_changed = pyqtSignal(str, str, str)  # Dienst, Status, Hinweis
     statuses_loaded = pyqtSignal(dict)
     settings_loaded = pyqtSignal(dict)
 
@@ -186,7 +186,7 @@ class CoreLink(QObject):
         ) as ws:
             # Erst abonnieren, dann Zustand lesen: so geht kein Statuswechsel verloren.
             settings = await asyncio.to_thread(self._request, "GET", "/settings")
-            statuses = await asyncio.to_thread(self._request, "GET", "/connections")
+            statuses = await asyncio.to_thread(self._request, "GET", "/connections/info")
             self.connected.emit()
             self.settings_loaded.emit(settings or {})
             self.statuses_loaded.emit(statuses or {})
@@ -198,4 +198,4 @@ class CoreLink(QObject):
                 if event.get("type") == "connection.status":
                     p = event.get("payload", {})
                     if "name" in p and "status" in p:
-                        self.status_changed.emit(str(p["name"]), str(p["status"]))
+                        self.status_changed.emit(str(p["name"]), str(p["status"]), str(p.get("detail", "")))

@@ -20,7 +20,7 @@ from donstv_studio.ui.main_window import KEY_THEME, MainWindow
 class FakeCore(QObject):
     connected = pyqtSignal()
     unreachable = pyqtSignal(str, float)
-    status_changed = pyqtSignal(str, str)
+    status_changed = pyqtSignal(str, str, str)
     statuses_loaded = pyqtSignal(dict)
     settings_loaded = pyqtSignal(dict)
 
@@ -74,12 +74,13 @@ def test_f01_window_structure(make):
     w, _ = make()
     assert w.windowTitle() == "donstv_Studio"
     assert not w.windowIcon().isNull()  # Platzhalter-Icon aus assets/icon.svg
-    assert [a.text().replace("&", "") for a in w.menuBar().actions()] == [
+    assert [a.text().replace("&", "") for a in w.menu_bar.actions()] == [
         "Datei", "Bearbeiten", "Ansicht", "Docks", "Werkzeuge", "Hilfe",
     ]  # fmt: skip
     titles = [d.windowTitle() for d in w.findChildren(QDockWidget)]
     assert sorted(titles) == ["Eigenschaften", "Overlays", "Quellen", "Steuerung"]
     assert w.statusBar() is not None and w.preview.isVisible()
+    assert w.menuWidget().isAncestorOf(w.menu_bar)
     assert w.centralWidget() is not None
 
 
@@ -133,19 +134,20 @@ def test_f04_status_never_only_by_color(make):
         assert symbol and not symbol.isalnum()  # Symbol
         seen[status] = symbol
     assert len(set(seen.values())) == 5  # jeder Zustand hat ein eigenes Symbol
-    for key in ("twitch", "obs", "ndi"):  # alle drei immer sichtbar
-        assert w.connections._labels[key].isVisible()
+    for key in ("twitch", "youtube", "obs", "ndi"):  # alle vier immer sichtbar
+        assert w.connections.indicators[key].isVisible()
 
 
 def test_f04_status_events_update_labels(make, app):
     w, core = make()
     core.connected.emit()
-    core.statuses_loaded.emit({"twitch": "verbunden"})  # OBS/NDI unbekannt im Kern -> getrennt
+    core.statuses_loaded.emit({"twitch": {"status": "verbunden", "detail": ""}})  # übrige: im Kern unbekannt
     assert "verbunden" in w.connections.text_of("twitch")
-    assert "getrennt" in w.connections.text_of("obs") and "getrennt" in w.connections.text_of("ndi")
-    core.status_changed.emit("obs", "Fehler")
+    for key in ("youtube", "obs", "ndi"):
+        assert "getrennt" in w.connections.text_of(key)
+    core.status_changed.emit("obs", "Fehler", "")
     assert w.connections.status_of("obs") == "Fehler" and "Fehler" in w.connections.text_of("obs")
-    core.status_changed.emit("unbekannter_dienst", "verbunden")  # wird ignoriert, kein Absturz
+    core.status_changed.emit("unbekannter_dienst", "verbunden", "")  # wird ignoriert, kein Absturz
 
 
 def test_core_unreachable_shows_message_without_crash(make, app):
@@ -155,7 +157,7 @@ def test_core_unreachable_shows_message_without_crash(make, app):
     text = w.banner_label.text()
     assert "nicht erreichbar" in text and "donstv-core" in text and "3 s" in text
     assert "nicht erreichbar" in w.core_status.text()
-    assert all(w.connections.status_of(k) == "unbekannt" for k in ("twitch", "obs", "ndi"))
+    assert all(w.connections.status_of(k) == "unbekannt" for k in ("twitch", "youtube", "obs", "ndi"))
     # Wiederholversuch zählt herunter, dann wieder erreichbar
     w._tick()
     assert "2 s" in w.banner_label.text()
@@ -183,7 +185,7 @@ def test_f06_theme_switch_dark_default_and_light(make, app):
     assert theme.palette("dark")["bg"] not in app.styleSheet()
     assert core.store[KEY_THEME] == "light"  # gespeichert
     assert w.connections.text_of("twitch")  # Statusfarben folgen dem Theme
-    assert theme.palette("light")["text_muted"] in w.connections._labels["twitch"].styleSheet()
+    assert theme.palette("light")["text_muted"] in w.connections.indicators["twitch"].text_label.styleSheet()
     d.radios["dark"].setChecked(True)
     assert core.store[KEY_THEME] == "dark" and w.theme == "dark"
     d.accept()
@@ -261,6 +263,6 @@ def test_reset_docks_restores_default(make, app):
 
 def test_texts_use_swiss_spelling(make):
     w, _ = make()
-    texts = [a.text() for m in w.menuBar().findChildren(type(w.docks_menu)) for a in m.actions()]
+    texts = [a.text() for m in w.menu_bar.findChildren(type(w.docks_menu)) for a in m.actions()]
     texts += [lbl.text() for lbl in w.findChildren(QLabel)]
     assert not any("ß" in t for t in texts)

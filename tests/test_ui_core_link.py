@@ -45,12 +45,12 @@ class Recorder:
     def __init__(self, link: CoreLink) -> None:
         self.connected = 0
         self.unreachable: list[tuple[str, float]] = []
-        self.status: list[tuple[str, str]] = []
+        self.status: list[tuple[str, str, str]] = []
         self.statuses: list[dict] = []
         self.settings: list[dict] = []
         link.connected.connect(lambda: setattr(self, "connected", self.connected + 1))
         link.unreachable.connect(lambda r, s: self.unreachable.append((r, s)))
-        link.status_changed.connect(lambda n, s: self.status.append((n, s)))
+        link.status_changed.connect(lambda n, s, d: self.status.append((n, s, d)))
         link.statuses_loaded.connect(self.statuses.append)
         link.settings_loaded.connect(self.settings.append)
 
@@ -79,12 +79,14 @@ def test_core_not_running_reports_unreachable_then_connects_when_it_starts(app, 
         core = RunningService(paths, port, free_port()).start()  # jetzt startet der Kern
         try:
             assert wait_until(app, lambda: rec.connected == 1)
-            assert rec.settings == [{}] and rec.statuses == [{}]
+            assert rec.settings == [{}]
+            # YouTube ist als Platzhalter-Verbindung immer da: «getrennt, nicht eingerichtet»
+            assert rec.statuses == [{"youtube": {"status": "getrennt", "detail": "nicht eingerichtet"}}]
             # Statusereignis vom Kern erreicht die Oberfläche
             conn = Connection("obs", core.svc.bus)
             core.svc.manager.register(conn)
             core.run(conn.set_status, Status.CONNECTED)
-            assert wait_until(app, lambda: ("obs", "verbunden") in rec.status)
+            assert wait_until(app, lambda: ("obs", "verbunden", "") in rec.status)
         finally:
             core.stop()
         # Kern beendet -> wieder «nicht erreichbar», Versuche laufen weiter

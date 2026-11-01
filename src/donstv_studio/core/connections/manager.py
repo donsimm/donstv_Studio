@@ -33,6 +33,13 @@ class ConnectionManager:
     def statuses(self) -> dict[str, str]:
         return {n: c.status.value for n, c in sorted(self._connections.items())}
 
+    def info(self) -> dict[str, dict[str, str]]:
+        """Status und Hinweis je Verbindung (für die Oberfläche)."""
+        return {
+            n: {"status": c.status.value, "detail": c.detail or ""}
+            for n, c in sorted(self._connections.items())
+        }
+
     async def start_all(self) -> None:
         for conn in self._connections.values():
             try:

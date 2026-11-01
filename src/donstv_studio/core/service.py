@@ -14,6 +14,7 @@ from donstv_studio.core.api import create_app, create_token_file
 from donstv_studio.core.bus import EventBus
 from donstv_studio.core.config import Config, Paths
 from donstv_studio.core.connections.manager import ConnectionManager
+from donstv_studio.core.connections.youtube import YouTubeConnection
 from donstv_studio.core.secrets import SecretStore, open_secret_store
 from donstv_studio.core.store import Store
 from donstv_studio.overlays.media import MediaLibrary
@@ -89,6 +90,7 @@ class Service:
             else config.overlay_port
         )
         overlay_host = config.overlay_host
+        self.manager.register(YouTubeConnection(self.bus))  # Platzhalter, immer «getrennt»
         self.media = MediaLibrary(self.store, self.paths.media_dir)
         self.overlays = OverlayService(OverlayRepository(self.store), self.bus, self.media.exists)
         app = create_app(
