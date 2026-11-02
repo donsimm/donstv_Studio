@@ -1,4 +1,4 @@
-"""Startprüfung der echten Oberfläche mit echtem Fenstersystem (P06d2, P06d3, F-01, CLAUDE.md Regel 16).
+"""Startprüfung der echten Oberfläche mit echtem Fenstersystem (P06d2, P06d3, P06d4, F-01, CLAUDE.md Regel 16).
 
 Startet mehrmals (Vorgabe 20) je einen eigenen Prozess mit `python -X faulthandler`. Jeder Lauf:
 1. startet einen Kern-Dienst als **eigenen Prozess** (wie auf dem Laptop) in einem leeren Ordner
@@ -27,15 +27,23 @@ Varianten (`--variante`):
 - `kopie`             eine **Kopie** der echten Daten des Nutzers (Datenbank mit Overlays, Quellen, gespeicherter
                       Fensterlage und Dock-Anordnung, dazu die Mediendateien) in den leeren Ordner; das Original
                       wird nur gelesen (`copy_user_data`). Zugangsdaten werden nicht kopiert.
+- `kopie_ohne_lage`   P06d4: wie `kopie`, in der Kopie ohne gespeicherte Fensterlage und Dock-Anordnung
+                      (Schlüssel `ui.geometry` und `ui.dock_state`)
+- `kopie_ohne_geometrie`  P06d4: wie `kopie`, in der Kopie nur ohne Fensterlage (`ui.geometry`)
+- `kopie_ohne_anordnung`  P06d4: wie `kopie`, in der Kopie nur ohne Dock-Anordnung (`ui.dock_state`)
+- `kopie_ohne_quellen`    P06d4: wie `kopie`, in der Kopie bleiben die Overlays, alle Quellen werden entfernt
+- `daten_maximiert`   P06d4 (Ergänzung): wie `daten`, die Fensterlage wird von einem maximierten Fenster gespeichert
 - `aus=<Liste>`       wie `standard`, mit `DONSTV_OFF=<Liste>` (Diagnose-Schalter, siehe `ui/diagnose.py`);
                       mehrere Teile mit Komma, z. B. `aus=perf_equalize,min_width`
 - `<Variante>,aus=<Liste>`  eine der Varianten oben mit Diagnose-Schaltern, z. B. `daten,aus=theme_changes`
 
 Ausgabe: je Lauf der Exit-Code mit Deutung und die letzten 15 Zeilen von stderr, am Ende
-«N von M Läufen mit Exit-Code 0». Bei einem Absturz (Exit-Code 139 oder −11, 134 oder −6) zusätzlich die
-vollständige Aufrufliste von `faulthandler` (alle Threads) und die Datei
-`startpruefung-absturz-<variante>-<lauf>.txt` im Ordner des Repos (ganzes stderr; mit `gdb` und Core-Datei auch
-die C++-Aufrufliste). Exit-Code dieses Skripts: 0, wenn alle Läufe mit 0 enden, sonst 1.
+«N von M Läufen mit Exit-Code 0». Bei den Varianten `kopie…` vor dem ersten Lauf die Beschreibung der Lage in der
+Kopie (`tools/lage_beschreiben.py`, Zeilen «[Lage]»). Bei einem Absturz (Exit-Code 139 oder −11, 134 oder −6)
+zusätzlich die vollständige Aufrufliste von `faulthandler` (alle Threads) und, für die ersten zwei Abstürze je
+Aufruf (`--max-dateien`), die Datei `startpruefung-absturz-<variante>-<lauf>.txt` im Ordner des Repos (ganzes
+stderr; mit `gdb` und Core-Datei auch die C++-Aufrufliste, sonst der Grund, warum es keine gibt). Exit-Code dieses
+Skripts: 0, wenn alle Läufe mit 0 enden, sonst 1.
 
 Aufruf:  python tools/start_pruefung.py [--laeufe 20] [--variante standard] [--autoquit-ms 4000] [--ausgabe .]
          (oder tools/start_pruefung.sh)
@@ -45,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -71,6 +80,10 @@ NARROW_SIZE = (1000, 700)
 NORMAL_SIZE = (1300, 720)
 CRASH_CODES = (139, -11, 134, -6)  # Speicherzugriffsfehler und Abbruch (SIGSEGV, SIGABRT)
 GDB_TIMEOUT = 120
+# P06d4: Absturzdateien je Aufruf (Variante); weitere Abstürze nur in der Ausgabe
+MAX_CRASH_FILES = 2
+CPP_LINES = 40  # Zeilen der C++-Aufrufliste in der Ausgabe (die Datei enthält alle)
+GDB_HINT = "gdb fehlt: keine C++-Aufrufliste (Debian: sudo apt install gdb)"
 
 CORE_SCRIPT = r"""
 import asyncio, sys
@@ -96,19 +109,33 @@ class Variant:
     off: str  # Wert für DONSTV_OFF
     docks: str = "standard"  # gespeicherte Dock-Anordnung (DOCK_MODES)
     copy: bool = False  # Kopie der echten Daten des Nutzers statt angelegter Daten
+    strip: tuple[str, ...] = ()  # P06d4: was in der Kopie entfernt wird (STRIP_PARTS)
+    maximized: bool = False  # P06d4: Fensterlage von einem maximierten Fenster gespeichert
 
 
-BASES: dict[str, tuple[tuple[int, int] | None, int, bool, str]] = {
-    "standard": (None, 0, False, "standard"),
-    "schmal": (NARROW_SIZE, 0, False, "standard"),
-    "daten": (NORMAL_SIZE, 3, True, "standard"),
-    "daten_schmal": (NARROW_SIZE, 3, True, "standard"),
-    "daten_leer": (NORMAL_SIZE, 0, False, "standard"),
-    "daten_overlays": (NORMAL_SIZE, 3, False, "standard"),
+# P06d4: Teile, die in der Kopie entfernt werden können: Einstellungsschlüssel oder Tabelle
+STRIP_PARTS = {"geometry": "ui.geometry", "state": "ui.dock_state", "sources": "sources"}
+
+# Name -> (Fensterlage, Overlays, Quellen, Dock-Anordnung, weitere Felder von Variant)
+BASES: dict[str, tuple[tuple[int, int] | None, int, bool, str, dict]] = {
+    "standard": (None, 0, False, "standard", {}),
+    "schmal": (NARROW_SIZE, 0, False, "standard", {}),
+    "daten": (NORMAL_SIZE, 3, True, "standard", {}),
+    "daten_schmal": (NARROW_SIZE, 3, True, "standard", {}),
+    "daten_leer": (NORMAL_SIZE, 0, False, "standard", {}),
+    "daten_overlays": (NORMAL_SIZE, 3, False, "standard", {}),
     # P06d3: eigene Dock-Anordnung, wie sie ein Nutzer speichert (die Prüfung oben kennt nur die Standardanordnung)
-    "daten_reiter": (NORMAL_SIZE, 3, True, "reiter"),
-    "daten_schwebend": (NORMAL_SIZE, 3, True, "schwebend"),
-    "kopie": (None, 0, False, "standard"),  # P06d3: Kopie der echten Daten (copy_user_data)
+    "daten_reiter": (NORMAL_SIZE, 3, True, "reiter", {}),
+    "daten_schwebend": (NORMAL_SIZE, 3, True, "schwebend", {}),
+    # P06d4 (Ergänzung): Fensterlage eines maximierten Fensters (die echten Daten könnten so gespeichert sein)
+    "daten_maximiert": (NORMAL_SIZE, 3, True, "standard", {"maximized": True}),
+    # P06d3: Kopie der echten Daten (copy_user_data)
+    "kopie": (None, 0, False, "standard", {"copy": True}),
+    # P06d4: Kopie der echten Daten mit genau einer Änderung (nur an der Kopie)
+    "kopie_ohne_lage": (None, 0, False, "standard", {"copy": True, "strip": ("geometry", "state")}),
+    "kopie_ohne_geometrie": (None, 0, False, "standard", {"copy": True, "strip": ("geometry",)}),
+    "kopie_ohne_anordnung": (None, 0, False, "standard", {"copy": True, "strip": ("state",)}),
+    "kopie_ohne_quellen": (None, 0, False, "standard", {"copy": True, "strip": ("sources",)}),
 }
 
 
@@ -247,13 +274,16 @@ def seed_data(env: dict[str, str], port: int, overlays: int, sources: bool, fold
     return f"{len(made)} Overlays angelegt, {count} Quellen im ersten"
 
 
-def copy_user_data(env: dict[str, str]) -> str:
+def copy_user_data(env: dict[str, str], strip: tuple[str, ...] = ()) -> str:
     """Variante `kopie`: Datenbank und Mediendateien des Nutzers in den Ordner der Prüfung kopieren.
 
     Quelle sind die Ordner des Nutzers (XDG wie `donstv-core`), Ziel die Ordner aus `env`. Die Datenbank wird über die
     Sicherungsschnittstelle von SQLite gelesen (`Connection.backup`, https://docs.python.org/3/library/sqlite3.html),
     nur lesend geöffnet; das geht auch, während `donstv-core` des Nutzers läuft. Nicht kopiert: Zugangsdaten
     (Schlüsselbund, Datei im Konfigurationsordner) und das Token der Schnittstelle (der Kern erzeugt ein neues).
+
+    `strip` (P06d4, `STRIP_PARTS`): danach in der **Kopie** Einstellungen (`geometry`, `state`) oder alle Quellen
+    (`sources`) entfernen. Das Original wird dabei nicht geöffnet.
     """
     import sqlite3
 
@@ -278,15 +308,50 @@ def copy_user_data(env: dict[str, str]) -> str:
     try:
         source.backup(target)
     finally:
-        target.close()
         source.close()
+    try:
+        removed = strip_copy(target, strip)
+    finally:
+        target.close()
     files = 0
     if src.media_dir.is_dir():
         shutil.copytree(src.media_dir, dst.media_dir, dirs_exist_ok=True)
         files = sum(1 for p in dst.media_dir.rglob("*") if p.is_file())
-    return (
+    text = (
         f"Kopie der Datenbank ({src.db_file.stat().st_size // 1024} KB) und {files} Mediendateien"
     )
+    return f"{text}; in der Kopie entfernt: {removed}" if strip else text
+
+
+def copy_db_file(env: dict[str, str]) -> Path:
+    """Pfad der Datenbank im Ordner der Prüfung (Ziel von `copy_user_data`)."""
+    from donstv_studio.core.config import Paths
+
+    old = {k: os.environ.get(k) for k in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME")}
+    os.environ.update({k: env[k] for k in old})
+    try:
+        return Paths.from_xdg().db_file
+    finally:
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def strip_copy(con, strip: tuple[str, ...]) -> str:
+    """P06d4: Teile aus der **Kopie** entfernen (offene Verbindung zur Kopie). Gibt eine Zeile für die Ausgabe."""
+    done = []
+    for part in strip:
+        what = STRIP_PARTS[part]
+        if part == "sources":
+            n = con.execute("DELETE FROM sources").rowcount
+            done.append(f"{n} Quellen")
+        else:
+            n = con.execute("DELETE FROM settings WHERE key = ?", (what,)).rowcount
+            done.append(f"{what} ({'war gespeichert' if n else 'war nicht gespeichert'})")
+    con.commit()
+    return ", ".join(done) or "nichts"
 
 
 # --- gespeicherte Fensterlage ---------------------------------------------------------------------
@@ -303,7 +368,9 @@ def arrange(window, mode: str) -> None:
         dock.setGeometry(60, 60, 320, 260)
 
 
-def save_geometry(port: int, width: int, height: int, docks: str = "standard") -> int:
+def save_geometry(
+    port: int, width: int, height: int, docks: str = "standard", maximized: bool = False
+) -> int:
     """Eigener Prozess: legt eine gespeicherte Fensterlage `width` × `height` im (noch leeren) Kern ab.
 
     `MainWindow.layout_values()` speichert `saveGeometry()` und `saveState(STATE_VERSION)` mit der Marke
@@ -328,23 +395,30 @@ def save_geometry(port: int, width: int, height: int, docks: str = "standard") -
     window.setMinimumWidth(0)  # wie P08: dort war die Mindestbreite kleiner
     window.resize(width, height)
     arrange(window, docks)
+    # P06d4: saveGeometry speichert dann «maximiert» und die normale Lage width × height
+    if maximized:
+        window.showMaximized()
     for _ in range(20):
         app.processEvents()
         time.sleep(0.02)
     values = window.layout_values()
     got = window.width()
+    is_max = window.isMaximized()
     tabs = sum(len(window.tabifiedDockWidgets(d)) for d in window.docks) // 2
     floating = sum(d.isFloating() for d in window.docks)
     ok = core.save_settings_blocking(values)
     print(
         f"gespeicherte Fensterlage: {got} px breit, {len(values[KEY_GEOMETRY])} Zeichen, Docks {docks} "
-        f"({tabs} Reiterpaare, {floating} schwebend), gespeichert: {bool(ok)}",
+        f"({tabs} Reiterpaare, {floating} schwebend, {'maximiert' if is_max else 'nicht maximiert'}), "
+        f"gespeichert: {bool(ok)}",
         file=sys.stderr,
     )
     window.close()
     from donstv_studio.ui import main as ui_main
 
     ui_main.shutdown(app, window)
+    if maximized:
+        return 0 if ok and is_max else 4
     return 0 if ok and abs(got - width) < 100 else 4
 
 
@@ -417,11 +491,39 @@ def allow_core_files() -> str:
     return f"Core-Dateien erlaubt (Grenze {hard if hard >= 0 else 'unbegrenzt'}, vorher {soft})"
 
 
+def core_settings() -> str:
+    """P06d4: alles, wovon eine Core-Datei abhängt, in einer Zeile (für Ausgabe und Absturzdatei)."""
+    import resource
+
+    def read(path: str) -> str:
+        try:
+            return Path(path).read_text().strip()
+        except OSError:
+            return "?"
+
+    soft, hard = resource.getrlimit(resource.RLIMIT_CORE)
+
+    def limit(v: int) -> str:
+        return "unbegrenzt" if v == resource.RLIM_INFINITY else str(v)
+
+    gdb = shutil.which("gdb")
+    return (
+        f"gdb: {gdb or 'fehlt'}; coredumpctl: {shutil.which('coredumpctl') or 'fehlt'}; "
+        f"RLIMIT_CORE {limit(soft)}/{limit(hard)} (weich/hart); "
+        f"core_pattern: {read('/proc/sys/kernel/core_pattern')}; "
+        f"core_uses_pid: {read('/proc/sys/kernel/core_uses_pid')}"
+    )
+
+
 def core_backtrace(pid: int, cwd: Path) -> str:
-    """C++-Aufrufliste aus der Core-Datei (nur mit gdb). Unterstützt eine Datei im Arbeitsordner oder coredumpctl."""
+    """C++-Aufrufliste aus der Core-Datei (nur mit gdb). Unterstützt eine Datei im Arbeitsordner oder coredumpctl.
+
+    Ohne Ergebnis nennt der Text den Grund (P06d4): gdb fehlt, keine Core-Datei im Ordner des Laufs (mit den
+    Einstellungen aus `core_settings` und den Dateien im Ordner) oder die Ausgabe von coredumpctl.
+    """
     gdb = shutil.which("gdb")
     if not gdb:
-        return "gdb nicht vorhanden: keine C++-Aufrufliste"
+        return GDB_HINT
     cmds = ["-batch", "-ex", "info sharedlibrary Qt6Core", "-ex", "thread apply all bt 60"]
     cores = sorted(cwd.glob("core*"), key=lambda p: p.stat().st_mtime)
     try:
@@ -441,12 +543,39 @@ def core_backtrace(pid: int, cwd: Path) -> str:
                  "-A", " ".join(f"'{c}'" if " " in c else c for c in cmds), str(pid)],
                 capture_output=True, text=True, timeout=GDB_TIMEOUT, check=False,
             )  # fmt: skip
-            return f"coredumpctl (PID {pid}):\n{out.stdout}{out.stderr}"
+            return f"coredumpctl (PID {pid}, Exit-Code {out.returncode}):\n{out.stdout}{out.stderr}"
     except subprocess.TimeoutExpired:
         return "gdb: Zeitüberschreitung"
-    pattern = Path("/proc/sys/kernel/core_pattern")
-    where = pattern.read_text().strip() if pattern.exists() else "?"
-    return f"keine Core-Datei gefunden (core_pattern: {where})"
+    names = sorted(p.name for p in cwd.iterdir())
+    return (
+        f"keine Core-Datei im Ordner des Laufs und kein coredumpctl ({core_settings()}; "
+        f"Dateien im Ordner: {', '.join(names) or 'keine'})"
+    )
+
+
+def cpp_frames(backtrace: str) -> list[str]:
+    """P06d4: Kopfzeilen und die Aufrufliste des abgestürzten Threads für die Ausgabe.
+
+    gdb meldet ihn als «[Current thread is N (…)]»; seine Aufrufliste steht unter «Thread N (…):». Ohne diese Angabe
+    die erste Aufrufliste unter einer Zeile «Thread …», ohne Aufrufliste die ersten Zeilen (z. B. der Grund).
+    """
+    lines = backtrace.splitlines()
+    head = [
+        line
+        for line in lines
+        if line.startswith(("Core-Datei", "coredumpctl", "Program terminated", "[Current thread"))
+    ]
+    match = re.search(r"\[Current thread is (\d+) ", backtrace)
+    marker = f"Thread {match.group(1)} (" if match else "Thread "
+    start = next((i for i, line in enumerate(lines) if line.startswith(marker)), None)
+    if start is None:
+        return lines[:CPP_LINES]
+    frames = [lines[start]]
+    for line in lines[start + 1 :]:
+        if not line.lstrip().startswith("#"):
+            break
+        frames.append(line)
+    return (head + frames)[:CPP_LINES]
 
 
 # --- Steuerung: mehrere Läufe -------------------------------------------------------------------
@@ -481,6 +610,8 @@ def parse_variant(text: str) -> Variant:
         raise SystemExit(
             f"Unbekannte Variante «{text}»: {', '.join(BASES)}, aus=<Liste> oder <Variante>,aus=<Liste>"
         )
+    # P06d4: im Werkzeug mehrere Schalter auch mit Leerzeichen (wie DONSTV_OFF), z. B. «aus=a b»
+    off = off.replace(" ", ",")
     if off or text.startswith("aus=") or ",aus=" in text:
         from donstv_studio.ui import diagnose
 
@@ -491,8 +622,18 @@ def parse_variant(text: str) -> Variant:
                 f"Unbekannte Teile {unknown or '(keine)'}; erlaubt: {', '.join(diagnose.SWITCHES)}"
             )
         off = ",".join(parts)
-    geometry, overlays, sources, docks = BASES[base]
-    return Variant(text, geometry, overlays, sources, off, docks, base == "kopie")
+    geometry, overlays, sources, docks, extra = BASES[base]
+    return Variant(text, geometry, overlays, sources, off, docks, **extra)
+
+
+def describe_copy(env: dict[str, str]) -> list[str]:
+    """P06d4: Lage in der Kopie (`tools/lage_beschreiben.py`); ein Fehler wird gemeldet, bricht aber nicht ab."""
+    import lage_beschreiben
+
+    try:
+        return lage_beschreiben.describe(copy_db_file(env))
+    except Exception as e:  # noqa: BLE001 – nur Beschreibung, die Prüfung läuft weiter
+        return [f"nicht lesbar ({type(e).__name__}: {e})"]
 
 
 def sqlite3_error() -> type[Exception]:
@@ -517,17 +658,24 @@ def main() -> int:
     parser.add_argument("--geometrie", type=int, metavar="PORT", help=argparse.SUPPRESS)  # intern
     parser.add_argument("--groesse", default="1000x700", help=argparse.SUPPRESS)  # intern
     parser.add_argument("--docks", default="standard", choices=DOCK_MODES, help=argparse.SUPPRESS)
+    parser.add_argument("--maximiert", action="store_true", help=argparse.SUPPRESS)  # intern
+    parser.add_argument(
+        "--max-dateien",
+        type=int,
+        default=MAX_CRASH_FILES,
+        help="höchstens so viele Absturzdateien je Aufruf (P06d4)",
+    )
     args = parser.parse_args()
     if args.lauf:
         return single_run(args.lauf)
     if args.geometrie:
         w, h = (int(v) for v in args.groesse.split("x"))
-        return save_geometry(args.geometrie, w, h, args.docks)
+        return save_geometry(args.geometrie, w, h, args.docks, args.maximiert)
 
     sys.path.insert(0, str(ROOT / "src"))
     variant = parse_variant(args.variante)
     xvfb, display = ensure_display()
-    cores = allow_core_files() if shutil.which("gdb") else "gdb fehlt: keine C++-Aufrufliste"
+    cores = allow_core_files() if shutil.which("gdb") else GDB_HINT
     from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
 
     print(
@@ -535,8 +683,10 @@ def main() -> int:
         f"PyQt6 {PYQT_VERSION_STR}, QT_QPA_PLATFORM=xcb, {display}, "
         f"DONSTV_AUTOQUIT_MS={args.autoquit_ms}, {cores}"
     )
+    print(f"== Core-Dateien: {core_settings()}")
     sys.stdout.flush()
     codes: list[int] = []
+    saved_files = 0
     try:
         for n in range(1, args.laeufe + 1):
             with tempfile.TemporaryDirectory(prefix="donstv-start-") as tmp:
@@ -551,11 +701,15 @@ def main() -> int:
                 prefix = ""
                 if variant.copy:
                     try:
-                        prefix = f"[Daten] {copy_user_data(env)}\n"
+                        prefix = f"[Daten] {copy_user_data(env, variant.strip)}\n"
                     except (OSError, RuntimeError, sqlite3_error()) as e:
                         codes.append(-9997)
                         print(f"== Lauf {n}: Kopie der echten Daten nicht möglich ({e})")
                         continue
+                    if n == 1:  # P06d4: Lage in der Kopie beschreiben, ohne Geheimnisse
+                        print("== Lage in der Kopie (tools/lage_beschreiben.py):")
+                        for line in describe_copy(env):
+                            print(f"   [Lage] {line}")
                 try:
                     core = start_core(env, port, overlay_port)
                 except RuntimeError as e:
@@ -565,11 +719,17 @@ def main() -> int:
                 try:
                     if variant.geometry is not None:
                         size = "x".join(str(v) for v in variant.geometry)
-                        gcode, gerr, _ = run_child(
-                            ["--geometrie", str(port), "--groesse", size, "--docks", variant.docks],
-                            env,
-                            base,
-                        )
+                        gargs = [
+                            "--geometrie",
+                            str(port),
+                            "--groesse",
+                            size,
+                            "--docks",
+                            variant.docks,
+                        ]
+                        if variant.maximized:
+                            gargs.append("--maximiert")
+                        gcode, gerr, _ = run_child(gargs, env, base)
                         tail = gerr.splitlines()[-TAIL_LINES:]
                         prefix += "".join(f"[Fensterlage] {line}\n" for line in tail)
                         if gcode != 0:
@@ -596,20 +756,34 @@ def main() -> int:
             for line in prefix.splitlines() + err.splitlines()[-TAIL_LINES:]:
                 print(f"   | {line}")
             if code in CRASH_CODES:
-                report = args.ausgabe / f"startpruefung-absturz-{file_label(variant.label)}-{n}.txt"
-                report.write_text(
-                    f"Variante {variant.label}, Lauf {n}, Exit-Code {code} ({label})\n"
-                    f"Qt {QT_VERSION_STR}, PyQt6 {PYQT_VERSION_STR}, {display}\n\n"
-                    f"--- Vorbereitung ---\n{prefix}\n--- stderr vollständig ---\n{err}\n"
-                    f"--- C++-Aufrufliste ---\n{backtrace}\n",
-                    encoding="utf-8",
-                )
                 print("   vollständige Aufrufliste von faulthandler:")
                 for line in (
                     faulthandler_part(err) or "(keine Ausgabe von faulthandler)"
                 ).splitlines():
                     print(f"   # {line}")
-                print(f"   gespeichert: {report.name} (mit ganzem stderr und C++-Aufrufliste)")
+                print("   C++-Aufrufliste (abgestürzter Thread):")
+                for line in cpp_frames(backtrace):
+                    print(f"   C++ | {line}")
+                if saved_files < args.max_dateien:  # P06d4: höchstens zwei Dateien je Variante
+                    saved_files += 1
+                    report = (
+                        args.ausgabe / f"startpruefung-absturz-{file_label(variant.label)}-{n}.txt"
+                    )
+                    report.write_text(
+                        f"Variante {variant.label}, Lauf {n}, Exit-Code {code} ({label})\n"
+                        f"Qt {QT_VERSION_STR}, PyQt6 {PYQT_VERSION_STR}, {display}\n"
+                        f"Core-Dateien: {core_settings()}\n\n"
+                        f"--- Vorbereitung ---\n{prefix}\n--- stderr vollständig ---\n{err}\n"
+                        f"--- C++-Aufrufliste ---\n{backtrace}\n",
+                        encoding="utf-8",
+                    )
+                    print(
+                        f"   gespeichert: {report.name} (ganzes stderr, C++-Aufrufliste oder ihr Fehlen)"
+                    )
+                else:
+                    print(
+                        f"   keine Datei: schon {args.max_dateien} Absturzdateien für diese Variante"
+                    )
             sys.stdout.flush()
     finally:
         if xvfb is not None:

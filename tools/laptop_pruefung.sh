@@ -10,6 +10,11 @@
 #                                   P06d3: Startprüfung je 5 Läufe mit leerer Liste, nur Overlays, mit Quellen und mit
 #                                   einer Kopie der echten Daten, danach die Grundvariante (Vorgabe «kopie») mit jedem
 #                                   Diagnose-Schalter einzeln (src/donstv_studio/ui/diagnose.py). Dauer: etwa 15 Minuten.
+#   tools/laptop_pruefung.sh fein   P06d4: je 5 Läufe mit der Kopie der echten Daten: ohne Schalter, mit den drei Teilen
+#                                   von «window_changes» einzeln und paarweise, danach die vier Kopien mit einer Änderung
+#                                   (ohne Lage, ohne Fensterlage, ohne Dock-Anordnung, ohne Quellen). Vorher die
+#                                   Beschreibung der Lage (tools/lage_beschreiben.py). Dauer: etwa 10 Minuten.
+# Alle Arten: höchstens zwei Absturzdateien je Variante, am Ende zusammen in startpruefung-absturz-zusammen.txt.
 cd "$(dirname "$0")/.." || exit 1
 . .venv/bin/activate
 MODE="${1:-voll}"
@@ -17,7 +22,29 @@ BASE="${2:-kopie}"
 LOG=laptop-pytest-voll.log
 OUT=laptop-ergebnis.txt
 if [ "$MODE" = "voll" ]; then RUNS_END=5; RUNS_START=20; else RUNS_END=5; RUNS_START=5; fi
-rm -f startpruefung-absturz-*.txt  # Aufruflisten früherer Läufe (von tools/start_pruefung.py erzeugt)
+ALL=startpruefung-absturz-zusammen.txt
+rm -f startpruefung-absturz-*.txt  # Aufruflisten früherer Läufe (von tools/start_pruefung.py erzeugt), auch $ALL
+
+collect_crashes() {  # P06d4: alle Absturzdateien in eine Datei, damit eine Anlage genügt
+  rm -f "$ALL"
+  for f in startpruefung-absturz-*.txt; do
+    [ -f "$f" ] || continue
+    [ "$f" = "$ALL" ] && continue
+    { echo "======== $f"; cat "$f"; echo; } >> "$ALL"
+  done
+  if [ -f "$ALL" ]; then
+    echo "== Absturzdateien: $(ls startpruefung-absturz-*.txt | grep -v -x "$ALL" | tr '\n' ' ')"
+    echo "== zusammen in: $ALL"
+  else
+    echo "== Absturzdateien: keine"
+  fi
+}
+
+summary() {  # Zusammenfassung aller Startprüfungen in $OUT
+  echo "== Zusammenfassung (Variante: Läufe mit Exit-Code 0)"
+  grep "^== Zusammenfassung Startprüfung" "$OUT" | sed 's/^== Zusammenfassung Startprüfung //'
+  collect_crashes
+}
 
 start_check() {  # $1 = Variante
   echo "== Startprüfung (tools/start_pruefung.sh $RUNS_START $1, echtes Fenstersystem)"
@@ -48,15 +75,30 @@ if [ "$MODE" = "eingrenzen" ]; then
       start_check "$BASE,aus=$s" 2>&1
     done
   } >> "$OUT"
-  SUMMARY=$(grep "^== Zusammenfassung Startprüfung" "$OUT" | sed 's/^== Zusammenfassung Startprüfung //')
-  {
-    echo "== Zusammenfassung (Variante: Läufe mit Exit-Code 0)"
-    echo "$SUMMARY"
-    echo "== Dateien mit Aufrufliste: $(ls startpruefung-absturz-*.txt 2>/dev/null | tr '\n' ' ')"
-  } >> "$OUT"
+  summary >> "$OUT"
   cat "$OUT"
   echo
-  echo "Fertig. Hänge die Datei $OUT im Chat an."
+  echo "Fertig. Hänge die Datei $OUT im Chat an (und $ALL, falls vorhanden)."
+  exit 0
+fi
+
+if [ "$MODE" = "fein" ]; then
+  {
+    echo "== Lage der echten Daten (tools/lage_beschreiben.py, nur lesend, ohne Geheimnisse)"
+    python tools/lage_beschreiben.py 2>&1
+    echo "== gdb: $(command -v gdb || echo 'fehlt (sudo apt install gdb)')"
+    for v in kopie \
+             "kopie,aus=window_stylesheet" "kopie,aus=window_minwidth" "kopie,aus=window_geometry" \
+             "kopie,aus=window_stylesheet window_minwidth" "kopie,aus=window_stylesheet window_geometry" \
+             "kopie,aus=window_minwidth window_geometry" \
+             kopie_ohne_lage kopie_ohne_geometrie kopie_ohne_anordnung kopie_ohne_quellen; do
+      start_check "$v" 2>&1
+    done
+  } >> "$OUT"
+  summary >> "$OUT"
+  cat "$OUT"
+  echo
+  echo "Fertig. Hänge die Dateien $OUT und $ALL (falls vorhanden) im Chat an."
   exit 0
 fi
 
@@ -89,9 +131,9 @@ fi
   [ "$MODE" = "voll" ] && start_check schmal 2>&1
   start_check daten 2>&1
   start_check daten_schmal 2>&1
-  echo "== Dateien mit Aufrufliste: $(ls startpruefung-absturz-*.txt 2>/dev/null | tr '\n' ' ')"
 } >> "$OUT"
+summary >> "$OUT"
 
 cat "$OUT"
 echo
-echo "Fertig. Hänge die Datei $OUT im Chat an."
+echo "Fertig. Hänge die Datei $OUT im Chat an (und $ALL, falls vorhanden)."

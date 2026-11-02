@@ -588,14 +588,14 @@ class MainWindow(QMainWindow):
         # Nur bei Änderung setzen (P06d, Vorschlag 2 aus P08): setStyleSheet gestaltet alle Widgets neu und war der
         # Ort des sporadischen Absturzes in P08. Dasselbe Design erneut zu wählen, ändert deshalb nichts.
         if target.styleSheet() != sheet or diagnose.off(
-            "window_changes"
-        ):  # DIAGNOSE (P06d3): immer wie P08
+            "window_stylesheet"
+        ):  # DIAGNOSE (P06d4): immer wie P08
             target.setStyleSheet(sheet)
         self.connections.apply_theme(self.theme)
         self.perf.apply_theme(self.theme)
         if self.isVisible() and not diagnose.off(
-            "window_changes"
-        ):  # DIAGNOSE (P06d3): sofort wie P08
+            "window_minwidth"
+        ):  # DIAGNOSE (P06d4): sofort wie P08
             self._request_minimum_width()  # Designwechsel im Betrieb: nach dem Ereignis, zusammengefasst
         else:
             self._update_minimum_width()  # Aufbau: vor dem Anzeigen und vor der gespeicherten Fensterlage
@@ -752,8 +752,8 @@ class MainWindow(QMainWindow):
           P08, vor den gleich breiten Leistungsfeldern), wird die Breite einmal auf die Mindestbreite gesetzt.
         """
         if diagnose.off(
-            "window_changes"
-        ):  # DIAGNOSE (P06d3): wie P08 direkt, auch am sichtbaren Fenster
+            "window_geometry"
+        ):  # DIAGNOSE (P06d4): wie P08 direkt, auch am sichtbaren Fenster
             self.restoreGeometry(geometry)
             return
         data = bytes(geometry)

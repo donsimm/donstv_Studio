@@ -1,4 +1,4 @@
-"""DIAGNOSE (P06d2, P06d3): Teile aus P06d einzeln abschalten, um die Ursache des Absturzes beim Start einzugrenzen.
+"""DIAGNOSE (P06d2, P06d3, P06d4): Teile aus P06d einzeln abschalten, um die Ursache des Absturzes beim Start einzugrenzen.
 
 Nur zur Diagnose, nicht für den Betrieb. Umgebungsvariable `DONSTV_OFF` mit einer Liste (Komma oder Leerzeichen).
 Jeder Schalter stellt für sich den Stand von P08 (`6dc8f44`) für diesen Teil her. Werkzeug:
@@ -29,9 +29,17 @@ Schalter aus P06d3 (je eine ganze Datei aus `git diff 6dc8f44..54f6696 -- src/do
 - `docks_changes`         `editor_docks.py`: keine Mindestbreite für «Rasterweite», Quellenliste mit den
                           Bearbeitungs-Auslösern von Qt und ohne Kontextmenü, Eigenschaften ohne Verbindung zu
                           `sources_changed` und ohne Feld «Name» (schliesst `rename` ein)
-- `window_changes`        `main_window.py`: Stylesheet bei jedem Designaufruf neu setzen und Mindestbreite immer
-                          sofort (P08); gespeicherte Fensterlage direkt mit `restoreGeometry`, auch ein zweites Mal
-                          nach dem Verbinden (P08, vor P06d2)
+- `window_changes`        `main_window.py`: Kurzform für die drei Schalter aus P06d4 (unten) zusammen
+
+Schalter aus P06d4 (`window_changes` aufgeteilt, jeder für sich der Stand P08 für genau diesen Teil von
+`main_window.py`):
+
+- `window_stylesheet`     `_apply_theme_style`: Stylesheet bei jedem Aufruf setzen (P08), nicht nur bei Änderung
+- `window_minwidth`       `_apply_theme_style`: Mindestbreite sofort setzen (P08), auch bei sichtbarem Fenster, statt
+                          über den Zeitgeber `_request_minimum_width`
+- `window_geometry`       `_restore_geometry`: gespeicherte Fensterlage direkt mit `restoreGeometry` (P08), auch ein
+                          zweites Mal am sichtbaren Fenster nach dem Verbinden; ohne «dieselbe Lage nur einmal», ohne
+                          Mindestbreite davor und ohne Anpassung der Breite danach
 
 Nicht schaltbar: `perf.py` (nur die Textliste `width_texts`, mit `perf_equalize` nicht benutzt) und `widgets.py`
 ausserhalb von `perf_equalize`; `main.py` (`DONSTV_AUTOQUIT_MS`, ohne die Variable ohne Wirkung).
@@ -55,6 +63,9 @@ SWITCHES = (
     "indicators_changes",
     "docks_changes",
     "window_changes",
+    "window_stylesheet",
+    "window_minwidth",
+    "window_geometry",
 )
 # Ein Schalter für eine ganze Datei schliesst die Einzelschalter darin ein
 IMPLIES: dict[str, tuple[str, ...]] = {
@@ -62,6 +73,7 @@ IMPLIES: dict[str, tuple[str, ...]] = {
     "theme_changes": ("qss_images",),
     "indicators_changes": ("qss_images",),
     "docks_changes": ("rename",),
+    "window_changes": ("window_stylesheet", "window_minwidth", "window_geometry"),  # P06d4
 }
 
 

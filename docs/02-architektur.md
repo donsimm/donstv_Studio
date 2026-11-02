@@ -130,6 +130,12 @@ Lesart aus dem Qt-Quelltext 6.8.2 (nicht aus der Dokumentation; `doc.qt.io` ist 
 
 In der Sitzung von P06d3 nicht nachstellbar (Qt 6.8.2 und 6.9.0 unter Xvfb, mit gefüllten Daten, schmaler Fensterlage, Reitern und schwebendem Dock, mit aktiver Barrierefreiheits-Schnittstelle AT-SPI, mit `MALLOC_PERTURB_` und unter Valgrind ohne ungültigen Zugriff in Qt Widgets). Werkzeuge für die Messung auf dem Laptop: Startprüfung mit Daten und mit einer Kopie der echten Daten (`tools/start_pruefung.sh … daten`, `… kopie`), Diagnose-Schalter für jede geänderte Datei (`ui/diagnose.py`), `tools/laptop_pruefung.sh eingrenzen`. Bewertung der Hypothesen: `docs/berichte/P06d3.md`. Seit P06d3 gilt `CLAUDE.md`, Regel 16, mit gefüllten Daten.
 
+### Absturz eingegrenzt auf `main_window.py` und die echten Daten (P06d4)
+
+Gemessen vom Nutzer (`docs/befunde/absturz-p06d.md`, Nachtrag 2026-11-02): `kopie` stürzt 5 von 5 Mal ab, `kopie,aus=window_changes` nicht. P06d4 teilt `window_changes` in `window_stylesheet`, `window_minwidth`, `window_geometry` und die echten Daten in `kopie_ohne_lage`, `kopie_ohne_geometrie`, `kopie_ohne_anordnung`, `kopie_ohne_quellen` (`tools/laptop_pruefung.sh fein`). Reihenfolge beim Start und die Lesart aus dem Qt-Quelltext 6.8.2: `docs/berichte/P06d4.md`, Abschnitt 6.
+
+Format der gespeicherten Lage (für `tools/lage_beschreiben.py`, Qt-Quelltext 6.8.2): `QWidget::saveGeometry` in `src/widgets/kernel/qwidget.cpp`, Zeilen 7375–7399; `QMainWindow::saveState` in `src/widgets/widgets/qmainwindow.cpp`, Zeilen 1203–1212 (https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/…). Die Dock-Anordnung liest das Werkzeug nicht von Hand, sondern über `restoreState` in einem eigenen Prozess (offscreen).
+
 ## 8. Offene Punkte
 
 1. [ENTSCHIEDEN] Getrennter Kern-Dienst und Oberfläche.
