@@ -78,3 +78,22 @@ File ".../ui/main.py", line 60 in main                    (app.exec())
 
    Der Absturz geschieht also beim **ersten Laden der Overlay-Liste** nach dem Start, wenn die Liste nicht mehr leer ist und die Seite des `QStackedWidget` von «Hinweis» auf «Liste» wechselt. Das löst ein Layout aus (passt zur C++-Aufrufliste: `QLayoutPrivate::doResize()`). `_ListWithHint.sync` ist seit P06 (`4d9a1c4`) unverändert; die Ursache liegt daher im Zustand, den P06d davor erzeugt hat. Das ist eine Lesart, kein Beweis.
 5. Offen: ob der Absturz mit leerer Datenbank ausbleibt (spricht für 1.) und ob schon die Overlay-Liste allein genügt oder erst Quellen nötig sind.
+
+## Nachtrag 2026-11-02: Reproduzierer gefunden (`tools/laptop_pruefung.sh eingrenzen`, P06d3, Stand 963ca96)
+
+Laptop, Qt 6.8.2, PyQt6 6.9.0, `QT_QPA_PLATFORM=xcb`, `DISPLAY=:0`, je 5 Läufe (Quelle: `laptop-ergebnis.txt` vom 2.11.2026).
+
+| Variante | Läufe mit Exit-Code 0 |
+|---|---|
+| `daten_leer`, `daten_overlays`, `daten` | 5 von 5 |
+| `kopie` (Kopie der echten Daten des Nutzers) | **0 von 5** (alle −11) |
+| `kopie,aus=` je einer von `perf_equalize`, `pointer_badge`, `qss_images`, `min_width`, `rename`, `editor_view_changes`, `editor_model_changes`, `geometry_changes`, `theme_changes`, `indicators_changes`, `docks_changes` | je **0 von 5** |
+| `kopie,aus=window_changes` | **5 von 5** |
+
+Schluss: Der Absturz hängt an den **echten Daten** (nicht an den erfundenen) und an mindestens einem der drei Teile, die `window_changes` zusammen auf den Stand P08 zurücksetzt (`ui/main_window.py`):
+
+1. Stylesheet bei jedem Aufruf von `_apply_theme_style` setzen (statt nur bei Änderung),
+2. Mindestbreite sofort setzen (statt über den Zeitgeber `_request_minimum_width` bei sichtbarem Fenster),
+3. gespeicherte Fensterlage direkt mit `restoreGeometry` anwenden (auch am sichtbaren Fenster, ohne «dieselbe Lage nur einmal», ohne Anpassung der Breite).
+
+Unbekannt ist, welcher der drei Teile genügt und welcher Teil der echten Daten (gespeicherte Fensterlage `geometry`, Dock-Zustand `state`, Theme, Inhalt) den Absturz auslöst. Die Daten `daten` und `daten_schmal` (Fensterlage 1300 bzw. 1000 px, Standard-Anordnung) lösen ihn nicht aus.
