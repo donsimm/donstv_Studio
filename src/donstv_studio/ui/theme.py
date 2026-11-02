@@ -10,6 +10,8 @@ https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
 
 from __future__ import annotations
 
+from donstv_studio.ui import diagnose
+
 DARK = "dark"
 LIGHT = "light"
 THEME_NAMES = {DARK: "Dunkel", LIGHT: "Hell"}
@@ -200,6 +202,10 @@ QComboBox::down-arrow:disabled {{ image: url({i["down_disabled"]}); }}
 
 def stylesheet(theme: str, images: dict[str, str] | None = None) -> str:
     """Stylesheet des Designs. `images` (F-76): Bilder für Häkchen und Pfeile; ohne sie zeichnet Qt eigene."""
+    if diagnose.off("theme_changes"):  # DIAGNOSE (P06d3): Stylesheet von P08
+        from donstv_studio.ui import diagnose_p08
+
+        return diagnose_p08.stylesheet(theme)
     c = palette(theme)
     return f"""
 QWidget {{ background-color: {c["bg"]}; color: {c["text"]}; font-size: {FONT_PT}pt; }}

@@ -23,3 +23,4 @@ config/
 .vscode/
 laptop-ergebnis.txt
 laptop-pytest-voll.log
+startpruefung-absturz-*.txt

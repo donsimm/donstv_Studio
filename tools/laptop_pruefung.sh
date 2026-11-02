@@ -3,14 +3,21 @@
 # Aufruf (im Ordner des Repos):
 #   tools/laptop_pruefung.sh        voll: Programmstand, Paketversionen, Qt-SVG-Modul, Testsuite mit den Debian-Paketen,
 #                                   Beenden der Oberfläche (5 Läufe), Startprüfung (je 20 Läufe, Varianten
-#                                   «standard» und «schmal», echtes Fenstersystem)
-#   tools/laptop_pruefung.sh kurz   nur Qt-Version, Beenden-Prüfung und Startprüfung (je 5 Läufe), ohne Testsuite
+#                                   «standard», «schmal», «daten» und «daten_schmal», echtes Fenstersystem)
+#   tools/laptop_pruefung.sh kurz   nur Qt-Version, Beenden-Prüfung und Startprüfung (je 5 Läufe: «standard», «daten»,
+#                                   «daten_schmal»), ohne Testsuite
+#   tools/laptop_pruefung.sh eingrenzen [daten|kopie]
+#                                   P06d3: Startprüfung je 5 Läufe mit leerer Liste, nur Overlays, mit Quellen und mit
+#                                   einer Kopie der echten Daten, danach die Grundvariante (Vorgabe «kopie») mit jedem
+#                                   Diagnose-Schalter einzeln (src/donstv_studio/ui/diagnose.py). Dauer: etwa 15 Minuten.
 cd "$(dirname "$0")/.." || exit 1
 . .venv/bin/activate
 MODE="${1:-voll}"
+BASE="${2:-kopie}"
 LOG=laptop-pytest-voll.log
 OUT=laptop-ergebnis.txt
-if [ "$MODE" = "kurz" ]; then RUNS_END=5; RUNS_START=5; else RUNS_END=5; RUNS_START=20; fi
+if [ "$MODE" = "voll" ]; then RUNS_END=5; RUNS_START=20; else RUNS_END=5; RUNS_START=5; fi
+rm -f startpruefung-absturz-*.txt  # Aufruflisten früherer Läufe (von tools/start_pruefung.py erzeugt)
 
 start_check() {  # $1 = Variante
   echo "== Startprüfung (tools/start_pruefung.sh $RUNS_START $1, echtes Fenstersystem)"
@@ -33,7 +40,27 @@ start_check() {  # $1 = Variante
   fi
 } > "$OUT"
 
-if [ "$MODE" != "kurz" ]; then
+if [ "$MODE" = "eingrenzen" ]; then
+  {
+    for v in daten_leer daten_overlays daten kopie; do start_check "$v" 2>&1; done
+    for s in perf_equalize pointer_badge qss_images min_width rename editor_view_changes editor_model_changes \
+             geometry_changes theme_changes indicators_changes docks_changes window_changes; do
+      start_check "$BASE,aus=$s" 2>&1
+    done
+  } >> "$OUT"
+  SUMMARY=$(grep "^== Zusammenfassung Startprüfung" "$OUT" | sed 's/^== Zusammenfassung Startprüfung //')
+  {
+    echo "== Zusammenfassung (Variante: Läufe mit Exit-Code 0)"
+    echo "$SUMMARY"
+    echo "== Dateien mit Aufrufliste: $(ls startpruefung-absturz-*.txt 2>/dev/null | tr '\n' ' ')"
+  } >> "$OUT"
+  cat "$OUT"
+  echo
+  echo "Fertig. Hänge die Datei $OUT im Chat an."
+  exit 0
+fi
+
+if [ "$MODE" = "voll" ]; then
   {
     echo "== Qt- und Webpakete"; pip list 2>/dev/null | grep -i -E 'qt|sip|fastapi|uvicorn|websockets|keyring|starlette|pydantic'
     echo "== Qt-SVG-Modul (python -c 'import PyQt6.QtSvg')"
@@ -59,7 +86,10 @@ fi
   tools/beenden_pruefung.sh "$RUNS_END" 2>&1
   echo "== beenden_pruefung Exit-Code: $?"
   start_check standard 2>&1
-  [ "$MODE" != "kurz" ] && start_check schmal 2>&1
+  [ "$MODE" = "voll" ] && start_check schmal 2>&1
+  start_check daten 2>&1
+  start_check daten_schmal 2>&1
+  echo "== Dateien mit Aufrufliste: $(ls startpruefung-absturz-*.txt 2>/dev/null | tr '\n' ' ')"
 } >> "$OUT"
 
 cat "$OUT"

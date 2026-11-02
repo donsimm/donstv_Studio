@@ -66,6 +66,8 @@ def compact_spin(spin: QSpinBox) -> None:
     Mit den eigenen Pfeil-Schaltflächen (Stylesheet) schlägt Qt deren Breite auf die Mindestbreite auf; ohne diese
     Grenze würde das Dock «Steuerung» breiter als die anderen und die Standardanordnung (P05b) ungleich.
     """
+    if diagnose.off("docks_changes"):  # DIAGNOSE (P06d3): keine Mindestbreite wie P08
+        return
     text = f"{spin.prefix()}{spin.maximum()}{spin.suffix()}"
     spin.setMinimumWidth(spin.fontMetrics().horizontalAdvance(text) + theme.SPIN_BUTTON_WIDTH + 12)
 
@@ -317,8 +319,9 @@ class SourceList(QListWidget):
         self.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
         # Doppelklick ist für das Quellenfenster (F-79) reserviert; umbenannt wird über Menü, F2 oder «Name».
-        self.setEditTriggers(QListWidget.EditTrigger.NoEditTriggers)
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        if not diagnose.off("docks_changes"):  # DIAGNOSE (P06d3): Auslöser und Menü von Qt wie P08
+            self.setEditTriggers(QListWidget.EditTrigger.NoEditTriggers)
+            self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.setIconSize(icons.icon_size())
         self.setAccessibleName("Quellen")
         self.model().rowsMoved.connect(lambda *_: self.reordered.emit())
@@ -579,7 +582,8 @@ class PropertiesDock(QWidget):
         model.box_changed.connect(lambda _id: self.refresh())
         model.selection_changed.connect(lambda _id: self.refresh())
         model.current_changed.connect(lambda _id: self.refresh())
-        model.sources_changed.connect(self.refresh)
+        if not diagnose.off("docks_changes"):  # DIAGNOSE (P06d3): ohne diese Verbindung wie P08
+            model.sources_changed.connect(self.refresh)
         self.refresh()
 
     def _spin(self, key: str, lo: int, hi: int) -> QSpinBox:

@@ -433,6 +433,8 @@ class InteractionLayer(QWidget):
         px = t.pixel_at(pos.x(), pos.y())
         w, h = self.model.size()
         inside = self.model.current() is not None and 0 <= px[0] < w and 0 <= px[1] < h
+        if diagnose.off("editor_view_changes"):  # DIAGNOSE (P06d3): wie P08 immer «innen»
+            inside = True
         self.pointer_pixel.emit(inside, px[0], px[1])
         self.view.set_ruler_pointer(pos)
         if self._live_guide is not None:
@@ -455,6 +457,8 @@ class InteractionLayer(QWidget):
             # F-77: Eckgriffe einer Bildquelle behalten das Seitenverhältnis; Umschalttaste löst es.
             free = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
             keep = d["image"] and geo.is_corner(d["handle"]) and not free
+            if diagnose.off("editor_view_changes"):  # DIAGNOSE (P06d3): wie P08 frei
+                keep = False
             box, hit = geo.resize_box(
                 start, d["handle"], dx, dy, d["targets"], thr, grid, keep_ratio=keep
             )

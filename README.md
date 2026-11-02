@@ -130,22 +130,37 @@ Das Skript meldet zuerst den Programmstand (Commit) und startet dann jede Widget
 tools/beenden_pruefung.sh
 ```
 
-### Start prüfen (P06d2)
+### Start prüfen (P06d2, P06d3)
 
-`tools/start_pruefung.sh` startet die echte Oberfläche mit dem **echten Fenstersystem** (`QT_QPA_PLATFORM=xcb`, vorhandenes `DISPLAY`) mehrmals hintereinander (Vorgabe 20), jeden Lauf mit eigenem Kern-Dienst als eigenem Prozess in einem leeren Ordner. Die Oberfläche beendet sich nach `DONSTV_AUTOQUIT_MS` Millisekunden selbst (Vorgabe im Skript 4000). Ausgabe: Exit-Code je Lauf (139 = Speicherzugriffsfehler), die letzten 15 Zeilen von stderr, am Ende «N von M Läufen mit Exit-Code 0». Ohne `DISPLAY` startet das Skript ein eigenes `Xvfb` (falls installiert) und meldet das; das zählt nicht als Prüfung auf dem Laptop.
+`tools/start_pruefung.sh` startet die echte Oberfläche mit dem **echten Fenstersystem** (`QT_QPA_PLATFORM=xcb`, vorhandenes `DISPLAY`) mehrmals hintereinander (Vorgabe 20), jeden Lauf mit eigenem Kern-Dienst als eigenem Prozess in einem leeren Ordner. Die Oberfläche beendet sich nach `DONSTV_AUTOQUIT_MS` Millisekunden selbst (Vorgabe im Skript 4000). Ausgabe: Exit-Code je Lauf (139 = Speicherzugriffsfehler), die letzten 15 Zeilen von stderr, am Ende «N von M Läufen mit Exit-Code 0». Bei einem Absturz zusätzlich die ganze Aufrufliste von `faulthandler` (alle Threads) und die Datei `startpruefung-absturz-<Variante>-<Lauf>.txt` (ganzes stderr; mit `gdb` und Core-Datei auch die C++-Aufrufliste). Ohne `DISPLAY` startet das Skript ein eigenes `Xvfb` (falls installiert) und meldet das; das zählt nicht als Prüfung auf dem Laptop.
 
 ```bash
-tools/start_pruefung.sh 20 standard
+tools/start_pruefung.sh 20 daten
 ```
 
-Varianten (zweites Argument): `standard` (leere Daten), `schmal` (gespeicherte Fensterlage schmaler als die Mindestbreite, wie aus P08), `aus=<Liste>` (Diagnose-Schalter, siehe unten).
+Varianten (zweites Argument):
+
+| Variante | Vor dem Start im Kern |
+|---|---|
+| `standard` | nichts (leere Daten) |
+| `schmal` | gespeicherte Fensterlage schmaler als die Mindestbreite (wie aus P08) |
+| `daten` | gespeicherte Fensterlage 1300 × 720 px und 3 Overlays, das erste mit 6 Quellen (3 Text, eine davon ausgeblendet, eine mit Namen; 3 Bilder 1200 × 200, 256 × 256, 300 × 600, eines gedreht); angelegt über die lokale API, nicht über die Oberfläche |
+| `daten_schmal` | wie `daten`, Fensterlage wie `schmal` |
+| `daten_leer` | nur die Fensterlage von `daten`, keine Overlays |
+| `daten_overlays` | Fensterlage und 3 Overlays ohne Quellen |
+| `daten_reiter`, `daten_schwebend` | wie `daten`, gespeicherte Dock-Anordnung mit Reitern bzw. schwebendem Dock «Overlays» |
+| `kopie` | eine **Kopie** deiner echten Daten (Datenbank und Mediendateien; das Original wird nur gelesen, Zugangsdaten werden nicht kopiert) |
+| `aus=<Liste>` | wie `standard` mit Diagnose-Schaltern |
+| `<Variante>,aus=<Liste>` | eine Variante mit Diagnose-Schaltern, z. B. `kopie,aus=theme_changes` |
+
+Der Kern der Prüfung öffnet keine Verbindung zu Twitch: Er läuft mit `DONSTV_TWITCH_FAKE=1` und ohne Zugriff auf den Schlüsselbund (`PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring`).
 
 Umgebungsvariablen nur für Prüfung und Diagnose:
 
 - `DONSTV_AUTOQUIT_MS=<ms>`: Die Oberfläche beendet sich nach so vielen Millisekunden selbst (`ui/main.py`).
-- `DONSTV_OFF=<Liste>`: schaltet einzelne Teile aus P06d ab und stellt für diesen Teil den Stand von P08 her (`ui/diagnose.py`): `perf_equalize` (Leistungsfelder nicht gleich breit), `pointer_badge` (keine Zeigeranzeige in der Vorschau), `qss_images` (Stylesheet ohne Bilder für Häkchen und Pfeile), `min_width` (Mindestbreite wie P08), `rename` (kein Umbenennen). Nicht für den Betrieb.
+- `DONSTV_OFF=<Liste>`: schaltet Teile aus P06d ab und stellt für diesen Teil den Stand von P08 her (`ui/diagnose.py`, dort die genaue Wirkung). Einzelne Stellen: `perf_equalize`, `pointer_badge`, `qss_images`, `min_width`, `rename`. Ganze Dateien (P06d3): `editor_view_changes`, `editor_model_changes`, `geometry_changes`, `theme_changes`, `indicators_changes`, `docks_changes`, `window_changes`. Nicht für den Betrieb. Gilt auch beim Handstart, z. B. `DONSTV_OFF=theme_changes python -X faulthandler -c "from donstv_studio.ui.main import main; main()"`.
 
-`tools/laptop_pruefung.sh kurz` prüft nur Qt-Version, Beenden und Start (je 5 Läufe); ohne Option läuft zusätzlich die ganze Testsuite, danach die Startprüfung mit 20 Läufen in den Varianten `standard` und `schmal`.
+`tools/laptop_pruefung.sh kurz` prüft Qt-Version, Beenden und Start (je 5 Läufe, Varianten `standard`, `daten`, `daten_schmal`); ohne Option läuft zusätzlich die ganze Testsuite, danach die Startprüfung mit 20 Läufen in den Varianten `standard`, `schmal`, `daten` und `daten_schmal`. `tools/laptop_pruefung.sh eingrenzen` misst je 5 Läufe mit leerer Liste, nur Overlays, mit Quellen und mit der Kopie deiner Daten, danach die Kopie mit jedem Diagnose-Schalter einzeln (etwa 15 Minuten; `tools/laptop_pruefung.sh eingrenzen daten` nimmt statt der Kopie die Variante `daten`).
 
 ### Fensterkopf und Dienst-Symbole (P05b)
 

@@ -17,6 +17,7 @@ from typing import Any
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from donstv_studio.overlays.models import MAX_SOURCE_NAME, default_source_name
+from donstv_studio.ui import diagnose, diagnose_p08
 from donstv_studio.ui.geometry import Box, fit_inside, nudge_box
 
 log = logging.getLogger(__name__)
@@ -46,6 +47,8 @@ def box_of(source: dict) -> Box:
 
 def source_label(source: dict, media_names: dict[str, str] | None = None) -> str:
     """Anzeigename in der Quellenliste: der Name der Quelle (F-74), sonst der vorgegebene Name."""
+    if diagnose.off("editor_model_changes"):  # DIAGNOSE (P06d3): Anzeigename wie P08
+        return diagnose_p08.source_label(source, media_names)
     name = source.get("name")
     if isinstance(name, str) and name.strip():
         return name
@@ -262,7 +265,10 @@ class EditorModel(QObject):
         overlay_id = o["id"]
         w, h = natural if natural and natural[0] > 0 and natural[1] > 0 else DEFAULT_IMAGE_SIZE
         # F-77: Rahmen im Seitenverhältnis des Bildes, verkleinert, bis er ins Overlay passt (ganze Pixel)
-        w, h = fit_inside(w, h, o["width"], o["height"])
+        if diagnose.off("editor_model_changes"):  # DIAGNOSE (P06d3): nur begrenzt wie P08
+            w, h = min(w, o["width"]), min(h, o["height"])
+        else:
+            w, h = fit_inside(w, h, o["width"], o["height"])
 
         def uploaded(item: dict) -> None:
             self.media_names[item["id"]] = item.get("name", "")

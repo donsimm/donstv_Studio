@@ -122,6 +122,14 @@ Messwerte und C++-Aufrufliste: `docs/befunde/absturz-p06d.md` (Exit-Code 139 in 
 
 Seit P06d2: Grösse, Mindestbreite und Lage werden nie in `event()`, `resizeEvent`, `changeEvent` oder während des Polierens gesetzt, sondern zusammengefasst über einen Zeitgeber mit 0 ms (`PerfBar.request_equalize`, `MainWindow._request_minimum_width`); dieselbe gespeicherte Lage wird nur einmal angewandt, und erst nach der Mindestbreite (`MainWindow._restore_geometry`). Regel: `CLAUDE.md`, Regel 16. Ob das den Absturz auf dem Laptop beseitigt, ist **nicht gemessen**. Diagnose: `tools/start_pruefung.sh` mit `DONSTV_OFF` (README, «Start prüfen»). Bewertung der Hypothesen: `docs/berichte/P06d2.md`. Qt-Verhalten (https://doc.qt.io/qt-6/qwidget.html, https://doc.qt.io/qt-6/qlayout.html): in der Sitzung nicht abrufbar, nicht geprüft.
 
+### Befund Debian 13: Absturz beim ersten Laden der Daten (P06d3)
+
+Nach P06d2 stürzt der Handtest mit echten Daten auf dem Laptop weiter ab (`docs/befunde/absturz-p06d.md`, «Nachtrag 2026-11-01»): Python-Aufrufliste `EditorModel._loaded` → `OverlaysDock.refresh` → `_ListWithHint.sync` → `QStackedWidget.setCurrentWidget`, also beim Wechsel der Seite «Hinweis» → «Liste», sobald die erste Overlay-Liste nicht leer ist. Die Startprüfung von P06d2 war grün, weil sie mit leerem Kern startete.
+
+Lesart aus dem Qt-Quelltext 6.8.2 (nicht aus der Dokumentation; `doc.qt.io` ist in der Sitzung gesperrt): `QStackedLayout::setCurrentIndex` blendet die alte Seite aus und ruft `show()` der neuen (https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/widgets/kernel/qstackedlayout.cpp, Zeilen 262–320). `QWidgetPrivate::setVisible(true)` aktiviert dabei die Layouts **aller sichtbaren Eltern bis zum Fenster** (https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/widgets/kernel/qwidget.cpp, Zeilen 8354–8361). Der erste Seitenwechsel nach dem Start löst damit eine Anordnung des ganzen Hauptfensters aus (passt zu `QLayoutPrivate::doResize()` in der C++-Aufrufliste). Welcher Zustand dabei ungültig ist, ist **nicht belegt**.
+
+In der Sitzung von P06d3 nicht nachstellbar (Qt 6.8.2 und 6.9.0 unter Xvfb, mit gefüllten Daten, schmaler Fensterlage, Reitern und schwebendem Dock, mit aktiver Barrierefreiheits-Schnittstelle AT-SPI, mit `MALLOC_PERTURB_` und unter Valgrind ohne ungültigen Zugriff in Qt Widgets). Werkzeuge für die Messung auf dem Laptop: Startprüfung mit Daten und mit einer Kopie der echten Daten (`tools/start_pruefung.sh … daten`, `… kopie`), Diagnose-Schalter für jede geänderte Datei (`ui/diagnose.py`), `tools/laptop_pruefung.sh eingrenzen`. Bewertung der Hypothesen: `docs/berichte/P06d3.md`. Seit P06d3 gilt `CLAUDE.md`, Regel 16, mit gefüllten Daten.
+
 ## 8. Offene Punkte
 
 1. [ENTSCHIEDEN] Getrennter Kern-Dienst und Oberfläche.

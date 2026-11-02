@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QByteArray, QEvent, Qt, QTimer
-from PyQt6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup, QFontMetrics, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -486,6 +486,21 @@ class MainWindow(QMainWindow):
         )
         self.core_status = QLabel()
         self.core_status.setObjectName("core_status")
+        if diagnose.off(
+            "editor_view_changes"
+        ):  # DIAGNOSE (P06d3): Zeigerlage in der Statuszeile wie P08
+            self.pointer_label = QLabel("X: –   Y: –")
+            self.pointer_label.setObjectName("pointer_label")
+            self.pointer_label.setAccessibleName("Pixelposition unter dem Zeiger")
+            self.pointer_label.setMinimumWidth(
+                QFontMetrics(self.font()).horizontalAdvance("X: 99999   Y: 99999") + 12
+            )
+            self.statusBar().addPermanentWidget(self.pointer_label)
+            self.editor.pointer_changed.connect(
+                lambda inside, x, y: self.pointer_label.setText(
+                    f"X: {x}   Y: {y}" if inside else "X: –   Y: –"
+                )
+            )
         self.statusBar().addPermanentWidget(self.zoom_combo)
         self.statusBar().addPermanentWidget(self.core_status)
         self.statusBar().showMessage("Bereit")
@@ -572,11 +587,15 @@ class MainWindow(QMainWindow):
         target = app or self
         # Nur bei Änderung setzen (P06d, Vorschlag 2 aus P08): setStyleSheet gestaltet alle Widgets neu und war der
         # Ort des sporadischen Absturzes in P08. Dasselbe Design erneut zu wählen, ändert deshalb nichts.
-        if target.styleSheet() != sheet:
+        if target.styleSheet() != sheet or diagnose.off(
+            "window_changes"
+        ):  # DIAGNOSE (P06d3): immer wie P08
             target.setStyleSheet(sheet)
         self.connections.apply_theme(self.theme)
         self.perf.apply_theme(self.theme)
-        if self.isVisible():
+        if self.isVisible() and not diagnose.off(
+            "window_changes"
+        ):  # DIAGNOSE (P06d3): sofort wie P08
             self._request_minimum_width()  # Designwechsel im Betrieb: nach dem Ereignis, zusammengefasst
         else:
             self._update_minimum_width()  # Aufbau: vor dem Anzeigen und vor der gespeicherten Fensterlage
@@ -732,6 +751,11 @@ class MainWindow(QMainWindow):
         - Erst die Mindestbreite, dann die Lage. Ist die gespeicherte Lage schmaler als die Mindestbreite (z. B. aus
           P08, vor den gleich breiten Leistungsfeldern), wird die Breite einmal auf die Mindestbreite gesetzt.
         """
+        if diagnose.off(
+            "window_changes"
+        ):  # DIAGNOSE (P06d3): wie P08 direkt, auch am sichtbaren Fenster
+            self.restoreGeometry(geometry)
+            return
         data = bytes(geometry)
         if data == self._applied_geometry:
             return

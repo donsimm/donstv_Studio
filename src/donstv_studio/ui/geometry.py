@@ -13,6 +13,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from donstv_studio.ui import diagnose
+
 ZOOM_STEPS = (0.25, 0.5, 1.0, 2.0, 4.0)  # Anzeige in Prozent: 25, 50, 100, 200, 400
 FIT = "fit"  # Zoom-Modus «Einpassen»
 HANDLES = ("nw", "n", "ne", "e", "se", "s", "sw", "w")
@@ -265,6 +267,8 @@ def move_box(
 
 def fit_inside(w: int, h: int, max_w: int, max_h: int) -> tuple[int, int]:
     """Grösse im Seitenverhältnis w:h, höchstens max_w × max_h (nur verkleinern), ganze Pixel, mindestens 1 (F-77)."""
+    if diagnose.off("geometry_changes"):  # DIAGNOSE (P06d3): wie P08 nur begrenzt
+        return min(w, max_w), min(h, max_h)
     s = min(1.0, max_w / w, max_h / h)
     return (max(MIN_SIDE, min(max_w, rint(w * s))), max(MIN_SIDE, min(max_h, rint(h * s))))
 
@@ -293,7 +297,7 @@ def resize_box(
     Pixel). Es gilt im Koordinatensystem der Quelle, also auch bei Drehung.
     """
     sx, sy = HANDLE_DIR[handle]
-    if keep_ratio and sx and sy:
+    if keep_ratio and sx and sy and not diagnose.off("geometry_changes"):  # DIAGNOSE (P06d3)
         return _resize_keep_ratio(start, sx, sy, dx, dy, snap, threshold, grid)
     hit = SnapHit()
     theta = start.rot
