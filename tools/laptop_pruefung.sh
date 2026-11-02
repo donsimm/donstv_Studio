@@ -14,6 +14,11 @@
 #                                   von «window_changes» einzeln und paarweise, danach die vier Kopien mit einer Änderung
 #                                   (ohne Lage, ohne Fensterlage, ohne Dock-Anordnung, ohne Quellen). Vorher die
 #                                   Beschreibung der Lage (tools/lage_beschreiben.py). Dauer: etwa 10 Minuten.
+#   tools/laptop_pruefung.sh beheben
+#                                   P06d5: Massnahmen gegen den Absturz. 20 Läufe «kopie» (alle Massnahmen ein), je 10 Läufe
+#                                   «kopie» mit einer Massnahme aus und mit allen drei aus (Stand P06d4, Gegenprobe), danach
+#                                   je 10 Läufe «daten» und «kopie_ohne_quellen». Am Ende der Befehl für die drei Handtests.
+#                                   Dauer: etwa 15 Minuten.
 # Alle Arten: höchstens zwei Absturzdateien je Variante, am Ende zusammen in startpruefung-absturz-zusammen.txt.
 cd "$(dirname "$0")/.." || exit 1
 . .venv/bin/activate
@@ -46,9 +51,10 @@ summary() {  # Zusammenfassung aller Startprüfungen in $OUT
   collect_crashes
 }
 
-start_check() {  # $1 = Variante
-  echo "== Startprüfung (tools/start_pruefung.sh $RUNS_START $1, echtes Fenstersystem)"
-  tools/start_pruefung.sh "$RUNS_START" "$1"
+start_check() {  # $1 = Variante, $2 = Läufe (Vorgabe $RUNS_START)
+  N="${2:-$RUNS_START}"
+  echo "== Startprüfung (tools/start_pruefung.sh $N $1, echtes Fenstersystem)"
+  tools/start_pruefung.sh "$N" "$1"
   echo "== start_pruefung $1 Exit-Code: $? (0 = alle Läufe in Ordnung, 2 = kein Fenstersystem)"
 }
 
@@ -99,6 +105,31 @@ if [ "$MODE" = "fein" ]; then
   cat "$OUT"
   echo
   echo "Fertig. Hänge die Dateien $OUT und $ALL (falls vorhanden) im Chat an."
+  exit 0
+fi
+
+if [ "$MODE" = "beheben" ]; then
+  FIXES="fix_state_once fix_restore_after_show fix_list_after_restore"
+  {
+    echo "== Lage der echten Daten (tools/lage_beschreiben.py, nur lesend, ohne Geheimnisse)"
+    python tools/lage_beschreiben.py 2>&1
+    echo "== gdb: $(command -v gdb || echo 'fehlt (sudo apt install gdb)')"
+    start_check kopie 20 2>&1
+    for f in $FIXES; do start_check "kopie,aus=$f" 10 2>&1; done
+    start_check "kopie,aus=$FIXES" 10 2>&1  # Gegenprobe: Stand P06d4, soll wieder abstürzen
+    start_check daten 10 2>&1
+    start_check kopie_ohne_quellen 10 2>&1
+  } >> "$OUT"
+  summary >> "$OUT"
+  cat "$OUT"
+  echo
+  echo "Fertig. Jetzt die drei Handtests mit deinen echten Daten: Oberfläche starten, kurz warten, mit dem X"
+  echo "schliessen, Exit-Code ansehen (0 = in Ordnung). Dreimal hintereinander, «donstv-core» läuft dabei:"
+  echo
+  echo "  cd $(pwd) && . .venv/bin/activate"
+  echo "  python -X faulthandler -c \"from donstv_studio.ui.main import main; main()\"; echo \"Exit-Code: \$?\""
+  echo
+  echo "Danach im Chat anhängen: $OUT, $ALL (falls vorhanden) und die drei Exit-Codes."
   exit 0
 fi
 

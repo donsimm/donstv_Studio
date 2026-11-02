@@ -1,4 +1,4 @@
-"""DIAGNOSE (P06d2, P06d3, P06d4): Teile aus P06d einzeln abschalten, um die Ursache des Absturzes beim Start einzugrenzen.
+"""DIAGNOSE (P06d2, P06d3, P06d4) und Massnahmen (P06d5): Teile aus P06d einzeln abschalten, um die Ursache des Absturzes beim Start einzugrenzen.
 
 Nur zur Diagnose, nicht für den Betrieb. Umgebungsvariable `DONSTV_OFF` mit einer Liste (Komma oder Leerzeichen).
 Jeder Schalter stellt für sich den Stand von P08 (`6dc8f44`) für diesen Teil her. Werkzeug:
@@ -41,6 +41,21 @@ Schalter aus P06d4 (`window_changes` aufgeteilt, jeder für sich der Stand P08 f
                           zweites Mal am sichtbaren Fenster nach dem Verbinden; ohne «dieselbe Lage nur einmal», ohne
                           Mindestbreite davor und ohne Anpassung der Breite danach
 
+Massnahmen aus P06d5 (Behebung, **standardmässig ein**; `DONSTV_OFF=<name>` schaltet die Massnahme aus und
+stellt für diesen Teil den Stand P06d4 her; Stellen mit `# FIX (P06d5)`). Grundlage: Befund
+`docs/befunde/absturz-p06d.md`, Nachtrag 2026-11-02 (2), und Qt 6.8.2 `QMainWindowLayout::restoreState` /
+`setGeometry` (https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/widgets/widgets/qmainwindowlayout.cpp,
+Zeilen 2274–2343 und 3229–3275):
+
+- `fix_state_once`         `main_window.py`: dieselbe Dock-Anordnung (gleiche Bytes) nur einmal mit `restoreState`
+                           anwenden; das zweite `apply_settings` (über `settings_loaded`) stellt sie nicht erneut her.
+                           Die Fensterlage hat diese Regel schon seit P06d2 (`_applied_geometry`)
+- `fix_restore_after_show` `main_window.py`: Ist die gespeicherte Fensterlage maximiert oder Vollbild, wird die
+                           Dock-Anordnung nicht am verborgenen Fenster hergestellt, sondern einmal nach `show()`, wenn
+                           das Fenster seine Endgrösse hat (Zeitgeber, nicht in einem Ereignis-Handler)
+- `fix_list_after_restore` `editor_docks.py`, `main_window.py`: Die Listen «Overlays» und «Quellen» wechseln die
+                           Seite (Hinweis ↔ Liste) erst, wenn `MainWindow.layout_restored` gesetzt ist
+
 Nicht schaltbar: `perf.py` (nur die Textliste `width_texts`, mit `perf_equalize` nicht benutzt) und `widgets.py`
 ausserhalb von `perf_equalize`; `main.py` (`DONSTV_AUTOQUIT_MS`, ohne die Variable ohne Wirkung).
 """
@@ -66,7 +81,12 @@ SWITCHES = (
     "window_stylesheet",
     "window_minwidth",
     "window_geometry",
+    # P06d5: Massnahmen, standardmässig ein
+    "fix_state_once",
+    "fix_restore_after_show",
+    "fix_list_after_restore",
 )
+FIXES = ("fix_state_once", "fix_restore_after_show", "fix_list_after_restore")
 # Ein Schalter für eine ganze Datei schliesst die Einzelschalter darin ein
 IMPLIES: dict[str, tuple[str, ...]] = {
     "editor_view_changes": ("pointer_badge",),
@@ -88,3 +108,9 @@ def switched_off() -> frozenset[str]:
 def off(name: str) -> bool:
     """True, wenn der Teil `name` über `DONSTV_OFF` abgeschaltet ist (nur Diagnose)."""
     return name in switched_off()
+
+
+def fix(name: str) -> bool:
+    """True, wenn die Massnahme `name` (P06d5) wirkt, also nicht über `DONSTV_OFF` ausgeschaltet ist."""
+    assert name in FIXES, name
+    return not off(name)

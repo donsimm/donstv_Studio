@@ -166,9 +166,25 @@ class _ListWithHint(QStackedWidget):
         self.hint = _hint(hint)
         self.addWidget(listing)
         self.addWidget(self.hint)
+        self.held = False  # FIX (P06d5) fix_list_after_restore: Seite noch nicht wechseln
+        self._sync_pending = False
 
     def sync(self) -> None:
+        if self.held:  # FIX (P06d5): nur merken; `release` wechselt die Seite
+            self._sync_pending = True
+            return
         self.setCurrentWidget(self.listing if self.listing.count() else self.hint)
+
+    def hold(self) -> None:
+        """Seitenwechsel aufschieben, bis Fensterlage und Dock-Anordnung hergestellt sind (P06d5, Weg 2 im Befund)."""
+        self.held = True
+
+    def release(self) -> None:
+        """Aufschub beenden und die aufgeschobene Seite einmal setzen. Nur aus einem Zeitgeber rufen (Regel 16)."""
+        self.held = False
+        if self._sync_pending:
+            self._sync_pending = False
+            self.sync()
 
 
 # --- Overlays --------------------------------------------------------------------------------------

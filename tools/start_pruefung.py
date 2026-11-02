@@ -33,6 +33,13 @@ Varianten (`--variante`):
 - `kopie_ohne_anordnung`  P06d4: wie `kopie`, in der Kopie nur ohne Dock-Anordnung (`ui.dock_state`)
 - `kopie_ohne_quellen`    P06d4: wie `kopie`, in der Kopie bleiben die Overlays, alle Quellen werden entfernt
 - `daten_maximiert`   P06d4 (Ergänzung): wie `daten`, die Fensterlage wird von einem maximierten Fenster gespeichert
+- `daten_laptop`      P06d5: Lage wie die echten Daten des Laptops (Befund, Nachtrag 2026-11-02 (2)): Fenster
+                      maximiert, normale Lage 1918 × 1011 px bei y 69, Dock-Anordnung ohne Reiterpaare (die vier
+                      Docks nebeneinander), 2 Overlays mit 3 Quellen, Theme `dark`. Ohne `DISPLAY` startet das
+                      Skript dafür Xvfb 1920 × 1080 **mit** dem Fenstermanager `openbox` (falls installiert)
+- `daten_laptop_untereinander`  P06d5: wie `daten_laptop`, die vier Docks untereinander (rechts)
+- `daten_laptop_breit`  P06d5: wie `daten_laptop`, die Dock-Anordnung stammt von einem 2400 px breiten Fenster
+                      (passt beim Start nicht ins maximierte Fenster; Bedingung für `restoredState` in Qt)
 - `aus=<Liste>`       wie `standard`, mit `DONSTV_OFF=<Liste>` (Diagnose-Schalter, siehe `ui/diagnose.py`);
                       mehrere Teile mit Komma, z. B. `aus=perf_equalize,min_width`
 - `<Variante>,aus=<Liste>`  eine der Varianten oben mit Diagnose-Schaltern, z. B. `daten,aus=theme_changes`
@@ -95,7 +102,13 @@ asyncio.run(Service(paths, port=int(sys.argv[1]), overlay_port=int(sys.argv[2]))
 """
 
 
-DOCK_MODES = ("standard", "reiter", "schwebend")
+DOCK_MODES = ("standard", "reiter", "schwebend", "untereinander", "breit")
+# P06d5, Dock-Modus «breit»: Anordnung von einem breiteren Fenster als der Bildschirm
+WIDE_WIDTH = 2400
+# P06d5: normale Fensterlage der echten Daten (Befund, Nachtrag 2026-11-02 (2)): 1918 × 1011 px bei y 69
+LAPTOP_SIZE = (1918, 1011)
+LAPTOP_POS = (1, 69)  # x nicht bekannt [ANNAHME]
+SCREEN_SIZE = "1920x1080"
 
 
 @dataclass(frozen=True)
@@ -111,7 +124,13 @@ class Variant:
     copy: bool = False  # Kopie der echten Daten des Nutzers statt angelegter Daten
     strip: tuple[str, ...] = ()  # P06d4: was in der Kopie entfernt wird (STRIP_PARTS)
     maximized: bool = False  # P06d4: Fensterlage von einem maximierten Fenster gespeichert
+    source_count: int = 6  # P06d5: so viele der 6 Quellen im ersten Overlay
+    position: tuple[int, int] | None = None  # P06d5: Lage (x, y) der normalen Fensterlage
+    wm: bool = False  # P06d5: im eigenen Xvfb den Fenstermanager openbox starten
 
+
+# P06d5: maximiert, 3 Quellen, Lage wie auf dem Laptop, eigenes Xvfb mit openbox
+LAPTOP_EXTRA = {"maximized": True, "source_count": 3, "position": LAPTOP_POS, "wm": True}
 
 # P06d4: Teile, die in der Kopie entfernt werden können: Einstellungsschlüssel oder Tabelle
 STRIP_PARTS = {"geometry": "ui.geometry", "state": "ui.dock_state", "sources": "sources"}
@@ -129,6 +148,10 @@ BASES: dict[str, tuple[tuple[int, int] | None, int, bool, str, dict]] = {
     "daten_schwebend": (NORMAL_SIZE, 3, True, "schwebend", {}),
     # P06d4 (Ergänzung): Fensterlage eines maximierten Fensters (die echten Daten könnten so gespeichert sein)
     "daten_maximiert": (NORMAL_SIZE, 3, True, "standard", {"maximized": True}),
+    # P06d5: Lage der echten Daten vom Laptop nachgestellt (ohne die Daten selbst)
+    "daten_laptop": (LAPTOP_SIZE, 2, True, "standard", LAPTOP_EXTRA),
+    "daten_laptop_breit": (LAPTOP_SIZE, 2, True, "breit", LAPTOP_EXTRA),
+    "daten_laptop_untereinander": (LAPTOP_SIZE, 2, True, "untereinander", LAPTOP_EXTRA),
     # P06d3: Kopie der echten Daten (copy_user_data)
     "kopie": (None, 0, False, "standard", {"copy": True}),
     # P06d4: Kopie der echten Daten mit genau einer Änderung (nur an der Kopie)
@@ -230,12 +253,20 @@ def png_bytes(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", head) + chunk(b"IDAT", raw) + chunk(b"IEND", b"")
 
 
-def seed_data(env: dict[str, str], port: int, overlays: int, sources: bool, folder: Path) -> str:
+def seed_data(
+    env: dict[str, str],
+    port: int,
+    overlays: int,
+    sources: bool,
+    folder: Path,
+    source_count: int = 6,
+) -> str:
     """Legt `overlays` Overlays an, das erste mit 6 Quellen (falls `sources`). Gibt eine Zeile für die Ausgabe zurück.
 
     Quellen im ersten Overlay (1920 × 1080): 3 Textquellen (eine davon ausgeblendet, eine mit Namen) und 3 Bildquellen
     (Banner 1200 × 200, also 6:1 statt 16:9; Quadrat 256 × 256; Hochformat 300 × 600, gedreht). Eine gesperrte
-    Quelle gibt es im Datenmodell noch nicht (`overlays/models.py`, `Source`), deshalb keine.
+    Quelle gibt es im Datenmodell noch nicht (`overlays/models.py`, `Source`), deshalb keine. `source_count` (P06d5)
+    legt nur die ersten so viele davon an (Reihenfolge: Texte, dann Bilder).
     """
     if overlays <= 0:
         return "keine Overlays angelegt"
@@ -262,10 +293,10 @@ def seed_data(env: dict[str, str], port: int, overlays: int, sources: bool, fold
             {"x": 50, "y": 50, "width": 400, "height": 60, "props": {"text": "Ausgeblendet"},
              "visible": False},
         )  # fmt: skip
-        for fields in texts:
+        for fields in texts[:source_count]:
             api.add_source(oid, "text", **fields)
             count += 1
-        for i, (item, w, h) in enumerate(images):
+        for i, (item, w, h) in enumerate(images[: max(0, source_count - len(texts))]):
             fields = {"x": 100 + 300 * i, "y": 300, "width": w, "height": h}
             if i == 2:
                 fields["rotation"] = 15.0
@@ -356,12 +387,22 @@ def strip_copy(con, strip: tuple[str, ...]) -> str:
 
 # --- gespeicherte Fensterlage ---------------------------------------------------------------------
 def arrange(window, mode: str) -> None:
-    """Dock-Anordnung vor dem Speichern: `standard` (unverändert), `reiter` oder `schwebend`."""
+    """Dock-Anordnung vor dem Speichern: `standard` (unverändert), `reiter`, `schwebend` oder `untereinander`."""
+    from PyQt6.QtCore import Qt
+
     docks = {d.objectName(): d for d in window.docks}
     if mode == "reiter":
         window.tabifyDockWidget(docks["dock_overlays"], docks["dock_sources"])
         window.tabifyDockWidget(docks["dock_properties"], docks["dock_control"])
         docks["dock_overlays"].raise_()
+    elif mode == "untereinander":  # P06d5: vier Docks rechts übereinander, keine Reiter
+        for dock in window.docks:
+            window.removeDockWidget(dock)
+        window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, window.docks[0])
+        for top, below in zip(window.docks, window.docks[1:], strict=False):
+            window.splitDockWidget(top, below, Qt.Orientation.Vertical)
+        for dock in window.docks:
+            dock.show()
     elif mode == "schwebend":
         dock = docks["dock_overlays"]
         dock.setFloating(True)
@@ -369,7 +410,12 @@ def arrange(window, mode: str) -> None:
 
 
 def save_geometry(
-    port: int, width: int, height: int, docks: str = "standard", maximized: bool = False
+    port: int,
+    width: int,
+    height: int,
+    docks: str = "standard",
+    maximized: bool = False,
+    position: tuple[int, int] | None = None,
 ) -> int:
     """Eigener Prozess: legt eine gespeicherte Fensterlage `width` × `height` im (noch leeren) Kern ab.
 
@@ -383,7 +429,8 @@ def save_geometry(
 
     from donstv_studio.ui import preview_web  # noqa: F401  (vor der QApplication)
     from donstv_studio.ui.core_link import CoreLink
-    from donstv_studio.ui.main_window import KEY_GEOMETRY, MainWindow
+    from donstv_studio.ui.main_window import KEY_GEOMETRY, KEY_STATE, STATE_VERSION, MainWindow
+    from donstv_studio.ui.main_window import _encode as encode_state
 
     app = QApplication(["start_pruefung_geometrie"])
     core = CoreLink()
@@ -393,7 +440,18 @@ def save_geometry(
         app.processEvents()
         time.sleep(0.02)
     window.setMinimumWidth(0)  # wie P08: dort war die Mindestbreite kleiner
+    wide_state = None
+    # P06d5: Anordnung eines breiteren Fensters, passt beim Start nicht ins Fenster
+    if docks == "breit":
+        window.resize(WIDE_WIDTH, height)
+        for _ in range(20):
+            app.processEvents()
+            time.sleep(0.02)
+        print(f"Anordnung «breit» gespeichert bei {window.width()} px Breite", file=sys.stderr)
+        wide_state = window.saveState(STATE_VERSION)
     window.resize(width, height)
+    if position is not None:  # P06d5
+        window.move(*position)
     arrange(window, docks)
     # P06d4: saveGeometry speichert dann «maximiert» und die normale Lage width × height
     if maximized:
@@ -402,6 +460,8 @@ def save_geometry(
         app.processEvents()
         time.sleep(0.02)
     values = window.layout_values()
+    if wide_state is not None:
+        values[KEY_STATE] = encode_state(wide_state)
     got = window.width()
     is_max = window.isMaximized()
     tabs = sum(len(window.tabifiedDockWidgets(d)) for d in window.docks) // 2
@@ -440,10 +500,14 @@ def single_run(port: int) -> int:
 
 
 # --- Fenstersystem -------------------------------------------------------------------------------
-def ensure_display() -> tuple[subprocess.Popen | None, str]:
-    """Gibt (eigenes Xvfb oder None, Beschreibung) zurück; ohne Fenstersystem SystemExit(2)."""
+def ensure_display(wm: bool = False) -> tuple[list[subprocess.Popen], str]:
+    """Gibt (eigene Prozesse: Xvfb und ggf. openbox, Beschreibung) zurück; ohne Fenstersystem SystemExit(2).
+
+    `wm` (P06d5): im eigenen Xvfb den Fenstermanager `openbox` starten (maximieren braucht einen Fenstermanager).
+    Ein vorhandenes `DISPLAY` bleibt, wie es ist.
+    """
     if os.environ.get("DISPLAY"):
-        return None, f"vorhandenes DISPLAY={os.environ['DISPLAY']}"
+        return [], f"vorhandenes DISPLAY={os.environ['DISPLAY']}"
     xvfb = shutil.which("Xvfb")
     if not xvfb:
         print(
@@ -455,16 +519,27 @@ def ensure_display() -> tuple[subprocess.Popen | None, str]:
         if Path(f"/tmp/.X11-unix/X{num}").exists() or Path(f"/tmp/.X{num}-lock").exists():
             continue
         proc = subprocess.Popen(
-            [xvfb, f":{num}", "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
+            [xvfb, f":{num}", "-screen", "0", f"{SCREEN_SIZE}x24", "-nolisten", "tcp"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         for _ in range(50):
             if Path(f"/tmp/.X11-unix/X{num}").exists():
                 os.environ["DISPLAY"] = f":{num}"
-                return proc, (
-                    f"KEIN DISPLAY: eigenes Xvfb auf :{num} gestartet (virtuelles X11 ohne "
-                    "Fenstermanager, nicht das Fenstersystem des Laptops)"
+                procs, manager = [proc], "ohne Fenstermanager"
+                if wm and shutil.which("openbox"):
+                    procs.append(
+                        subprocess.Popen(
+                            ["openbox"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        )
+                    )
+                    time.sleep(1.0)  # bis openbox den Bildschirm übernommen hat
+                    manager = "mit Fenstermanager openbox"
+                elif wm:
+                    manager = "ohne Fenstermanager (openbox fehlt: sudo apt install openbox)"
+                return procs, (
+                    f"KEIN DISPLAY: eigenes Xvfb {SCREEN_SIZE} auf :{num} gestartet (virtuelles X11 "
+                    f"{manager}, nicht das Fenstersystem des Laptops)"
                 )
             time.sleep(0.1)
         proc.kill()
@@ -659,6 +734,7 @@ def main() -> int:
     parser.add_argument("--groesse", default="1000x700", help=argparse.SUPPRESS)  # intern
     parser.add_argument("--docks", default="standard", choices=DOCK_MODES, help=argparse.SUPPRESS)
     parser.add_argument("--maximiert", action="store_true", help=argparse.SUPPRESS)  # intern
+    parser.add_argument("--lage", default="", help=argparse.SUPPRESS)  # intern, P06d5: «x,y»
     parser.add_argument(
         "--max-dateien",
         type=int,
@@ -670,11 +746,12 @@ def main() -> int:
         return single_run(args.lauf)
     if args.geometrie:
         w, h = (int(v) for v in args.groesse.split("x"))
-        return save_geometry(args.geometrie, w, h, args.docks, args.maximiert)
+        pos = tuple(int(v) for v in args.lage.split(",")) if args.lage else None
+        return save_geometry(args.geometrie, w, h, args.docks, args.maximiert, pos)
 
     sys.path.insert(0, str(ROOT / "src"))
     variant = parse_variant(args.variante)
-    xvfb, display = ensure_display()
+    own, display = ensure_display(variant.wm)
     cores = allow_core_files() if shutil.which("gdb") else GDB_HINT
     from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
 
@@ -729,6 +806,8 @@ def main() -> int:
                         ]
                         if variant.maximized:
                             gargs.append("--maximiert")
+                        if variant.position is not None:
+                            gargs += ["--lage", ",".join(str(v) for v in variant.position)]
                         gcode, gerr, _ = run_child(gargs, env, base)
                         tail = gerr.splitlines()[-TAIL_LINES:]
                         prefix += "".join(f"[Fensterlage] {line}\n" for line in tail)
@@ -736,7 +815,10 @@ def main() -> int:
                             prefix += f"[Fensterlage] Exit-Code {gcode}: Lage nicht abgelegt\n"
                     if variant.overlays:
                         try:
-                            text = seed_data(env, port, variant.overlays, variant.sources, base)
+                            text = seed_data(
+                                env, port, variant.overlays, variant.sources, base,
+                                variant.source_count,
+                            )  # fmt: skip
                         except Exception as e:  # noqa: BLE001 – in der Ausgabe melden, Lauf zählt nicht
                             text = f"FEHLER beim Anlegen der Daten: {e}"
                             codes.append(-9997)
@@ -786,9 +868,9 @@ def main() -> int:
                     )
             sys.stdout.flush()
     finally:
-        if xvfb is not None:
-            xvfb.terminate()
-            xvfb.wait(10)
+        for proc in reversed(own):
+            proc.terminate()
+            proc.wait(10)
     ok = sum(1 for c in codes if c == 0)
     print(
         f"== Zusammenfassung Startprüfung (Variante {variant.label}): {ok} von {len(codes)} Läufen "

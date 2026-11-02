@@ -9,6 +9,7 @@ import base64
 import binascii
 import json
 import logging
+import time
 from pathlib import Path
 
 from PyQt6.QtCore import QByteArray, QEvent, Qt, QTimer
@@ -75,6 +76,13 @@ DOCKS = (
 BOT_DOCKS = (("dock_chat", "Chat"), ("dock_bot_log", "Protokoll"))
 BOT_CHAT_WIDTH = 360
 KEY_THEME, KEY_GEOMETRY, KEY_STATE = "ui.theme", "ui.geometry", "ui.dock_state"
+# FIX (P06d5) fix_restore_after_show: Das Fenster gilt als in seiner Endgrösse, wenn so lange keine Grössenänderung
+# mehr kam. Qt selbst verwirft eine aufgeschobene Anordnung nach 150 ms ohne weitere Grössenänderung
+# (qmainwindowlayout.cpp 6.8.2, Zeilen 2333–2343); 200 ms liegen darüber. Spätestens nach RESTORE_MAX_MS ab dem
+# Anzeigen wird die Anordnung trotzdem angewendet.
+RESTORE_SETTLE_MS = 200
+RESTORE_MAX_MS = 2000
+_MAXIMIZED = Qt.WindowState.WindowMaximized | Qt.WindowState.WindowFullScreen
 
 
 def find_icon() -> QIcon:
@@ -174,6 +182,21 @@ class MainWindow(QMainWindow):
         self._min_width_timer.timeout.connect(self._update_minimum_width)
         self.perf.widths_changed.connect(self._request_minimum_width)
         self._applied_geometry: bytes | None = None  # zuletzt angewandte gespeicherte Fensterlage
+        # FIX (P06d5): Dock-Anordnung nur einmal und bei maximierter Lage erst nach dem Anzeigen (diagnose.py)
+        # zuletzt angewandte (oder vorgemerkte) Dock-Anordnung; vorgemerkt bis nach show(); beides hergestellt
+        self._applied_state: bytes | None = None
+        self._pending_state: QByteArray | None = None
+        self.layout_restored = False
+        self._restore_started = False
+        self._resized_since_show = False
+        self._restore_deadline = 0.0
+        self._restore_timer = QTimer(self)  # wartet, bis das Fenster seine Endgrösse hat
+        self._restore_timer.setSingleShot(True)
+        self._restore_timer.setInterval(RESTORE_SETTLE_MS)
+        self._restore_timer.timeout.connect(self._finish_restore)
+        if diagnose.fix("fix_list_after_restore"):
+            for panel in (self.overlays_panel, self.sources_panel):
+                panel.stack.hold()
         self._apply_theme_style()
 
         self._countdown = QTimer(self)
@@ -533,7 +556,8 @@ class MainWindow(QMainWindow):
         if index == self._module:
             return
         if self._module == MODULE_OVERLAYS:
-            self._overlay_dock_state = self.saveState(STATE_VERSION)
+            # FIX (P06d5): eine noch vorgemerkte Anordnung ist die des Moduls «Overlays», nicht die angezeigte
+            self._overlay_dock_state = self._take_pending_state() or self.saveState(STATE_VERSION)
         self._module = index
         self.stack.setCurrentIndex(index)
         for i, act in enumerate(self.module_actions):
@@ -639,6 +663,18 @@ class MainWindow(QMainWindow):
     def showEvent(self, event) -> None:
         super().showEvent(event)
         self._sync_perf()
+        # FIX (P06d5): Anordnung nach dem ersten Anzeigen fertigstellen
+        if not self._restore_started:
+            self._restore_started = True
+            self._restore_deadline = time.monotonic() + RESTORE_MAX_MS / 1000
+            self._restore_timer.start()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        # FIX (P06d5): Nur den Zeitgeber neu starten; Grösse und Layout ändern sich hier nicht (Regel 16).
+        if self._restore_timer.isActive():
+            self._resized_since_show = True
+            self._restore_timer.start()
 
     def hideEvent(self, event) -> None:
         super().hideEvent(event)
@@ -709,11 +745,9 @@ class MainWindow(QMainWindow):
 
     # --- Layout merken -------------------------------------------------
     def layout_values(self) -> dict[str, str]:
-        state = (
-            self._overlay_dock_state
-            if self._module == MODULE_BOT
-            else self.saveState(STATE_VERSION)
-        )
+        # FIX (P06d5): eine noch vorgemerkte Anordnung zuerst
+        current = self._pending_state or self.saveState(STATE_VERSION)
+        state = self._overlay_dock_state if self._module == MODULE_BOT else current
         return {
             KEY_THEME: self.theme,
             KEY_GEOMETRY: _encode(self.saveGeometry()),
@@ -737,11 +771,103 @@ class MainWindow(QMainWindow):
         state = _decode(values.get(KEY_STATE, ""))
         if state is not None and not state.isEmpty():
             if self._module == MODULE_OVERLAYS:
-                if not self.restoreState(state, STATE_VERSION):
-                    log.warning("Gespeicherte Dock-Anordnung passt nicht und wird ignoriert")
+                self._restore_state(state)
             else:
                 self._overlay_dock_state = state
         self._settings_loaded = True
+        if self._pending_state is None:  # FIX (P06d5): nichts mehr wiederherzustellen
+            self._mark_layout_restored()
+
+    def _restore_state(self, state: QByteArray) -> None:
+        """Gespeicherte Dock-Anordnung im Modul «Overlays» anwenden (P06d5).
+
+        Qt 6.8.2 (qmainwindowlayout.cpp, https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/widgets/widgets/
+        qmainwindowlayout.cpp): `restoreState` am verborgenen, maximierten Fenster behält eine Anordnung, die noch
+        nicht passt, als `restoredState` und übernimmt sie in späteren `setGeometry`-Aufrufen (Zeilen 3250–3258,
+        2321–2343). Ein zweites `restoreState` löscht die Einträge des bisherigen Zustands
+        (`savedState.deleteAllLayoutItems()`, Zeile 3261), setzt `restoredState`, das dieselben Einträge kopiert
+        hat, aber nicht zurück; das nächste `setGeometry` übernimmt es wieder (Zeile 2329). Das ist Lesart C des
+        Berichts P06d4, gelesen, nicht gemessen. Deshalb:
+
+        - `fix_state_once`: dieselben Bytes nur einmal anwenden (kein zweites `restoreState` beim Verbinden).
+        - `fix_restore_after_show`: bei maximierter Lage erst am sichtbaren Fenster mit Endgrösse anwenden; dort nimmt
+          Qt den Zweig `fitLayout` / `applyState` (Zeilen 3244–3246) und legt kein `restoredState` an.
+        """
+        data = bytes(state)
+        # FIX (P06d5): noch nicht angewendet: nur die Vormerkung ersetzen
+        if self._pending_state is not None:
+            self._pending_state = state
+            self._applied_state = data
+            return
+        if diagnose.fix("fix_state_once") and data == self._applied_state:  # FIX (P06d5)
+            return
+        if (
+            diagnose.fix("fix_restore_after_show")
+            and not self.isVisible()
+            and self.windowState() & _MAXIMIZED
+        ):  # FIX (P06d5): erst nach show() mit Endgrösse (`_finish_restore`)
+            self._pending_state = state
+            self._applied_state = data
+            return
+        if self.restoreState(state, STATE_VERSION):
+            self._applied_state = data
+        else:
+            log.warning("Gespeicherte Dock-Anordnung passt nicht und wird ignoriert")
+
+    def _take_pending_state(self) -> QByteArray | None:
+        state, self._pending_state = self._pending_state, None
+        return state
+
+    def _finish_restore(self) -> None:
+        """Nach dem ersten Anzeigen, sobald RESTORE_SETTLE_MS lang keine Grössenänderung kam (Zeitgeber, Regel 16).
+
+        Endgrösse bei maximierter Lage: Das Fenstersystem hat seit dem Anzeigen mindestens einmal eine Grösse gemeldet
+        (danach RESTORE_SETTLE_MS Ruhe), oder der Rahmen füllt den verfügbaren Bereich schon, oder RESTORE_MAX_MS
+        sind seit dem Anzeigen vergangen.
+
+        Wendet eine vorgemerkte Dock-Anordnung an, setzt `layout_restored` und gibt die Seitenwechsel der Listen frei.
+        Ohne Vormerkung und schon gesetztes `layout_restored` (nach `apply_settings`) geschieht nichts; wurde
+        `apply_settings` nie gerufen (Kern beim Start nicht erreichbar), wird `layout_restored` hier gesetzt.
+        """
+        state = self._pending_state
+        if (
+            state is not None
+            and self.windowState() & _MAXIMIZED
+            and not (self._resized_since_show or self._has_final_size())
+            and time.monotonic() < self._restore_deadline
+        ):
+            self._restore_timer.start()  # Fenstersystem noch nicht fertig: weiter warten
+            return
+        self._pending_state = None
+        restore = state is not None and self._module == MODULE_OVERLAYS
+        if restore and not self.restoreState(state, STATE_VERSION):
+            log.warning("Gespeicherte Dock-Anordnung passt nicht und wird ignoriert")
+        self._mark_layout_restored()
+
+    def _mark_layout_restored(self) -> None:
+        """Fensterlage und Dock-Anordnung sind hergestellt (oder es gibt nichts herzustellen): `layout_restored`.
+
+        Die Listen wechseln ihre Seite danach über einen Zeitgeber, also nach dem Layout dieser Anordnung und
+        ausserhalb eines Ereignisses (Regel 16).
+        """
+        if self.layout_restored:
+            return
+        self.layout_restored = True
+        QTimer.singleShot(0, self._release_lists)
+
+    def _has_final_size(self) -> bool:
+        """Maximiert oder Vollbild: Rahmen mindestens so gross wie der verfügbare Bereich des Bildschirms (±2 px)."""
+        screen = self.screen()
+        if screen is None:
+            return True
+        full = self.windowState() & Qt.WindowState.WindowFullScreen
+        area = screen.geometry() if full else screen.availableGeometry()
+        frame = self.frameGeometry()
+        return frame.width() >= area.width() - 2 and frame.height() >= area.height() - 2
+
+    def _release_lists(self) -> None:
+        for panel in (self.overlays_panel, self.sources_panel):
+            panel.stack.release()
 
     def _restore_geometry(self, geometry: QByteArray) -> None:
         """Gespeicherte Fensterlage anwenden (P06d2).

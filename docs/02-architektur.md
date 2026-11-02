@@ -136,6 +136,16 @@ Gemessen vom Nutzer (`docs/befunde/absturz-p06d.md`, Nachtrag 2026-11-02): `kopi
 
 Format der gespeicherten Lage (für `tools/lage_beschreiben.py`, Qt-Quelltext 6.8.2): `QWidget::saveGeometry` in `src/widgets/kernel/qwidget.cpp`, Zeilen 7375–7399; `QMainWindow::saveState` in `src/widgets/widgets/qmainwindow.cpp`, Zeilen 1203–1212 (https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/…). Die Dock-Anordnung liest das Werkzeug nicht von Hand, sondern über `restoreState` in einem eigenen Prozess (offscreen).
 
+### Massnahmen gegen den Absturz (P06d5)
+
+Messung P06d4: Der Absturz braucht eine gespeicherte **maximierte** Fensterlage **und** eine Dock-Anordnung. Qt 6.8.2 (`src/widgets/widgets/qmainwindowlayout.cpp`, https://raw.githubusercontent.com/qt/qtbase/v6.8.2/src/widgets/widgets/qmainwindowlayout.cpp): `QMainWindowLayout::restoreState` am verborgenen, maximierten Fenster behält eine Anordnung, die nicht ins Fenster passt, als `restoredState` (Zeilen 3250–3258) und übernimmt sie in späteren `setGeometry`-Aufrufen (Zeilen 2321–2343). Ein zweites `restoreState` löscht die Einträge des bisherigen Zustands (Zeile 3261), `restoredState` hält sie weiter. Im Container mit `daten_laptop_breit` nachgestellt (Absturz in `QLayoutPrivate::doResize`, Aufrufliste wie auf dem Laptop, Bericht `docs/berichte/P06d5.md`).
+
+Massnahmen in `ui/main_window.py` und `ui/editor_docks.py` (`# FIX (P06d5)`, Schalter in `ui/diagnose.py`):
+
+1. `fix_state_once`: dieselbe Dock-Anordnung nur einmal anwenden (kein zweites `restoreState` beim Verbinden).
+2. `fix_restore_after_show`: bei maximierter oder Vollbild-Lage die Anordnung erst nach dem Anzeigen anwenden, wenn das Fenster seine Endgrösse hat (Zeitgeber `RESTORE_SETTLE_MS` = 200 ms ohne Grössenänderung, höchstens `RESTORE_MAX_MS` = 2000 ms nach dem Anzeigen). Am sichtbaren Fenster legt Qt kein `restoredState` an (Zeilen 3244–3246).
+3. `fix_list_after_restore`: Die Listen «Overlays» und «Quellen» wechseln die Seite (Hinweis ↔ Liste) erst nach `MainWindow.layout_restored`.
+
 ## 8. Offene Punkte
 
 1. [ENTSCHIEDEN] Getrennter Kern-Dienst und Oberfläche.
