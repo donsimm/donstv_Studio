@@ -97,3 +97,31 @@ Schluss: Der Absturz hängt an den **echten Daten** (nicht an den erfundenen) un
 3. gespeicherte Fensterlage direkt mit `restoreGeometry` anwenden (auch am sichtbaren Fenster, ohne «dieselbe Lage nur einmal», ohne Anpassung der Breite).
 
 Unbekannt ist, welcher der drei Teile genügt und welcher Teil der echten Daten (gespeicherte Fensterlage `geometry`, Dock-Zustand `state`, Theme, Inhalt) den Absturz auslöst. Die Daten `daten` und `daten_schmal` (Fensterlage 1300 bzw. 1000 px, Standard-Anordnung) lösen ihn nicht aus.
+
+## Nachtrag 2026-11-02 (2): Messung `fein` (P06d4, Stand 50011ad)
+
+Laptop, Qt 6.8.2, PyQt6 6.9.0, `QT_QPA_PLATFORM=xcb`, `DISPLAY=:0` (Sitzung Wayland, XWayland), `gdb` installiert, je 5 Läufe (Quelle: `laptop-ergebnis.txt` vom 2.11.2026, 08:23).
+
+Lage der echten Daten (aus `tools/lage_beschreiben.py`): Theme `dark`, 2 Overlays, 3 Quellen; Fenster **maximiert** auf 1920 × 1080 (normal 1918 × 1011), Bildschirm 0; Dock-Anordnung Version 3, angenommen, **0 Reiterpaare**, keine schwebenden Docks, 4 sichtbare Docks.
+
+| Variante | Läufe mit Exit-Code 0 |
+|---|---|
+| `kopie` | 0 von 5 |
+| `kopie,aus=window_stylesheet` | **5 von 5** |
+| `kopie,aus=window_minwidth` | 0 von 5 |
+| `kopie,aus=window_geometry` | 0 von 5 |
+| `kopie,aus=window_stylesheet window_minwidth` | 3 von 5 |
+| `kopie,aus=window_stylesheet window_geometry` | 3 von 5 |
+| `kopie,aus=window_minwidth window_geometry` | 0 von 5 |
+| `kopie_ohne_lage` | **5 von 5** |
+| `kopie_ohne_geometrie` | **5 von 5** |
+| `kopie_ohne_anordnung` | **5 von 5** |
+| `kopie_ohne_quellen` | 0 von 5 |
+
+Schlüsse (aus den Messwerten; Deutung nicht bewiesen):
+
+1. Der Absturz braucht **gleichzeitig** eine gespeicherte Fensterlage (maximiert) **und** eine gespeicherte Dock-Anordnung: fehlt eine von beiden, läuft alles 5 von 5, auch ohne jeden Schalter. Das passt zu Lesart C des Berichts P06d4 (aufgeschobene Anordnung `restoredState` in `QMainWindowLayout` bei maximiertem Fenster).
+2. Die Quellen sind nicht nötig (`kopie_ohne_quellen` stürzt weiter); die gefüllte Overlay-Liste genügt.
+3. `window_stylesheet` allein verhindert den Absturz, aber zusammen mit einem zweiten P08-Teil (`window_minwidth` oder `window_geometry`) stürzt es wieder in 2 von 5 Läufen. Das Verhalten ist also **nicht monoton**, sondern vom Zeitpunkt abhängig. Das Zurücksetzen von `window_stylesheet` ist darum **keine Behebung**, sondern verschiebt nur den Zeitpunkt.
+4. Beide C++-Aufruflisten (`gdb`, Debian-Bibliotheken ohne Symbole) enden in `QLayoutPrivate::doResize()` → Zeiger 0 oder ungültig in `libQt6Widgets`. Weg 1: `QLayout::activate()` aus einem aufgeschobenen Ereignis (`sendPostedEvents`). Weg 2: `QStackedLayout::setCurrentIndex` → `QWidgetPrivate::setVisible` → `QLayout::activate` (das ist `_ListWithHint.sync`). Beide Wege treffen dieselbe Stelle: ein Layout mit einem ungültigen Eintrag.
+5. Unterschied zum Container: dort (Bildschirm 1366 × 768, 2 Reiterpaare, `openbox`) stürzt nichts ab. Die echte Lage hat Bildschirm 1920 × 1080, maximiert, 0 Reiterpaare.
